@@ -1,0 +1,40 @@
+{
+  "expo": {
+    "name": "Corail",
+    "slug": "corail-vtc-marketplace",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "dark",
+    "splash": {
+      "image": "./assets/splash-icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#0c4a6e"
+    },
+    "assetBundlePatterns": [
+      "**/*"
+    ],
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.corail.vtcmarketplace"
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#0c4a6e"
+      },
+      "package": "com.corail.vtcmarketplace"
+    },
+    "web": {
+      "favicon": "./assets/favicon.png",
+      "bundler": "metro"
+    },
+    "scheme": "corail",
+    "plugins": [
+      "expo-router"
+    ],
+    "extra": {
+      "apiUrl": "https://your-api-url.com/api/v1"
+    }
+  }
+}
