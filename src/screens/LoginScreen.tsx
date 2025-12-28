@@ -18,6 +18,7 @@ import {
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { firebaseAuth } from '../services/firebase';
+import { apiClient } from '../services/api';
 import CoralLogo from '../components/CoralLogo';
 
 interface LoginScreenProps {
@@ -26,6 +27,7 @@ interface LoginScreenProps {
 
 export default function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
   const [isSignUp, setIsSignUp] = useState(false);
+  const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -50,6 +52,11 @@ export default function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
 
   const handleSubmit = async () => {
     // Validation
+    if (isSignUp && !fullName.trim()) {
+      Alert.alert('Erreur', 'Veuillez entrer votre nom complet');
+      return;
+    }
+
     if (!email.trim() || !password.trim()) {
       Alert.alert('Erreur', 'Veuillez remplir tous les champs');
       return;
@@ -68,11 +75,29 @@ export default function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
     setLoading(true);
     try {
       if (isSignUp) {
-        await firebaseAuth.signUp(email.trim(), password);
+        // 1. Créer le compte Firebase
+        console.log('📝 Création compte Firebase...');
+        const user = await firebaseAuth.signUp(email.trim(), password);
+        
+        // 2. Créer l'utilisateur dans Databricks avec status UNVERIFIED
+        console.log('💾 Création utilisateur Databricks...');
+        try {
+          await apiClient.createUser({
+            id: user.uid,
+            email: email.trim(),
+            full_name: fullName.trim(),
+            verification_status: 'UNVERIFIED',
+          });
+          console.log('✅ Utilisateur créé dans Databricks');
+        } catch (dbError: any) {
+          console.error('❌ Erreur création utilisateur Databricks:', dbError);
+          // Continue quand même, l'utilisateur sera créé au premier login
+        }
+
         Alert.alert(
-          'Compte créé !',
-          'Votre compte a été créé avec succès.',
-          [{ text: 'OK', onPress: onLoginSuccess }]
+          'Compte créé ! 🎉',
+          'Complétez maintenant votre profil professionnel pour accéder à la plateforme.',
+          [{ text: 'Continuer', onPress: onLoginSuccess }]
         );
       } else {
         await firebaseAuth.signIn(email.trim(), password);
@@ -146,6 +171,23 @@ export default function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
 
           {/* Formulaire */}
           <View style={styles.form}>
+            {/* Nom complet (inscription seulement) */}
+            {isSignUp && (
+              <View style={styles.inputContainer}>
+                <Ionicons name="person-outline" size={20} color="#94a3b8" style={styles.inputIcon} />
+                <TextInput
+                  style={styles.input}
+                  placeholder="Nom complet"
+                  placeholderTextColor="#64748b"
+                  value={fullName}
+                  onChangeText={setFullName}
+                  autoCapitalize="words"
+                  autoCorrect={false}
+                  editable={!loading}
+                />
+              </View>
+            )}
+
             {/* Email */}
             <View style={styles.inputContainer}>
               <Ionicons name="mail-outline" size={20} color="#94a3b8" style={styles.inputIcon} />
@@ -258,6 +300,7 @@ export default function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
               <TouchableOpacity
                 onPress={() => {
                   setIsSignUp(!isSignUp);
+                  setFullName('');
                   setConfirmPassword('');
                 }}
                 disabled={loading}

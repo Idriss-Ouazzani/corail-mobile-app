@@ -123,6 +123,13 @@ class UserBadge(BaseModel):
     badge_category: Optional[str] = None
 
 
+class CreateUserRequest(BaseModel):
+    id: str  # Firebase UID
+    email: str
+    full_name: str
+    verification_status: str = "UNVERIFIED"
+
+
 class SubmitVerificationRequest(BaseModel):
     full_name: str
     phone: str
@@ -848,6 +855,53 @@ async def get_group_details(
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
+
+
+# ============================================================================
+# 👤 USERS
+# ============================================================================
+
+@app.post("/api/v1/users")
+async def create_user(user_data: CreateUserRequest):
+    """
+    Créer un nouvel utilisateur dans Databricks après inscription Firebase
+    """
+    try:
+        # Vérifier si l'utilisateur existe déjà
+        check_query = "SELECT id FROM users WHERE id = :user_id"
+        existing = db.execute_query(check_query, {"user_id": user_data.id})
+        
+        if existing:
+            print(f"ℹ️ Utilisateur {user_data.id} existe déjà, pas de création")
+            return {"success": True, "message": "User already exists", "user_id": user_data.id}
+        
+        # Créer l'utilisateur
+        insert_query = """
+        INSERT INTO users (
+            id, email, full_name, verification_status, credits, created_at, updated_at
+        ) VALUES (
+            :id, :email, :full_name, :verification_status, 0, CURRENT_TIMESTAMP(), CURRENT_TIMESTAMP()
+        )
+        """
+        
+        db.execute_non_query(insert_query, {
+            "id": user_data.id,
+            "email": user_data.email,
+            "full_name": user_data.full_name,
+            "verification_status": user_data.verification_status,
+        })
+        
+        print(f"✅ Utilisateur créé: {user_data.email} ({user_data.id}) - Status: {user_data.verification_status}")
+        
+        return {
+            "success": True,
+            "message": "User created successfully",
+            "user_id": user_data.id
+        }
+    
+    except Exception as e:
+        print(f"❌ Erreur création utilisateur: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error creating user: {str(e)}")
 
 
 # ============================================================================

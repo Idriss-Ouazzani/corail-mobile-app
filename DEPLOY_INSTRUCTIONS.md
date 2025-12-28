@@ -14,6 +14,13 @@
 - **UI** : Séparateur "OU" entre les méthodes de connexion
 - **Documentation** : `GOOGLE_AUTH_SETUP.md`
 
+### ✅ 3. Flux d'inscription intégré
+- **LoginScreen** : Champ "Nom complet" ajouté à l'inscription
+- **Backend** : Endpoint `POST /api/v1/users` pour créer utilisateur
+- **App.tsx** : Redirection automatique selon statut de vérification
+- **Affichage** : Nom réel de l'utilisateur partout dans l'app
+- **Documentation** : `SIGNUP_FLOW.md`
+
 ---
 
 ## 🔧 ÉTAPES D'INSTALLATION
@@ -49,7 +56,17 @@ cd /Users/idriss.ouazzani/Cursor/Corail-mobileapp
 
 git add -A
 
-git commit -m "🔵 Authentification Google + ✅ Vérification VTC professionnelle
+git commit -m "🔵 Google Auth + ✅ Vérification VTC + 📝 Flux d'inscription complet
+
+Flux d'inscription intégré:
+- ✅ Champ 'Nom complet' ajouté dans LoginScreen (inscription)
+- ✅ POST /api/v1/users - Création utilisateur Databricks après Firebase
+- ✅ App.tsx vérifie le statut de vérification au démarrage
+- ✅ Redirection automatique vers VerificationScreen si UNVERIFIED
+- ✅ Redirection automatique vers PendingVerificationScreen si PENDING
+- ✅ Affichage du vrai nom utilisateur dans toute l'app
+- ✅ apiClient.createUser() et loadVerificationStatus()
+- 📚 Documentation SIGNUP_FLOW.md
 
 Authentification Google:
 - ✅ signInWithGoogle() ajouté dans firebase.ts
@@ -140,14 +157,15 @@ npm start
 ## 📊 Fichiers modifiés
 
 ### Backend
-- `backend/app/main.py` - Endpoints vérification
+- `backend/app/main.py` - Endpoints vérification + POST /users
 - `backend/app/database.py` - (inchangé)
 - `backend/app/auth.py` - (inchangé)
 
 ### Mobile
+- `App.tsx` - États vérification + Redirection conditionnelle + Affichage nom réel
 - `src/services/firebase.ts` - signInWithGoogle()
-- `src/services/api.ts` - API vérification
-- `src/screens/LoginScreen.tsx` - Bouton Google
+- `src/services/api.ts` - createUser() + getVerificationStatus()
+- `src/screens/LoginScreen.tsx` - Champ nom complet + Bouton Google
 - `src/screens/VerificationScreen.tsx` - [NOUVEAU]
 - `src/screens/PendingVerificationScreen.tsx` - [NOUVEAU]
 
@@ -155,9 +173,10 @@ npm start
 - `backend/add_verification_system.sql` - [NOUVEAU]
 
 ### Documentation
+- `SIGNUP_FLOW.md` - [NOUVEAU]
 - `VERIFICATION_SYSTEM_GUIDE.md` - [NOUVEAU]
 - `GOOGLE_AUTH_SETUP.md` - [NOUVEAU]
-- `DEPLOY_INSTRUCTIONS.md` - [NOUVEAU]
+- `DEPLOY_INSTRUCTIONS.md` - Mis à jour
 
 ---
 
@@ -194,12 +213,20 @@ Vérifie que le script SQL a bien été exécuté. Les nouvelles colonnes doiven
 
 ## 🎉 Prochaines étapes
 
-1. ✅ **Installer les dépendances**
-2. ✅ **Exécuter le script SQL**
-3. ✅ **Commit & Push**
-4. ⏳ **Tester Google Auth**
-5. ⏳ **Intégrer les écrans de vérification dans App.tsx**
-6. ⏳ **Créer le panel admin de validation**
+1. ✅ **Installer les dépendances** : `npx expo install expo-auth-session expo-web-browser`
+2. ✅ **Exécuter le script SQL** : `backend/add_verification_system.sql` dans Databricks
+3. ✅ **Commit & Push** : `git push origin main`
+4. ⏳ **Tester le nouveau flux d'inscription** :
+   - Créer un compte avec nom complet
+   - Vérifier redirection vers VerificationScreen
+   - Compléter le formulaire VTC
+   - Vérifier écran PendingVerificationScreen
+5. ⏳ **Tester validation admin** :
+   - Valider manuellement dans Databricks
+   - Recharger l'app
+   - Vérifier accès complet avec nom réel affiché
+6. ⏳ **Tester Google Auth** (sur web)
+7. ⏳ **Créer le panel admin de validation**
 
 ---
 

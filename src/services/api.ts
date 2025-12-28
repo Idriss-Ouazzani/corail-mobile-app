@@ -182,6 +182,23 @@ class ApiClient {
   }
 
   // ============================================================================
+  // 👤 USERS
+  // ============================================================================
+
+  /**
+   * Créer un utilisateur dans Databricks après inscription Firebase
+   */
+  async createUser(userData: {
+    id: string;
+    email: string;
+    full_name: string;
+    verification_status?: string;
+  }) {
+    const { data } = await this.client.post('/users', userData);
+    return data;
+  }
+
+  // ============================================================================
   // ✅ VERIFICATION PROFESSIONNELLE
   // ============================================================================
 

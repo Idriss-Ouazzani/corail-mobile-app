@@ -31,6 +31,8 @@ import NotificationsScreen from './src/screens/NotificationsScreen';
 import HelpSupportScreen from './src/screens/HelpSupportScreen';
 import BadgesScreen from './src/screens/BadgesScreen';
 import LoginScreen from './src/screens/LoginScreen';
+import VerificationScreen from './src/screens/VerificationScreen';
+import PendingVerificationScreen from './src/screens/PendingVerificationScreen';
 import { firebaseAuth } from './src/services/firebase';
 import { apiClient } from './src/services/api';
 import type { Ride } from './src/types';
@@ -163,6 +165,11 @@ export default function App() {
   // 🆔 ID de l'utilisateur courant (Firebase UID)
   const currentUserId = user?.uid || '';
 
+  // ✅ Statut de vérification et infos utilisateur
+  const [verificationStatus, setVerificationStatus] = useState<string>('VERIFIED');
+  const [userFullName, setUserFullName] = useState<string>('');
+  const [verificationSubmittedAt, setVerificationSubmittedAt] = useState<string | undefined>();
+
   // Écouter les changements d'état d'authentification
   useEffect(() => {
     const unsubscribe = firebaseAuth.onAuthStateChanged((firebaseUser) => {
@@ -287,9 +294,26 @@ export default function App() {
     }
   };
 
-  // 🔄 Charger les rides, crédits et badges au montage et après authentification
+  // ✅ Charger le statut de vérification
+  const loadVerificationStatus = async () => {
+    try {
+      const response = await apiClient.getVerificationStatus();
+      setVerificationStatus(response.verification_status || 'UNVERIFIED');
+      setUserFullName(response.full_name || '');
+      setVerificationSubmittedAt(response.verification_submitted_at);
+      console.log('✅ Statut de vérification:', response.verification_status);
+      console.log('👤 Nom complet:', response.full_name);
+    } catch (error: any) {
+      console.error('❌ Erreur chargement statut vérification:', error);
+      // Par défaut, si l'utilisateur n'existe pas, on considère qu'il n'est pas vérifié
+      setVerificationStatus('UNVERIFIED');
+    }
+  };
+
+  // 🔄 Charger les rides, crédits, badges et statut de vérification au montage et après authentification
   useEffect(() => {
     if (user) {
+      loadVerificationStatus(); // Charger en premier pour rediriger si besoin
       loadRides();
       loadCredits();
       loadBadges();
@@ -316,6 +340,33 @@ export default function App() {
     return <LoginScreen onLoginSuccess={() => {}} />;
   }
 
+  // ✅ Afficher écran de vérification si pas vérifié
+  if (verificationStatus === 'UNVERIFIED') {
+    return (
+      <VerificationScreen
+        onBack={async () => {
+          await firebaseAuth.signOut();
+        }}
+        onSuccess={() => {
+          // Recharger le statut après soumission
+          loadVerificationStatus();
+        }}
+      />
+    );
+  }
+
+  // 🟠 Afficher écran d'attente si en cours de validation
+  if (verificationStatus === 'PENDING') {
+    return (
+      <PendingVerificationScreen
+        onLogout={async () => {
+          await firebaseAuth.signOut();
+        }}
+        submittedAt={verificationSubmittedAt}
+      />
+    );
+  }
+
   const renderHome = () => {
     // Calculate real stats from rides data
     const availableRides = rides.filter(r => r.status === 'PUBLISHED').length;
@@ -335,7 +386,7 @@ export default function App() {
               <CoralLogo size={60} />
             </View>
             <Text style={styles.greeting}>Bonjour</Text>
-            <Text style={styles.userName}>Hassan Al Masri</Text>
+            <Text style={styles.userName}>{userFullName || user?.email?.split('@')[0] || 'Utilisateur'}</Text>
             <View style={styles.premiumBadge}>
               <Ionicons name="star" size={12} color="#000" style={{ marginRight: 4 }} />
               <Text style={styles.premiumText}>Premium Member</Text>
