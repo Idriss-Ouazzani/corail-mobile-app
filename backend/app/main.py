@@ -862,9 +862,9 @@ async def get_all_badges():
 
 
 @app.get("/api/v1/users/{user_id}/badges", response_model=List[UserBadge])
-async def get_user_badges(user_id: str, current_user: CurrentUser):
+async def get_user_badges(user_id: str, current_user_id: str = CurrentUser):
     """Récupérer les badges d'un utilisateur"""
-    if user_id != current_user.uid:
+    if user_id != current_user_id:
         raise HTTPException(status_code=403, detail="Not authorized to view other user's badges")
     
     try:
@@ -893,9 +893,9 @@ async def get_user_badges(user_id: str, current_user: CurrentUser):
 
 
 @app.post("/api/v1/users/{user_id}/badges/{badge_id}")
-async def award_badge(user_id: str, badge_id: str, current_user: CurrentUser):
+async def award_badge(user_id: str, badge_id: str, current_user_id: str = CurrentUser):
     """Attribuer un badge à un utilisateur (attribution automatique)"""
-    if user_id != current_user.uid:
+    if user_id != current_user_id:
         raise HTTPException(status_code=403, detail="Not authorized")
     
     try:
