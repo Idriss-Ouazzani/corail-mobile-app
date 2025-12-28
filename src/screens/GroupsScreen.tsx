@@ -8,6 +8,8 @@ import {
   TextInput,
   Modal,
   Alert,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
@@ -155,7 +157,15 @@ export const GroupsScreen: React.FC<GroupsScreenProps> = ({ onBack, onSelectGrou
         transparent
         onRequestClose={() => setShowCreateModal(false)}
       >
-        <View style={styles.modalOverlay}>
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          style={styles.modalOverlay}
+        >
+          <TouchableOpacity
+            style={styles.modalOverlayTouchable}
+            activeOpacity={1}
+            onPress={() => setShowCreateModal(false)}
+          />
           <View style={styles.modalContent}>
             <LinearGradient
               colors={['#1e293b', '#0f172a']}
@@ -172,32 +182,38 @@ export const GroupsScreen: React.FC<GroupsScreenProps> = ({ onBack, onSelectGrou
                 </TouchableOpacity>
               </View>
 
-              {/* Form */}
-              <View style={styles.form}>
-                <View style={styles.inputGroup}>
-                  <Text style={styles.inputLabel}>Nom du groupe</Text>
-                  <TextInput
-                    style={styles.input}
-                    placeholder="Ex: Famille, Collègues..."
-                    placeholderTextColor="#64748b"
-                    value={newGroupName}
-                    onChangeText={setNewGroupName}
-                  />
-                </View>
+              {/* Form - Scrollable */}
+              <ScrollView
+                style={styles.formScroll}
+                showsVerticalScrollIndicator={false}
+                keyboardShouldPersistTaps="handled"
+              >
+                <View style={styles.form}>
+                  <View style={styles.inputGroup}>
+                    <Text style={styles.inputLabel}>Nom du groupe</Text>
+                    <TextInput
+                      style={styles.input}
+                      placeholder="Ex: Famille, Collègues..."
+                      placeholderTextColor="#64748b"
+                      value={newGroupName}
+                      onChangeText={setNewGroupName}
+                    />
+                  </View>
 
-                <View style={styles.inputGroup}>
-                  <Text style={styles.inputLabel}>Description (optionnel)</Text>
-                  <TextInput
-                    style={[styles.input, styles.inputMultiline]}
-                    placeholder="Décrivez votre groupe..."
-                    placeholderTextColor="#64748b"
-                    multiline
-                    numberOfLines={3}
-                    value={newGroupDesc}
-                    onChangeText={setNewGroupDesc}
-                  />
+                  <View style={styles.inputGroup}>
+                    <Text style={styles.inputLabel}>Description (optionnel)</Text>
+                    <TextInput
+                      style={[styles.input, styles.inputMultiline]}
+                      placeholder="Décrivez votre groupe..."
+                      placeholderTextColor="#64748b"
+                      multiline
+                      numberOfLines={3}
+                      value={newGroupDesc}
+                      onChangeText={setNewGroupDesc}
+                    />
+                  </View>
                 </View>
-              </View>
+              </ScrollView>
 
               {/* Actions */}
               <View style={styles.modalActions}>
@@ -223,7 +239,7 @@ export const GroupsScreen: React.FC<GroupsScreenProps> = ({ onBack, onSelectGrou
               </View>
             </LinearGradient>
           </View>
-        </View>
+        </KeyboardAvoidingView>
       </Modal>
     </View>
   );
@@ -365,6 +381,9 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0, 0, 0, 0.7)',
     justifyContent: 'flex-end',
   },
+  modalOverlayTouchable: {
+    flex: 1,
+  },
   modalContent: {
     maxHeight: '80%',
     borderTopLeftRadius: 28,
@@ -394,6 +413,9 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255, 255, 255, 0.05)',
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  formScroll: {
+    maxHeight: 400,
   },
   form: {
     paddingHorizontal: 24,
