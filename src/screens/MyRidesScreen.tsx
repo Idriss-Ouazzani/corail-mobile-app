@@ -158,7 +158,6 @@ const styles = StyleSheet.create({
   },
   statsContainer: {
     flexDirection: 'row',
-    gap: 12,
     paddingHorizontal: 20,
     marginBottom: 20,
   },
@@ -170,6 +169,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.15)',
+    marginHorizontal: 6,
   },
   statCardActive: {
     backgroundColor: '#ff6b47',

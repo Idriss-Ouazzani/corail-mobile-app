@@ -147,7 +147,6 @@ const styles = StyleSheet.create({
   },
   statsContainer: {
     flexDirection: 'row',
-    gap: 12,
     marginBottom: 30,
   },
   statCard: {
@@ -158,6 +157,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.15)',
+    marginHorizontal: 6,
   },
   statIcon: {
     fontSize: 24,

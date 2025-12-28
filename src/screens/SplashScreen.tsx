@@ -44,7 +44,9 @@ export const SplashScreen = ({ onFinish }: { onFinish: () => void }) => {
         ]}
       >
         <CoralLogo size={120} />
+        <View style={{ height: 20 }} />
         <Text style={styles.title}>Corail</Text>
+        <View style={{ height: 20 }} />
         <Text style={styles.subtitle}>VTC Marketplace</Text>
       </Animated.View>
       
@@ -63,7 +65,6 @@ const styles = StyleSheet.create({
   },
   content: {
     alignItems: 'center',
-    gap: 20,
   },
   title: {
     fontSize: 48,

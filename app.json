@@ -30,9 +30,6 @@
       "bundler": "metro"
     },
     "scheme": "corail",
-    "plugins": [
-      "expo-router"
-    ],
     "extra": {
       "apiUrl": "https://your-api-url.com/api/v1"
     }

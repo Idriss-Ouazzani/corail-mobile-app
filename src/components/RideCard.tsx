@@ -1,14 +1,17 @@
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
+import { Ionicons } from '@expo/vector-icons';
 import type { Ride } from '../types';
 
 interface RideCardProps {
   ride: Ride;
   onPress?: () => void;
+  currentUserId?: string;
 }
 
-export const RideCard: React.FC<RideCardProps> = ({ ride, onPress }) => {
+export const RideCard: React.FC<RideCardProps> = ({ ride, onPress, currentUserId = 'user2' }) => {
+  const isMyRide = ride.creator_id === currentUserId;
   const formatPrice = (cents: number) => `${(cents / 100).toFixed(2)}€`;
   
   const formatDate = (dateString: string) => {
@@ -48,9 +51,19 @@ export const RideCard: React.FC<RideCardProps> = ({ ride, onPress }) => {
       style={styles.container}
     >
       <LinearGradient
-        colors={['rgba(255, 255, 255, 0.1)', 'rgba(255, 255, 255, 0.05)']}
-        style={styles.gradient}
+        colors={isMyRide 
+          ? ['rgba(251, 191, 36, 0.08)', 'rgba(251, 191, 36, 0.02)']
+          : ['rgba(255, 255, 255, 0.05)', 'rgba(255, 255, 255, 0.02)']
+        }
+        style={[styles.gradient, isMyRide && styles.gradientMyRide]}
       >
+        {/* Small elegant badge for "Votre course" */}
+        {isMyRide && (
+          <View style={styles.myRideBadge}>
+            <Ionicons name="star" size={10} color="#000" />
+            <Text style={styles.myRideBadgeText}>Votre course</Text>
+          </View>
+        )}
         {/* Header */}
         <View style={styles.header}>
           <View style={styles.priceContainer}>
@@ -61,23 +74,29 @@ export const RideCard: React.FC<RideCardProps> = ({ ride, onPress }) => {
           </View>
         </View>
 
-        {/* Route */}
+        {/* Route - Improved with continuous line */}
         <View style={styles.route}>
-          <View style={styles.routeItem}>
-            <View style={[styles.dot, { backgroundColor: '#10b981' }]} />
-            <View style={styles.routeContent}>
+          {/* Continuous Line */}
+          <View style={styles.routeLineContainer}>
+            <View style={[styles.routeDot, { backgroundColor: '#10b981' }]} />
+            <View style={styles.routeLineContinuous} />
+            <Ionicons name="arrow-down" size={16} color="#64748b" style={styles.routeArrow} />
+            <View style={styles.routeLineContinuous} />
+            <View style={[styles.routeDot, { backgroundColor: '#ff6b47' }]} />
+          </View>
+          
+          {/* Route Content */}
+          <View style={styles.routeContentContainer}>
+            <View style={styles.routeBox}>
               <Text style={styles.routeLabel}>DÉPART</Text>
               <Text style={styles.routeAddress} numberOfLines={1}>
                 {ride.pickup_address}
               </Text>
             </View>
-          </View>
-          
-          <View style={styles.routeLine} />
-          
-          <View style={styles.routeItem}>
-            <View style={[styles.dot, { backgroundColor: '#ff6b47' }]} />
-            <View style={styles.routeContent}>
+            
+            <View style={styles.routeSpacer} />
+            
+            <View style={styles.routeBox}>
               <Text style={styles.routeLabel}>ARRIVÉE</Text>
               <Text style={styles.routeAddress} numberOfLines={1}>
                 {ride.dropoff_address}
@@ -86,13 +105,35 @@ export const RideCard: React.FC<RideCardProps> = ({ ride, onPress }) => {
           </View>
         </View>
 
-        {/* Footer */}
+        {/* Footer - Time & Creator */}
         <View style={styles.footer}>
-          <Text style={styles.time}>📅 {formatDate(ride.scheduled_at)}</Text>
-          {ride.creator && (
-            <Text style={styles.creator}>👤 {ride.creator.full_name}</Text>
-          )}
+          <View style={styles.timeContainer}>
+            <Ionicons name="calendar-outline" size={14} color="#94a3b8" />
+            <Text style={styles.time}>{formatDate(ride.scheduled_at)}</Text>
+          </View>
         </View>
+        
+        {/* Creator - Enhanced Highlight */}
+        {ride.creator && (
+          <View style={[styles.creatorSection, isMyRide && styles.creatorSectionMyRide]}>
+            <View style={[styles.creatorAvatar, isMyRide && styles.creatorAvatarMyRide]}>
+              <Text style={styles.creatorInitials}>
+                {ride.creator.full_name?.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)}
+              </Text>
+            </View>
+            <View style={styles.creatorInfo}>
+              <Text style={styles.creatorLabel}>Apporteur d'affaires</Text>
+              <Text style={[styles.creatorName, isMyRide && styles.creatorNameMyRide]}>
+                {isMyRide ? 'Vous-même' : ride.creator.full_name}
+              </Text>
+            </View>
+            {isMyRide && (
+              <View style={styles.myRideIndicator}>
+                <Ionicons name="star" size={16} color="#fbbf24" />
+              </View>
+            )}
+          </View>
+        )}
 
         {/* Tags */}
         <View style={styles.tags}>
@@ -120,14 +161,40 @@ export const RideCard: React.FC<RideCardProps> = ({ ride, onPress }) => {
 const styles = StyleSheet.create({
   container: {
     marginBottom: 16,
-    borderRadius: 16,
-    overflow: 'hidden',
   },
   gradient: {
-    padding: 16,
+    padding: 18,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.15)',
-    borderRadius: 16,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+    borderRadius: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    elevation: 4,
+    position: 'relative',
+  },
+  gradientMyRide: {
+    borderColor: 'rgba(251, 191, 36, 0.3)',
+  },
+  // Small elegant badge
+  myRideBadge: {
+    position: 'absolute',
+    top: 12,
+    right: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#fbbf24',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 12,
+    zIndex: 10,
+  },
+  myRideBadgeText: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#000',
+    marginLeft: 4,
   },
   header: {
     flexDirection: 'row',
@@ -156,65 +223,145 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#ffffff',
   },
+  // Route - Improved with continuous line
   route: {
-    marginBottom: 16,
-  },
-  routeItem: {
     flexDirection: 'row',
-    alignItems: 'flex-start',
-    marginBottom: 8,
+    marginBottom: 20,
+    backgroundColor: 'rgba(30, 41, 59, 0.4)',
+    borderRadius: 16,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.05)',
   },
-  dot: {
-    width: 12,
-    height: 12,
-    borderRadius: 6,
-    marginTop: 4,
-    marginRight: 12,
+  routeLineContainer: {
+    alignItems: 'center',
+    marginRight: 16,
+    paddingVertical: 4,
   },
-  routeContent: {
+  routeDot: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    shadowColor: '#10b981',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.6,
+    shadowRadius: 4,
+    elevation: 4,
+  },
+  routeLineContinuous: {
+    width: 2,
+    height: 24,
+    backgroundColor: '#475569',
+  },
+  routeArrow: {
+    marginVertical: 2,
+  },
+  routeContentContainer: {
     flex: 1,
+    justifyContent: 'space-between',
+  },
+  routeBox: {
+    flex: 1,
+  },
+  routeSpacer: {
+    height: 12,
   },
   routeLabel: {
     fontSize: 10,
+    color: '#64748b',
     fontWeight: '700',
-    color: '#b9e6fe',
-    letterSpacing: 1,
-    marginBottom: 2,
+    letterSpacing: 0.5,
+    marginBottom: 6,
   },
   routeAddress: {
     fontSize: 15,
-    color: '#ffffff',
-    fontWeight: '500',
-  },
-  routeLine: {
-    width: 2,
-    height: 16,
-    backgroundColor: 'rgba(185, 230, 254, 0.3)',
-    marginLeft: 5,
-    marginVertical: -4,
+    color: '#f1f5f9',
+    fontWeight: '600',
   },
   footer: {
     flexDirection: 'row',
     justifyContent: 'space-between',
+    alignItems: 'center',
     marginBottom: 12,
+  },
+  timeContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
   },
   time: {
     fontSize: 13,
-    color: '#7dd3fc',
+    color: '#94a3b8',
+    marginLeft: 6,
   },
-  creator: {
-    fontSize: 13,
-    color: '#7dd3fc',
+  // Creator - Enhanced Highlight
+  creatorSection: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.02)',
+    borderRadius: 12,
+    padding: 12,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.05)',
+  },
+  creatorSectionMyRide: {
+    backgroundColor: 'rgba(251, 191, 36, 0.08)',
+    borderColor: 'rgba(251, 191, 36, 0.2)',
+  },
+  creatorAvatar: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#ff6b47',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
+  },
+  creatorAvatarMyRide: {
+    backgroundColor: '#fbbf24',
+  },
+  creatorInitials: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#000',
+  },
+  creatorInfo: {
+    flex: 1,
+  },
+  creatorLabel: {
+    fontSize: 10,
+    color: '#64748b',
+    fontWeight: '600',
+    marginBottom: 2,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  creatorName: {
+    fontSize: 14,
+    color: '#f1f5f9',
+    fontWeight: '600',
+  },
+  creatorNameMyRide: {
+    color: '#fbbf24',
+  },
+  myRideIndicator: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: 'rgba(251, 191, 36, 0.15)',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   tags: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 8,
   },
   tag: {
     paddingHorizontal: 10,
     paddingVertical: 4,
     borderRadius: 6,
+    marginRight: 8,
+    marginBottom: 4,
   },
   tagText: {
     fontSize: 11,

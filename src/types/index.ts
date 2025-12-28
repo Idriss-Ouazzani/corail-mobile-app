@@ -6,6 +6,7 @@
 export type RideStatus = 'PUBLISHED' | 'CLAIMED' | 'COMPLETED' | 'CANCELLED'
 export type RideVisibility = 'PUBLIC' | 'GROUP'
 export type SubscriptionPlan = 'FREE' | 'PREMIUM' | 'PLATINUM'
+export type VehicleType = 'STANDARD' | 'PREMIUM' | 'ELECTRIC' | 'VAN' | 'LUXURY'
 
 export interface User {
   id: string
@@ -35,6 +36,9 @@ export interface Ride {
   visibility?: RideVisibility
   group_id?: string | null
   commission_enabled?: boolean
+  vehicle_type?: VehicleType
+  distance_km?: number
+  duration_minutes?: number
   creator?: Partial<User>
   picker?: Partial<User>
 }
