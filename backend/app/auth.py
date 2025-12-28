@@ -13,6 +13,41 @@ from .config import FIREBASE_CREDENTIALS_PATH
 # Initialiser Firebase Admin SDK
 _firebase_initialized = False
 
+def get_databricks_secret_via_sdk(scope: str, key: str) -> Optional[str]:
+    """
+    Lit un secret Databricks via le SDK
+    Utilise l'authentification automatique dans Databricks Apps
+    """
+    try:
+        from databricks.sdk import WorkspaceClient
+        
+        # Dans Databricks Apps, l'authentification est automatique
+        w = WorkspaceClient()
+        
+        print(f"🔍 Tentative de lecture du secret: {scope}/{key}")
+        
+        # Utiliser l'API Secrets
+        secret_response = w.secrets.get_secret(scope=scope, key=key)
+        
+        # Le secret est dans l'attribut 'value'
+        if hasattr(secret_response, 'value') and secret_response.value:
+            secret_str = secret_response.value
+            print(f"✅ Secret lu avec succès via SDK, longueur: {len(secret_str)}")
+            return secret_str
+        
+        print(f"⚠️ Secret vide ou inaccessible: {scope}/{key}")
+        print(f"   Response: {secret_response}")
+        return None
+        
+    except ImportError as e:
+        print(f"⚠️ databricks-sdk non disponible: {e}")
+        return None
+    except Exception as e:
+        print(f"⚠️ Erreur lecture secret {scope}/{key}: {type(e).__name__}: {e}")
+        import traceback
+        traceback.print_exc()
+        return None
+
 def init_firebase():
     """Initialise Firebase Admin SDK"""
     global _firebase_initialized
@@ -20,30 +55,27 @@ def init_firebase():
     if _firebase_initialized:
         return
     
+    print("🔥 Initialisation Firebase...")
+    
     try:
-        # Priorité 1 : Secret depuis Resource Key (Databricks Apps)
-        # Le Resource key "secret-firebase" devient une variable d'environnement
-        firebase_secret = os.getenv("secret-firebase")
-        if firebase_secret:
-            print(f"🔍 Found secret-firebase env var, length: {len(firebase_secret)}")
-            cred_dict = json.loads(firebase_secret)
-            cred = credentials.Certificate(cred_dict)
-            initialize_app(cred)
-            _firebase_initialized = True
-            print("✅ Firebase initialisé avec Databricks Apps Resource")
-            return
+        # Priorité 1 : Lire depuis Databricks Secret (App resources)
+        print("📍 Tentative 1: Lecture depuis Databricks Secrets API")
+        firebase_secret_json = get_databricks_secret_via_sdk("corail-firebase-app", "secret-firebase")
         
-        # Priorité 2 : Secret depuis variable FIREBASE_SECRET
-        firebase_secret = os.getenv("FIREBASE_SECRET")
-        if firebase_secret:
-            cred_dict = json.loads(firebase_secret)
-            cred = credentials.Certificate(cred_dict)
-            initialize_app(cred)
-            _firebase_initialized = True
-            print("✅ Firebase initialisé avec variable d'environnement")
-            return
+        if firebase_secret_json:
+            try:
+                cred_dict = json.loads(firebase_secret_json)
+                cred = credentials.Certificate(cred_dict)
+                initialize_app(cred)
+                _firebase_initialized = True
+                print("✅ Firebase initialisé avec Databricks Secret (sécurisé)")
+                return
+            except json.JSONDecodeError as e:
+                print(f"❌ Erreur parsing JSON du secret: {e}")
+                print(f"   Contenu (premiers 100 chars): {firebase_secret_json[:100]}")
         
-        # Priorité 3 : Fichier local (dev uniquement)
+        # Priorité 2 : Fichier local (dev uniquement)
+        print("📍 Tentative 2: Fichier local")
         if os.path.exists(FIREBASE_CREDENTIALS_PATH):
             cred = credentials.Certificate(FIREBASE_CREDENTIALS_PATH)
             initialize_app(cred)
@@ -51,23 +83,13 @@ def init_firebase():
             print(f"✅ Firebase initialisé avec fichier local: {FIREBASE_CREDENTIALS_PATH}")
             return
         
-        # Debug : lister toutes les variables d'environnement qui contiennent "secret" ou "firebase"
-        print("🔍 Variables d'environnement disponibles:")
-        for key in os.environ.keys():
-            if 'secret' in key.lower() or 'firebase' in key.lower():
-                value_preview = os.environ[key][:50] + "..." if len(os.environ[key]) > 50 else os.environ[key]
-                print(f"   - {key}: {value_preview}")
-        
         # Aucune credential trouvée
         print("⚠️ Firebase credentials non trouvées")
-        print("   - Pas de variable 'secret-firebase' (Resource key)")
-        print("   - Pas de variable FIREBASE_SECRET")
+        print("   - Secret Databricks non accessible")
         print(f"   - Pas de fichier local: {FIREBASE_CREDENTIALS_PATH}")
-        print("   L'app fonctionnera en mode dev sans auth")
+        print("   ⚠️ L'app fonctionnera en mode dev sans auth")
+        print("   ⚠️ Tous les endpoints seront accessibles sans authentification")
         
-    except json.JSONDecodeError as e:
-        print(f"❌ Erreur parsing Firebase secret JSON: {e}")
-        print("   L'app fonctionnera en mode dev sans auth")
     except Exception as e:
         print(f"❌ Erreur Firebase init: {e}")
         import traceback
