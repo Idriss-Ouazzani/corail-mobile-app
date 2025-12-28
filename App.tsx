@@ -19,6 +19,7 @@ import CoralLogo from './src/components/CoralLogo';
 import RideCard from './src/components/RideCard';
 import CitySelector from './src/components/CitySelector';
 import CreditsBadge from './src/components/CreditsBadge';
+import { BadgeCard } from './src/components/BadgeCard';
 import MarketplaceFilters, { FilterOptions } from './src/components/MarketplaceFilters';
 import RideDetailScreen from './src/screens/RideDetailScreen';
 import CreateRideScreen from './src/screens/CreateRideScreen';
@@ -206,6 +207,46 @@ export default function App() {
   const [loadingRides, setLoadingRides] = useState(false);
   const [userCredits, setUserCredits] = useState<number>(0);
 
+  // 🏆 Badges de l'utilisateur (mock data - à remplacer par API)
+  const userBadges = [
+    {
+      id: 'badge-early-adopter',
+      name: 'Early Adopter',
+      description: 'Parmi les premiers utilisateurs de Corail',
+      icon: 'rocket',
+      color: '#fbbf24',
+      rarity: 'LEGENDARY' as const,
+      earned_at: '2025-01-15T10:00:00Z',
+    },
+    {
+      id: 'badge-serial-publisher',
+      name: 'Serial Publisher',
+      description: 'Publié plus de 25 courses',
+      icon: 'newspaper',
+      color: '#10b981',
+      rarity: 'RARE' as const,
+      earned_at: '2025-01-20T14:30:00Z',
+    },
+    {
+      id: 'badge-first-ride',
+      name: 'Première course',
+      description: 'Publié votre première course',
+      icon: 'car-sport',
+      color: '#0ea5e9',
+      rarity: 'COMMON' as const,
+      earned_at: '2025-01-10T09:00:00Z',
+    },
+    {
+      id: 'badge-5-rides',
+      name: '5 courses',
+      description: 'Publié 5 courses',
+      icon: 'car-sport',
+      color: '#0ea5e9',
+      rarity: 'COMMON' as const,
+      earned_at: '2025-01-12T16:00:00Z',
+    },
+  ];
+
   // 📥 Charger les rides depuis l'API
   const loadRides = async () => {
     try {
@@ -287,22 +328,32 @@ export default function App() {
     return <LoginScreen onLoginSuccess={() => {}} />;
   }
 
-  const renderHome = () => (
-    <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-      {/* Hero Section */}
-      <View style={styles.heroSection}>
-        <View style={styles.heroContent}>
-          <View style={styles.logoWrapper}>
-            <CoralLogo size={60} />
-          </View>
-          <Text style={styles.greeting}>Bonjour</Text>
-          <Text style={styles.userName}>Hassan Al Masri</Text>
-          <View style={styles.premiumBadge}>
-            <Ionicons name="star" size={12} color="#000" style={{ marginRight: 4 }} />
-            <Text style={styles.premiumText}>Premium Member</Text>
+  const renderHome = () => {
+    // Calculate real stats from rides data
+    const availableRides = rides.filter(r => r.status === 'PUBLISHED').length;
+    const myActiveRides = rides.filter(r => 
+      r.picker_id === currentUserId && r.status === 'CLAIMED'
+    ).length;
+    const myCompletedRides = rides.filter(r => 
+      (r.picker_id === currentUserId || r.creator_id === currentUserId) && r.status === 'COMPLETED'
+    ).length;
+    
+    return (
+      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+        {/* Hero Section */}
+        <View style={styles.heroSection}>
+          <View style={styles.heroContent}>
+            <View style={styles.logoWrapper}>
+              <CoralLogo size={60} />
+            </View>
+            <Text style={styles.greeting}>Bonjour</Text>
+            <Text style={styles.userName}>Hassan Al Masri</Text>
+            <View style={styles.premiumBadge}>
+              <Ionicons name="star" size={12} color="#000" style={{ marginRight: 4 }} />
+              <Text style={styles.premiumText}>Premium Member</Text>
+            </View>
           </View>
         </View>
-      </View>
 
       {/* 🪸 Crédits Corail - Solde */}
       <TouchableOpacity 
@@ -337,9 +388,9 @@ export default function App() {
         <View style={{ flex: 1, marginLeft: 10 }}>
           <Text style={styles.creditsExplainerTitle}>Comment ça marche ?</Text>
           <Text style={styles.creditsExplainerText}>
-            <Text style={{ fontWeight: '700', color: '#10b981' }}>+1 crédit</Text> quand vous publiez une course • 
-            <Text style={{ fontWeight: '700', color: '#10b981' }}> +1 bonus</Text> si elle est prise et terminée • 
-            <Text style={{ fontWeight: '700', color: '#ff6b47' }}> -1 crédit</Text> pour prendre une course
+            <Text style={{ fontWeight: '700', color: '#10b981' }}>+1 crédit</Text> quand vous publiez une course{'\n'}
+            <Text style={{ fontWeight: '700', color: '#10b981' }}>+1 bonus</Text> si elle est prise et terminée{'\n'}
+            <Text style={{ fontWeight: '700', color: '#ff6b47' }}>-1 crédit</Text> pour prendre une course
           </Text>
         </View>
       </View>
@@ -347,8 +398,8 @@ export default function App() {
       {/* Stats Grid - Compact */}
       <View style={styles.statsContainerCompact}>
         {[
-          { icon: 'car-sport', label: 'Disponibles', value: '156', color: '#ff6b47' },
-          { icon: 'flash', label: 'En cours', value: '3', color: '#0ea5e9' },
+          { icon: 'car-sport', label: 'Disponibles', value: availableRides.toString(), color: '#ff6b47' },
+          { icon: 'flash', label: 'En cours', value: myActiveRides.toString(), color: '#0ea5e9' },
         ].map((stat, index) => (
           <View key={index} style={styles.statCardCompact}>
             <View style={[styles.statIconWrapperCompact, { backgroundColor: stat.color + '20' }]}>
@@ -365,8 +416,8 @@ export default function App() {
       {/* Secondary Stats Row */}
       <View style={styles.secondaryStatsRow}>
         <View style={styles.secondaryStatItem}>
-          <Ionicons name="wallet" size={16} color="#10b981" />
-          <Text style={styles.secondaryStatText}>850€ ce mois</Text>
+          <Ionicons name="checkmark-done" size={16} color="#10b981" />
+          <Text style={styles.secondaryStatText}>{myCompletedRides} terminée{myCompletedRides !== 1 ? 's' : ''}</Text>
         </View>
         <View style={styles.secondaryStatDivider} />
         <View style={styles.secondaryStatItem}>
@@ -422,7 +473,8 @@ export default function App() {
         ))}
       </View>
     </ScrollView>
-  );
+    );
+  };
 
   const renderMarketplace = () => {
     // Filter rides based on active filter and filters
@@ -859,6 +911,35 @@ export default function App() {
               <Ionicons name="car-sport" size={12} color="#0ea5e9" /> Courses
             </Text>
           </View>
+        </View>
+      </View>
+
+      {/* 🏆 Badges Section */}
+      <View style={styles.section}>
+        <View style={styles.sectionHeader}>
+          <Text style={styles.sectionTitle}>
+            <Ionicons name="trophy" size={20} color="#fbbf24" /> Badges ({userBadges.length})
+          </Text>
+          <TouchableOpacity activeOpacity={0.7}>
+            <Text style={styles.seeAllText}>Tout voir</Text>
+          </TouchableOpacity>
+        </View>
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.badgesScroll}
+        >
+          {userBadges.map((badge) => (
+            <BadgeCard key={badge.id} badge={badge} size="medium" />
+          ))}
+        </ScrollView>
+        
+        {/* Info text */}
+        <View style={styles.badgesInfo}>
+          <Ionicons name="information-circle" size={16} color="#64748b" />
+          <Text style={styles.badgesInfoText}>
+            Gagnez des badges en accomplissant des défis et objectifs
+          </Text>
         </View>
       </View>
 
@@ -1457,6 +1538,37 @@ const styles = StyleSheet.create({
   // Section
   section: { marginBottom: 30 },
   sectionTitle: { fontSize: 20, fontWeight: 'bold', color: '#f1f5f9', marginBottom: 16 },
+  sectionHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  seeAllText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#0ea5e9',
+  },
+
+  // Badges Section
+  badgesScroll: {
+    paddingVertical: 8,
+  },
+  badgesInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(100, 116, 139, 0.1)',
+    borderRadius: 12,
+    padding: 12,
+    marginTop: 12,
+  },
+  badgesInfoText: {
+    fontSize: 12,
+    color: '#94a3b8',
+    marginLeft: 8,
+    flex: 1,
+    lineHeight: 18,
+  },
 
   // Action Cards
   actionCard: {

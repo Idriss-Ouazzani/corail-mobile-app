@@ -433,8 +433,8 @@ export const CreateRideScreen: React.FC<CreateRideScreenProps> = ({ onBack, onCr
           <View style={{ flex: 1, marginLeft: 12 }}>
             <Text style={styles.creditsRewardTitle}>🎉 Gagnez des crédits !</Text>
             <Text style={styles.creditsRewardText}>
-              <Text style={{ fontWeight: '700', color: '#10b981' }}>+1 crédit</Text> immédiatement • 
-              <Text style={{ fontWeight: '700', color: '#10b981' }}> +1 bonus</Text> si votre course est prise et terminée
+              <Text style={{ fontWeight: '700', color: '#10b981' }}>+1 crédit</Text> immédiatement{'\n'}
+              <Text style={{ fontWeight: '700', color: '#10b981' }}>+1 bonus</Text> si votre course est prise et terminée
             </Text>
           </View>
         </View>
