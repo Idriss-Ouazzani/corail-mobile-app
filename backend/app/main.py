@@ -42,6 +42,10 @@ class User(BaseModel):
     rating: Optional[int] = None
     total_reviews: Optional[int] = None
     credits: Optional[int] = 0
+    verification_status: Optional[str] = "UNVERIFIED"  # UNVERIFIED, PENDING, VERIFIED, REJECTED
+    professional_card_number: Optional[str] = None
+    siren: Optional[str] = None
+    phone: Optional[str] = None
 
 
 class GroupMember(BaseModel):
@@ -117,6 +121,18 @@ class UserBadge(BaseModel):
     badge_color: Optional[str] = None
     badge_rarity: Optional[str] = None
     badge_category: Optional[str] = None
+
+
+class SubmitVerificationRequest(BaseModel):
+    full_name: str
+    phone: str
+    professional_card_number: str
+    siren: str
+
+
+class VerificationReviewRequest(BaseModel):
+    status: str  # VERIFIED or REJECTED
+    rejection_reason: Optional[str] = None
 
 
 class CreateRideRequest(BaseModel):
@@ -830,6 +846,179 @@ async def get_group_details(
     
     except HTTPException:
         raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
+
+
+# ============================================================================
+# ✅ VERIFICATION PROFESSIONNELLE
+# ============================================================================
+
+@app.get("/api/v1/verification/status")
+async def get_verification_status(user_id: str = CurrentUser):
+    """Récupérer le statut de vérification de l'utilisateur"""
+    try:
+        query = """
+        SELECT 
+            id,
+            email,
+            full_name,
+            phone,
+            verification_status,
+            professional_card_number,
+            siren,
+            verification_submitted_at,
+            verification_rejection_reason
+        FROM users
+        WHERE id = :user_id
+        """
+        result = db.execute_query(query, {"user_id": user_id})
+        
+        if not result:
+            raise HTTPException(status_code=404, detail="User not found")
+        
+        return result[0]
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
+
+
+@app.post("/api/v1/verification/submit")
+async def submit_verification(
+    verification: SubmitVerificationRequest,
+    user_id: str = CurrentUser
+):
+    """Soumettre les documents de vérification professionnelle"""
+    try:
+        # Mettre à jour le profil utilisateur
+        update_query = """
+        UPDATE users
+        SET 
+            full_name = :full_name,
+            phone = :phone,
+            professional_card_number = :professional_card_number,
+            siren = :siren,
+            verification_status = 'PENDING',
+            verification_submitted_at = CURRENT_TIMESTAMP()
+        WHERE id = :user_id
+        """
+        
+        db.execute_non_query(update_query, {
+            "user_id": user_id,
+            "full_name": verification.full_name,
+            "phone": verification.phone,
+            "professional_card_number": verification.professional_card_number,
+            "siren": verification.siren
+        })
+        
+        # Enregistrer dans l'historique
+        import uuid
+        history_id = f"vh-{uuid.uuid4()}"
+        history_query = """
+        INSERT INTO verification_history (
+            id, user_id, status, professional_card_number, siren, submitted_at, created_at
+        ) VALUES (
+            :id, :user_id, 'PENDING', :professional_card_number, :siren, CURRENT_TIMESTAMP(), CURRENT_TIMESTAMP()
+        )
+        """
+        
+        db.execute_non_query(history_query, {
+            "id": history_id,
+            "user_id": user_id,
+            "professional_card_number": verification.professional_card_number,
+            "siren": verification.siren
+        })
+        
+        print(f"✅ Vérification soumise pour {user_id} - Carte: {verification.professional_card_number}, SIREN: {verification.siren}")
+        
+        return {
+            "success": True,
+            "message": "Vérification soumise avec succès ! Votre compte sera validé sous 24-48h.",
+            "status": "PENDING"
+        }
+    
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error submitting verification: {str(e)}")
+
+
+@app.post("/api/v1/admin/verification/{user_id}/review")
+async def review_verification(
+    user_id: str,
+    review: VerificationReviewRequest,
+    admin_id: str = CurrentUser
+):
+    """
+    [ADMIN] Valider ou rejeter une vérification
+    TODO: Ajouter vérification des droits admin
+    """
+    try:
+        if review.status not in ["VERIFIED", "REJECTED"]:
+            raise HTTPException(status_code=400, detail="Status must be VERIFIED or REJECTED")
+        
+        # Mettre à jour le statut de l'utilisateur
+        update_query = """
+        UPDATE users
+        SET 
+            verification_status = :status,
+            verification_reviewed_at = CURRENT_TIMESTAMP(),
+            verification_reviewed_by = :admin_id,
+            verification_rejection_reason = :rejection_reason
+        WHERE id = :user_id
+        """
+        
+        db.execute_non_query(update_query, {
+            "user_id": user_id,
+            "status": review.status,
+            "admin_id": admin_id,
+            "rejection_reason": review.rejection_reason
+        })
+        
+        # Enregistrer dans l'historique
+        import uuid
+        history_id = f"vh-{uuid.uuid4()}"
+        history_query = """
+        INSERT INTO verification_history (
+            id, user_id, status, reviewed_at, reviewed_by, rejection_reason, created_at
+        ) VALUES (
+            :id, :user_id, :status, CURRENT_TIMESTAMP(), :admin_id, :rejection_reason, CURRENT_TIMESTAMP()
+        )
+        """
+        
+        db.execute_non_query(history_query, {
+            "id": history_id,
+            "user_id": user_id,
+            "status": review.status,
+            "admin_id": admin_id,
+            "rejection_reason": review.rejection_reason
+        })
+        
+        print(f"✅ Vérification {review.status} pour {user_id} par admin {admin_id}")
+        
+        return {
+            "success": True,
+            "message": f"Vérification {review.status.lower()}e avec succès",
+            "status": review.status
+        }
+    
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error reviewing verification: {str(e)}")
+
+
+@app.get("/api/v1/admin/verification/pending")
+async def get_pending_verifications(admin_id: str = CurrentUser):
+    """
+    [ADMIN] Récupérer toutes les vérifications en attente
+    TODO: Ajouter vérification des droits admin
+    """
+    try:
+        query = "SELECT * FROM v_pending_verifications"
+        results = db.execute_query(query)
+        return results
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
 

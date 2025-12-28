@@ -182,6 +182,31 @@ class ApiClient {
   }
 
   // ============================================================================
+  // ✅ VERIFICATION PROFESSIONNELLE
+  // ============================================================================
+
+  /**
+   * Récupérer le statut de vérification
+   */
+  async getVerificationStatus() {
+    const { data } = await this.client.get('/verification/status');
+    return data;
+  }
+
+  /**
+   * Soumettre les documents de vérification
+   */
+  async submitVerification(verification: {
+    full_name: string;
+    phone: string;
+    professional_card_number: string;
+    siren: string;
+  }) {
+    const { data } = await this.client.post('/verification/submit', verification);
+    return data;
+  }
+
+  // ============================================================================
   // 🏆 BADGES
   // ============================================================================
 
