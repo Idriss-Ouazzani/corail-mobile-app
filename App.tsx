@@ -18,6 +18,7 @@ import { Ionicons, MaterialIcons, FontAwesome5 } from '@expo/vector-icons';
 import CoralLogo from './src/components/CoralLogo';
 import RideCard from './src/components/RideCard';
 import CitySelector from './src/components/CitySelector';
+import CreditsBadge from './src/components/CreditsBadge';
 import MarketplaceFilters, { FilterOptions } from './src/components/MarketplaceFilters';
 import RideDetailScreen from './src/screens/RideDetailScreen';
 import CreateRideScreen from './src/screens/CreateRideScreen';
@@ -303,6 +304,33 @@ export default function App() {
         </View>
       </View>
 
+      {/* 🪸 Crédits Corail - Solde */}
+      <TouchableOpacity 
+        style={styles.creditsBalance}
+        onPress={() => setShowSubscription(true)}
+        activeOpacity={0.8}
+      >
+        <LinearGradient
+          colors={['#ff6b47', '#ff8a6d']}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.creditsBalanceGradient}
+        >
+          <View style={styles.creditsBalanceLeft}>
+            <View style={styles.creditsIconLarge}>
+              <Text style={styles.creditsIconLargeText}>C</Text>
+            </View>
+            <View style={styles.creditsBalanceInfo}>
+              <Text style={styles.creditsBalanceLabel}>Crédits Corail</Text>
+              <Text style={styles.creditsBalanceValue}>{userCredits} crédit{userCredits !== 1 ? 's' : ''}</Text>
+            </View>
+          </View>
+          <View style={styles.creditsAddButton}>
+            <Ionicons name="add" size={28} color="#fff" />
+          </View>
+        </LinearGradient>
+      </TouchableOpacity>
+
       {/* Stats Grid */}
       <View style={styles.statsContainer}>
         {[
@@ -424,26 +452,31 @@ export default function App() {
 
     return (
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-        <View style={styles.pageHeader}>
+        <View style={styles.pageHeaderRow}>
           <View style={{ flex: 1 }}>
-            <Text style={styles.pageTitle}>Marketplace</Text>
+            <Text style={styles.pageTitleCompact}>Market</Text>
             <Text style={styles.pageSubtitle}>
-              <Ionicons name="car-sport" size={14} color="#b9e6fe" /> {filteredRides.length} courses disponibles
+              <Ionicons name="car-sport" size={14} color="#b9e6fe" /> {filteredRides.length} courses
             </Text>
           </View>
-          <TouchableOpacity
-            style={styles.createButton}
-            onPress={() => setShowCreateRide(true)}
-            activeOpacity={0.8}
-          >
-            <LinearGradient
-              colors={['#ff6b47', '#ff8a6d']}
-              style={styles.createButtonGradient}
+          
+          {/* 🪸 Credits Badge + Créer button */}
+          <View style={styles.headerActions}>
+            <CreditsBadge credits={userCredits} onPress={() => setShowSubscription(true)} />
+            <TouchableOpacity
+              style={[styles.createButtonCompact, { marginLeft: 8 }]}
+              onPress={() => setShowCreateRide(true)}
+              activeOpacity={0.8}
             >
-              <Ionicons name="add" size={20} color="#fff" />
-              <Text style={styles.createButtonText}>Créer</Text>
-            </LinearGradient>
-          </TouchableOpacity>
+              <LinearGradient
+                colors={['#0ea5e9', '#0284c7']}
+                style={styles.createButtonGradient}
+              >
+                <Ionicons name="add" size={20} color="#fff" />
+                <Text style={styles.createButtonText}>Créer</Text>
+              </LinearGradient>
+            </TouchableOpacity>
+          </View>
         </View>
 
         {/* Selected Region Indicator - Opens CitySelector */}
@@ -541,23 +574,28 @@ export default function App() {
 
     return (
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-        <View style={styles.pageHeader}>
+        <View style={styles.pageHeaderRow}>
           <View style={{ flex: 1 }}>
-            <Text style={styles.pageTitle}>Mes Courses</Text>
+            <Text style={styles.pageTitleCompact}>Mes Courses</Text>
             <Text style={styles.pageSubtitle}>
-              <Ionicons name="car-sport" size={14} color="#b9e6fe" /> {totalCount} courses au total
+              <Ionicons name="car-sport" size={14} color="#b9e6fe" /> {totalCount} courses
             </Text>
           </View>
-          <TouchableOpacity
-            style={styles.refreshButton}
-            onPress={async () => {
-              console.log('🔄 Rechargement manuel des courses...');
-              await loadRides();
-            }}
-            activeOpacity={0.7}
-          >
-            <Ionicons name="refresh" size={22} color="#64748b" />
-          </TouchableOpacity>
+          
+          {/* 🪸 Credits Badge + Refresh button */}
+          <View style={styles.headerActions}>
+            <CreditsBadge credits={userCredits} onPress={() => setShowSubscription(true)} />
+            <TouchableOpacity
+              style={[styles.refreshButton, { marginLeft: 8 }]}
+              onPress={async () => {
+                console.log('🔄 Rechargement manuel des courses...');
+                await loadRides();
+              }}
+              activeOpacity={0.7}
+            >
+              <Ionicons name="refresh" size={22} color="#64748b" />
+            </TouchableOpacity>
+          </View>
         </View>
 
         {/* Tabs */}
@@ -1185,7 +1223,7 @@ const styles = StyleSheet.create({
   scrollContent: { paddingTop: 60, paddingBottom: 120, paddingHorizontal: 20 },
 
   // Hero
-  heroSection: { marginBottom: 30 },
+  heroSection: { marginBottom: 20 },
   heroContent: { alignItems: 'center', paddingVertical: 20 },
   logoWrapper: {
     width: 80,
@@ -1214,6 +1252,61 @@ const styles = StyleSheet.create({
     borderRadius: 20,
   },
   premiumText: { fontSize: 12, fontWeight: '700', color: '#000000' },
+
+  // 🪸 Crédits Corail
+  creditsBalance: {
+    marginBottom: 30,
+    borderRadius: 20,
+    overflow: 'hidden',
+    shadowColor: '#ff6b47',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 12,
+    elevation: 8,
+  },
+  creditsBalanceGradient: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    padding: 20,
+  },
+  creditsBalanceLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
+  creditsIconLarge: {
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    backgroundColor: 'rgba(255, 255, 255, 0.25)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 16,
+    borderWidth: 2,
+    borderColor: 'rgba(255, 255, 255, 0.5)',
+  },
+  creditsIconLargeText: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: '#fff',
+  },
+  creditsBalanceInfo: {
+    flex: 1,
+  },
+  creditsBalanceLabel: {
+    fontSize: 14,
+    color: 'rgba(255, 255, 255, 0.8)',
+    marginBottom: 4,
+  },
+  creditsBalanceValue: {
+    fontSize: 28,
+    fontWeight: 'bold',
+    color: '#fff',
+  },
+  creditsAddButton: {
+    marginLeft: 12,
+  },
 
   // Stats
   statsContainer: {
@@ -1288,8 +1381,19 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 20,
   },
+  pageHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 20,
+  },
   pageTitle: { fontSize: 32, fontWeight: 'bold', color: '#f1f5f9', marginBottom: 4 },
+  pageTitleCompact: { fontSize: 24, fontWeight: 'bold', color: '#f1f5f9', marginBottom: 4 },
   pageSubtitle: { fontSize: 14, color: '#94a3b8' },
+  headerActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
   refreshButton: {
     padding: 8,
     borderRadius: 8,
@@ -1700,6 +1804,15 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.4,
     shadowRadius: 8,
     elevation: 6,
+  },
+  createButtonCompact: {
+    borderRadius: 16,
+    overflow: 'hidden',
+    shadowColor: '#0ea5e9',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    elevation: 4,
   },
   createButtonGradient: {
     flexDirection: 'row',

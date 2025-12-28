@@ -20,11 +20,12 @@ const PLANS = [
     price: '0€',
     period: 'gratuit',
     color: '#64748b',
+    credits: 0,
     features: [
       { text: 'Publier des courses', included: true },
       { text: 'Accès marketplace', included: false },
       { text: 'Créer des groupes', included: false },
-      { text: 'Commission', value: '0%' },
+      { text: 'Crédits Corail', value: '0 🪸/mois' },
     ],
   },
   {
@@ -34,12 +35,13 @@ const PLANS = [
     period: '/mois',
     color: '#0ea5e9',
     popular: true,
+    credits: 5,
     features: [
       { text: 'Publier des courses', included: true },
       { text: 'Accès marketplace', included: true },
       { text: 'Créer des groupes', included: true },
       { text: 'Support prioritaire', included: true },
-      { text: 'Commission', value: '10%' },
+      { text: 'Crédits Corail', value: '5 🪸/mois' },
     ],
   },
   {
@@ -48,14 +50,22 @@ const PLANS = [
     price: '49,99€',
     period: '/mois',
     color: '#fbbf24',
+    credits: 10,
     features: [
       { text: 'Tout Premium', included: true },
       { text: 'Priorité 15min sur courses', included: true },
       { text: 'Badge Platinum', included: true },
       { text: 'Analytics avancés', included: true },
-      { text: 'Commission', value: '12%' },
+      { text: 'Crédits Corail', value: '10 🪸/mois' },
     ],
   },
+];
+
+const CREDIT_PACKS = [
+  { id: '1', amount: 1, price: 5, popular: false },
+  { id: '5', amount: 5, price: 20, discount: 20, popular: true },
+  { id: '10', amount: 10, price: 35, discount: 30 },
+  { id: '20', amount: 20, price: 60, discount: 40 },
 ];
 
 export const SubscriptionScreen: React.FC<SubscriptionScreenProps> = ({ onBack }) => {
@@ -170,6 +180,52 @@ export const SubscriptionScreen: React.FC<SubscriptionScreenProps> = ({ onBack }
           </View>
         ))}
 
+        {/* 🪸 Acheter des crédits */}
+        <Text style={styles.sectionTitle}>Acheter des crédits Corail</Text>
+        <Text style={styles.sectionSubtitle}>
+          Besoin de plus de crédits ? Achetez-les à l'unité ou par pack.
+        </Text>
+        
+        <View style={styles.creditPacksGrid}>
+          {CREDIT_PACKS.map((pack) => (
+            <TouchableOpacity
+              key={pack.id}
+              style={[
+                styles.creditPackCard,
+                pack.popular && styles.creditPackCardPopular,
+              ]}
+              activeOpacity={0.8}
+            >
+              {pack.popular && (
+                <View style={styles.creditPackBadge}>
+                  <Text style={styles.creditPackBadgeText}>MEILLEUR PRIX</Text>
+                </View>
+              )}
+              <View style={styles.creditPackIcon}>
+                <Text style={styles.creditPackIconText}>C</Text>
+              </View>
+              <Text style={styles.creditPackAmount}>{pack.amount}</Text>
+              <Text style={styles.creditPackLabel}>crédit{pack.amount > 1 ? 's' : ''}</Text>
+              <View style={styles.creditPackPriceRow}>
+                <Text style={styles.creditPackPrice}>{pack.price}€</Text>
+                {pack.discount && (
+                  <View style={styles.creditPackDiscount}>
+                    <Text style={styles.creditPackDiscountText}>-{pack.discount}%</Text>
+                  </View>
+                )}
+              </View>
+              <TouchableOpacity style={styles.creditPackButton}>
+                <LinearGradient
+                  colors={['#ff6b47', '#ff8a6d']}
+                  style={styles.creditPackButtonGradient}
+                >
+                  <Text style={styles.creditPackButtonText}>Acheter</Text>
+                </LinearGradient>
+              </TouchableOpacity>
+            </TouchableOpacity>
+          ))}
+        </View>
+
         {/* Info */}
         <View style={styles.infoBox}>
           <Ionicons name="information-circle" size={20} color="#0ea5e9" />
@@ -263,7 +319,14 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: '700',
     color: '#f1f5f9',
-    marginBottom: 16,
+    marginBottom: 8,
+    marginTop: 20,
+  },
+  sectionSubtitle: {
+    fontSize: 14,
+    color: '#94a3b8',
+    marginBottom: 20,
+    lineHeight: 20,
   },
   planCard: {
     marginBottom: 20,
@@ -361,6 +424,7 @@ const styles = StyleSheet.create({
     padding: 16,
     borderWidth: 1,
     borderColor: 'rgba(14, 165, 233, 0.2)',
+    marginTop: 30,
   },
   infoText: {
     flex: 1,
@@ -368,6 +432,106 @@ const styles = StyleSheet.create({
     color: '#94a3b8',
     marginLeft: 12,
     lineHeight: 20,
+  },
+  // 🪸 Credit Packs
+  creditPacksGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    marginHorizontal: -6,
+    marginBottom: 10,
+  },
+  creditPackCard: {
+    width: '47%',
+    backgroundColor: 'rgba(255, 255, 255, 0.03)',
+    borderRadius: 16,
+    padding: 16,
+    marginHorizontal: '1.5%',
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+    alignItems: 'center',
+    position: 'relative',
+  },
+  creditPackCardPopular: {
+    borderColor: 'rgba(255, 107, 71, 0.4)',
+    borderWidth: 2,
+  },
+  creditPackBadge: {
+    position: 'absolute',
+    top: -8,
+    backgroundColor: '#ff6b47',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
+  },
+  creditPackBadgeText: {
+    fontSize: 9,
+    fontWeight: '700',
+    color: '#fff',
+    letterSpacing: 0.5,
+  },
+  creditPackIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(255, 107, 71, 0.2)',
+    borderWidth: 2,
+    borderColor: 'rgba(255, 107, 71, 0.4)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 12,
+  },
+  creditPackIconText: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#ff6b47',
+  },
+  creditPackAmount: {
+    fontSize: 32,
+    fontWeight: 'bold',
+    color: '#f1f5f9',
+    marginBottom: 2,
+  },
+  creditPackLabel: {
+    fontSize: 13,
+    color: '#94a3b8',
+    marginBottom: 12,
+  },
+  creditPackPriceRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  creditPackPrice: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#ff6b47',
+    marginRight: 8,
+  },
+  creditPackDiscount: {
+    backgroundColor: 'rgba(16, 185, 129, 0.2)',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 6,
+  },
+  creditPackDiscountText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#10b981',
+  },
+  creditPackButton: {
+    width: '100%',
+    borderRadius: 10,
+    overflow: 'hidden',
+  },
+  creditPackButtonGradient: {
+    paddingVertical: 10,
+    alignItems: 'center',
+  },
+  creditPackButtonText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#fff',
   },
 });
 
