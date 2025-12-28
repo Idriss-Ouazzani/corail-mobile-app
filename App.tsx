@@ -331,6 +331,19 @@ export default function App() {
         </LinearGradient>
       </TouchableOpacity>
 
+      {/* 🪸 Explication des crédits */}
+      <View style={styles.creditsExplainer}>
+        <Ionicons name="information-circle" size={18} color="#0ea5e9" />
+        <View style={{ flex: 1, marginLeft: 10 }}>
+          <Text style={styles.creditsExplainerTitle}>Comment ça marche ?</Text>
+          <Text style={styles.creditsExplainerText}>
+            <Text style={{ fontWeight: '700', color: '#10b981' }}>+1 crédit</Text> quand vous publiez une course • 
+            <Text style={{ fontWeight: '700', color: '#10b981' }}> +1 bonus</Text> si elle est prise et terminée • 
+            <Text style={{ fontWeight: '700', color: '#ff6b47' }}> -1 crédit</Text> pour prendre une course
+          </Text>
+        </View>
+      </View>
+
       {/* Stats Grid - Compact */}
       <View style={styles.statsContainerCompact}>
         {[
@@ -1319,6 +1332,27 @@ const styles = StyleSheet.create({
   },
   creditsAddButton: {
     marginLeft: 12,
+  },
+  creditsExplainer: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    backgroundColor: 'rgba(14, 165, 233, 0.08)',
+    borderRadius: 16,
+    padding: 14,
+    marginBottom: 30,
+    borderWidth: 1,
+    borderColor: 'rgba(14, 165, 233, 0.2)',
+  },
+  creditsExplainerTitle: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#f1f5f9',
+    marginBottom: 4,
+  },
+  creditsExplainerText: {
+    fontSize: 12,
+    color: '#94a3b8',
+    lineHeight: 18,
   },
 
   // Stats

@@ -196,6 +196,19 @@ export const SubscriptionScreen: React.FC<SubscriptionScreenProps> = ({ onBack }
           Besoin de plus de crédits ? Achetez-les à l'unité ou par pack.
         </Text>
         
+        {/* Comment gagner des crédits */}
+        <View style={styles.creditsInfoBox}>
+          <Ionicons name="bulb" size={20} color="#fbbf24" />
+          <View style={{ flex: 1, marginLeft: 12 }}>
+            <Text style={styles.creditsInfoTitle}>💡 Gagnez des crédits gratuitement !</Text>
+            <Text style={styles.creditsInfoText}>
+              • <Text style={{ fontWeight: '700' }}>+1 crédit</Text> à chaque course que vous publiez{'\n'}
+              • <Text style={{ fontWeight: '700' }}>+1 crédit bonus</Text> quand votre course est prise et terminée{'\n'}
+              • <Text style={{ fontWeight: '700' }}>5 ou 10 crédits/mois</Text> avec un abonnement
+            </Text>
+          </View>
+        </View>
+        
         <View style={styles.creditPacksGrid}>
           {CREDIT_PACKS.map((pack) => (
             <TouchableOpacity
@@ -466,6 +479,26 @@ const styles = StyleSheet.create({
     color: '#94a3b8',
     marginLeft: 12,
     lineHeight: 20,
+  },
+  creditsInfoBox: {
+    flexDirection: 'row',
+    backgroundColor: 'rgba(251, 191, 36, 0.1)',
+    borderRadius: 16,
+    padding: 16,
+    marginBottom: 20,
+    borderWidth: 1,
+    borderColor: 'rgba(251, 191, 36, 0.2)',
+  },
+  creditsInfoTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#f1f5f9',
+    marginBottom: 8,
+  },
+  creditsInfoText: {
+    fontSize: 13,
+    color: '#94a3b8',
+    lineHeight: 22,
   },
   // 🪸 Credit Packs
   creditPacksGrid: {

@@ -425,6 +425,20 @@ export const CreateRideScreen: React.FC<CreateRideScreenProps> = ({ onBack, onCr
 
       {/* Create Button */}
       <View style={styles.actionContainer}>
+        {/* Credits Reward Banner */}
+        <View style={styles.creditsRewardBanner}>
+          <View style={styles.creditsRewardIcon}>
+            <Text style={styles.creditsRewardIconText}>C</Text>
+          </View>
+          <View style={{ flex: 1, marginLeft: 12 }}>
+            <Text style={styles.creditsRewardTitle}>🎉 Gagnez des crédits !</Text>
+            <Text style={styles.creditsRewardText}>
+              <Text style={{ fontWeight: '700', color: '#10b981' }}>+1 crédit</Text> immédiatement • 
+              <Text style={{ fontWeight: '700', color: '#10b981' }}> +1 bonus</Text> si votre course est prise et terminée
+            </Text>
+          </View>
+        </View>
+        
         <TouchableOpacity
           style={styles.actionButton}
           onPress={handleCreate}
@@ -435,7 +449,7 @@ export const CreateRideScreen: React.FC<CreateRideScreenProps> = ({ onBack, onCr
             style={styles.actionButtonGradient}
           >
             <Ionicons name="checkmark-circle" size={24} color="#fff" />
-            <Text style={styles.actionButtonText}>Créer la course</Text>
+            <Text style={styles.actionButtonText}>Créer la course (+1 🪸)</Text>
           </LinearGradient>
         </TouchableOpacity>
       </View>
@@ -678,6 +692,40 @@ const styles = StyleSheet.create({
     backgroundColor: '#0f172a',
     borderTopWidth: 1,
     borderTopColor: 'rgba(255, 255, 255, 0.1)',
+  },
+  creditsRewardBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(16, 185, 129, 0.08)',
+    borderRadius: 14,
+    padding: 12,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(16, 185, 129, 0.2)',
+  },
+  creditsRewardIcon: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: 'rgba(16, 185, 129, 0.2)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  creditsRewardIconText: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#10b981',
+  },
+  creditsRewardTitle: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#f1f5f9',
+    marginBottom: 4,
+  },
+  creditsRewardText: {
+    fontSize: 12,
+    color: '#94a3b8',
+    lineHeight: 18,
   },
   actionButton: {
     borderRadius: 18,

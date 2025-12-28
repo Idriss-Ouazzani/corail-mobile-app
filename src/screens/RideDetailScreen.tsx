@@ -353,6 +353,17 @@ export const RideDetailScreen: React.FC<RideDetailScreenProps> = ({
       {/* Action Buttons */}
       {!isMyRide && ride.status === 'PUBLISHED' && onClaim && (
         <View style={styles.actionContainer}>
+          <View style={styles.creditsCostBanner}>
+            <View style={styles.creditsCostIcon}>
+              <Text style={styles.creditsCostIconText}>C</Text>
+            </View>
+            <Text style={styles.creditsCostText}>
+              Prendre cette course coûte <Text style={{ fontWeight: '700', color: '#ff6b47' }}>1 crédit Corail</Text>
+            </Text>
+            <Text style={styles.creditsCostBalance}>
+              Vous avez {userCredits} crédit{userCredits !== 1 ? 's' : ''}
+            </Text>
+          </View>
           <TouchableOpacity
             style={styles.actionButton}
             onPress={onClaim}
@@ -363,7 +374,7 @@ export const RideDetailScreen: React.FC<RideDetailScreenProps> = ({
               style={styles.actionButtonGradient}
             >
               <Ionicons name="car" size={24} color="#fff" />
-              <Text style={styles.actionButtonText}>Prendre cette course</Text>
+              <Text style={styles.actionButtonText}>Prendre cette course (-1 🪸)</Text>
             </LinearGradient>
           </TouchableOpacity>
         </View>
@@ -724,6 +735,40 @@ const styles = StyleSheet.create({
     backgroundColor: '#0f172a',
     borderTopWidth: 1,
     borderTopColor: 'rgba(255, 255, 255, 0.1)',
+  },
+  creditsCostBanner: {
+    backgroundColor: 'rgba(255, 107, 71, 0.08)',
+    borderRadius: 14,
+    padding: 12,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 107, 71, 0.2)',
+    alignItems: 'center',
+  },
+  creditsCostIcon: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: 'rgba(255, 107, 71, 0.2)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  creditsCostIconText: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#ff6b47',
+  },
+  creditsCostText: {
+    fontSize: 13,
+    color: '#94a3b8',
+    textAlign: 'center',
+    marginBottom: 4,
+  },
+  creditsCostBalance: {
+    fontSize: 12,
+    color: '#64748b',
+    fontWeight: '600',
   },
   actionButton: {
     borderRadius: 18,

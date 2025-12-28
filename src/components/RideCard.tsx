@@ -161,11 +161,6 @@ export const RideCard: React.FC<RideCardProps> = ({ ride, onPress, currentUserId
               <Text style={styles.tagText}>Groupe</Text>
             </View>
           )}
-          {!ride.commission_enabled && (
-            <View style={[styles.tag, { backgroundColor: '#10b981' }]}>
-              <Text style={styles.tagText}>Sans commission</Text>
-            </View>
-          )}
         </View>
       </LinearGradient>
     </TouchableOpacity>
