@@ -3,7 +3,6 @@ Firebase Authentication Middleware
 """
 import os
 import json
-import base64
 from fastapi import Header, HTTPException, Depends
 from firebase_admin import credentials, auth, initialize_app
 from pathlib import Path
@@ -14,48 +13,20 @@ from .config import FIREBASE_CREDENTIALS_PATH
 # Initialiser Firebase Admin SDK
 _firebase_initialized = False
 
-def get_databricks_secret_via_sdk(scope: str, key: str) -> Optional[str]:
+def get_firebase_credentials_from_env() -> Optional[str]:
     """
-    Lit un secret Databricks via le SDK
-    Utilise l'authentification automatique dans Databricks Apps
+    Lit les credentials Firebase depuis la variable d'environnement
+    (Utilisé sur Render.com)
     """
     try:
-        from databricks.sdk import WorkspaceClient
-        
-        # Dans Databricks Apps, l'authentification est automatique
-        w = WorkspaceClient()
-        
-        print(f"🔍 Tentative de lecture du secret: {scope}/{key}")
-        
-        # Utiliser l'API Secrets
-        secret_response = w.secrets.get_secret(scope=scope, key=key)
-        
-        # Le secret est dans l'attribut 'value'
-        if hasattr(secret_response, 'value') and secret_response.value:
-            secret_encoded = secret_response.value
-            print(f"✅ Secret lu avec succès via SDK, longueur encodée: {len(secret_encoded)}")
-            
-            # Les secrets Databricks sont encodés en Base64
-            try:
-                secret_decoded = base64.b64decode(secret_encoded).decode('utf-8')
-                print(f"✅ Secret décodé, longueur: {len(secret_decoded)}")
-                return secret_decoded
-            except Exception as e:
-                print(f"⚠️ Erreur décodage Base64, tentative sans décodage: {e}")
-                # Si le décodage échoue, retourner tel quel
-                return secret_encoded
-        
-        print(f"⚠️ Secret vide ou inaccessible: {scope}/{key}")
-        print(f"   Response: {secret_response}")
-        return None
-        
-    except ImportError as e:
-        print(f"⚠️ databricks-sdk non disponible: {e}")
+        firebase_secret = os.getenv("FIREBASE_SECRET")
+        if firebase_secret:
+            print(f"✅ FIREBASE_SECRET trouvé dans env vars, longueur: {len(firebase_secret)}")
+            return firebase_secret
+        print("⚠️ Variable FIREBASE_SECRET non trouvée")
         return None
     except Exception as e:
-        print(f"⚠️ Erreur lecture secret {scope}/{key}: {type(e).__name__}: {e}")
-        import traceback
-        traceback.print_exc()
+        print(f"⚠️ Erreur lecture FIREBASE_SECRET: {e}")
         return None
 
 def init_firebase():
@@ -68,9 +39,9 @@ def init_firebase():
     print("🔥 Initialisation Firebase...")
     
     try:
-        # Priorité 1 : Lire depuis Databricks Secret (App resources)
-        print("📍 Tentative 1: Lecture depuis Databricks Secrets API")
-        firebase_secret_json = get_databricks_secret_via_sdk("corail-backend", "secret-firebase")
+        # Priorité 1 : Variable d'environnement FIREBASE_SECRET (Render.com)
+        print("📍 Tentative 1: Lecture depuis variable d'environnement FIREBASE_SECRET")
+        firebase_secret_json = get_firebase_credentials_from_env()
         
         if firebase_secret_json:
             try:
@@ -78,27 +49,26 @@ def init_firebase():
                 cred = credentials.Certificate(cred_dict)
                 initialize_app(cred)
                 _firebase_initialized = True
-                print("✅ Firebase initialisé avec Databricks Secret (sécurisé)")
+                print("✅ Firebase initialisé avec FIREBASE_SECRET (Render)")
                 return
             except json.JSONDecodeError as e:
                 print(f"❌ Erreur parsing JSON du secret: {e}")
                 print(f"   Contenu (premiers 100 chars): {firebase_secret_json[:100]}")
         
-        # Priorité 2 : Fichier local (dev uniquement)
-        print("📍 Tentative 2: Fichier local")
+        # Priorité 2 : Fichier secret (Render Secret Files ou local)
+        print("📍 Tentative 2: Fichier credentials")
         if os.path.exists(FIREBASE_CREDENTIALS_PATH):
             cred = credentials.Certificate(FIREBASE_CREDENTIALS_PATH)
             initialize_app(cred)
             _firebase_initialized = True
-            print(f"✅ Firebase initialisé avec fichier local: {FIREBASE_CREDENTIALS_PATH}")
+            print(f"✅ Firebase initialisé avec fichier: {FIREBASE_CREDENTIALS_PATH}")
             return
         
         # Aucune credential trouvée
         print("⚠️ Firebase credentials non trouvées")
-        print("   - Secret Databricks non accessible")
-        print(f"   - Pas de fichier local: {FIREBASE_CREDENTIALS_PATH}")
+        print(f"   - Variable FIREBASE_SECRET: Non trouvée")
+        print(f"   - Fichier {FIREBASE_CREDENTIALS_PATH}: Non trouvé")
         print("   ⚠️ L'app fonctionnera en mode dev sans auth")
-        print("   ⚠️ Tous les endpoints seront accessibles sans authentification")
         
     except Exception as e:
         print(f"❌ Erreur Firebase init: {e}")
