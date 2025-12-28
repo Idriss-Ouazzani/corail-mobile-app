@@ -94,6 +94,31 @@ class Ride(BaseModel):
     picker: Optional[User] = None
 
 
+class Badge(BaseModel):
+    id: str
+    name: str
+    description: Optional[str]
+    icon: str
+    color: str
+    rarity: str  # COMMON, RARE, EPIC, LEGENDARY
+    category: str  # ACTIVITY, ACHIEVEMENT, MILESTONE, SPECIAL
+    requirement_description: Optional[str]
+
+
+class UserBadge(BaseModel):
+    id: str
+    user_id: str
+    badge_id: str
+    earned_at: str
+    progress: Optional[int] = None
+    badge_name: Optional[str] = None
+    badge_description: Optional[str] = None
+    badge_icon: Optional[str] = None
+    badge_color: Optional[str] = None
+    badge_rarity: Optional[str] = None
+    badge_category: Optional[str] = None
+
+
 class CreateRideRequest(BaseModel):
     pickup_address: str
     dropoff_address: str
@@ -310,6 +335,9 @@ async def create_ride(
         
         print(f"✅ +1 crédit Corail pour {user_id} (publication de course)")
         
+        # 🏆 Vérifier et attribuer des badges automatiquement
+        check_and_award_badges(user_id)
+        
         return {
             "success": True,
             "ride_id": ride_id,
@@ -515,6 +543,10 @@ async def complete_ride(
         db.execute_non_query(credit_query, {"creator_id": ride["creator_id"]})
         
         print(f"✅ +1 crédit Corail bonus pour {ride['creator_id']} (course terminée)")
+        
+        # 🏆 Vérifier et attribuer des badges automatiquement (pour créateur ET picker)
+        check_and_award_badges(ride["creator_id"])
+        check_and_award_badges(user_id)  # picker
         
         return {
             "success": True,
@@ -800,6 +832,213 @@ async def get_group_details(
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
+
+
+# ============================================================================
+# 🏆 BADGES ENDPOINTS
+# ============================================================================
+
+@app.get("/api/v1/badges", response_model=List[Badge])
+async def get_all_badges():
+    """Récupérer tous les badges disponibles"""
+    try:
+        query = """
+        SELECT 
+            id, name, description, icon, color, rarity, category, requirement_description
+        FROM badges
+        ORDER BY 
+            CASE rarity
+                WHEN 'LEGENDARY' THEN 1
+                WHEN 'EPIC' THEN 2
+                WHEN 'RARE' THEN 3
+                WHEN 'COMMON' THEN 4
+            END,
+            name
+        """
+        badges_data = db.execute_query(query)
+        return badges_data
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
+
+
+@app.get("/api/v1/users/{user_id}/badges", response_model=List[UserBadge])
+async def get_user_badges(user_id: str, current_user: CurrentUser):
+    """Récupérer les badges d'un utilisateur"""
+    if user_id != current_user.uid:
+        raise HTTPException(status_code=403, detail="Not authorized to view other user's badges")
+    
+    try:
+        query = """
+        SELECT 
+            ub.id,
+            ub.user_id,
+            ub.badge_id,
+            ub.earned_at,
+            ub.progress,
+            b.name AS badge_name,
+            b.description AS badge_description,
+            b.icon AS badge_icon,
+            b.color AS badge_color,
+            b.rarity AS badge_rarity,
+            b.category AS badge_category
+        FROM user_badges ub
+        LEFT JOIN badges b ON ub.badge_id = b.id
+        WHERE ub.user_id = :user_id
+        ORDER BY ub.earned_at DESC
+        """
+        badges_data = db.execute_query(query, {"user_id": user_id})
+        return badges_data
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
+
+
+@app.post("/api/v1/users/{user_id}/badges/{badge_id}")
+async def award_badge(user_id: str, badge_id: str, current_user: CurrentUser):
+    """Attribuer un badge à un utilisateur (attribution automatique)"""
+    if user_id != current_user.uid:
+        raise HTTPException(status_code=403, detail="Not authorized")
+    
+    try:
+        # Vérifier si le badge existe
+        badge_query = "SELECT id FROM badges WHERE id = :badge_id"
+        badge_exists = db.execute_query(badge_query, {"badge_id": badge_id})
+        
+        if not badge_exists:
+            raise HTTPException(status_code=404, detail="Badge not found")
+        
+        # Vérifier si l'utilisateur a déjà ce badge
+        check_query = """
+        SELECT id FROM user_badges 
+        WHERE user_id = :user_id AND badge_id = :badge_id
+        """
+        already_has = db.execute_query(check_query, {"user_id": user_id, "badge_id": badge_id})
+        
+        if already_has:
+            return {"message": "User already has this badge", "badge_id": badge_id}
+        
+        # Attribuer le badge
+        import uuid
+        badge_award_id = f"ub-{uuid.uuid4()}"
+        
+        insert_query = """
+        INSERT INTO user_badges (id, user_id, badge_id, earned_at)
+        VALUES (:id, :user_id, :badge_id, CURRENT_TIMESTAMP())
+        """
+        db.execute_query(insert_query, {
+            "id": badge_award_id,
+            "user_id": user_id,
+            "badge_id": badge_id
+        })
+        
+        # Récupérer les détails du badge pour le retour
+        badge_details_query = """
+        SELECT 
+            ub.id,
+            ub.user_id,
+            ub.badge_id,
+            ub.earned_at,
+            ub.progress,
+            b.name AS badge_name,
+            b.description AS badge_description,
+            b.icon AS badge_icon,
+            b.color AS badge_color,
+            b.rarity AS badge_rarity,
+            b.category AS badge_category
+        FROM user_badges ub
+        LEFT JOIN badges b ON ub.badge_id = b.id
+        WHERE ub.id = :id
+        """
+        badge_details = db.execute_query(badge_details_query, {"id": badge_award_id})
+        
+        if badge_details:
+            return {
+                "message": "Badge awarded successfully!",
+                "badge": badge_details[0]
+            }
+        
+        return {"message": "Badge awarded", "badge_id": badge_id}
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
+
+
+def check_and_award_badges(user_id: str):
+    """
+    Fonction helper pour vérifier et attribuer automatiquement des badges
+    basés sur les actions de l'utilisateur
+    """
+    try:
+        # Récupérer les stats de l'utilisateur
+        stats_query = """
+        SELECT 
+            COUNT(CASE WHEN creator_id = :user_id THEN 1 END) as total_published,
+            COUNT(CASE WHEN picker_id = :user_id AND status = 'COMPLETED' THEN 1 END) as total_completed,
+            COALESCE(u.credits, 0) as total_credits
+        FROM rides
+        LEFT JOIN users u ON u.id = :user_id
+        WHERE creator_id = :user_id OR picker_id = :user_id
+        """
+        stats = db.execute_query(stats_query, {"user_id": user_id})
+        
+        if not stats:
+            return
+        
+        stat = stats[0]
+        total_published = stat.get("total_published", 0)
+        total_completed = stat.get("total_completed", 0)
+        total_credits = stat.get("total_credits", 0)
+        
+        # Badges à attribuer basés sur les conditions
+        badges_to_award = []
+        
+        # Activity badges
+        if total_published >= 1:
+            badges_to_award.append("badge-first-ride")
+        if total_published >= 5:
+            badges_to_award.append("badge-5-rides")
+        if total_published >= 25:
+            badges_to_award.append("badge-serial-publisher")
+        if total_published >= 100:
+            badges_to_award.append("badge-100-rides")
+        
+        # Milestone badges
+        if total_completed >= 100:
+            badges_to_award.append("badge-100-completed")
+        if total_credits >= 1000:
+            badges_to_award.append("badge-1000-credits")
+        
+        # Attribuer les badges qui ne sont pas déjà possédés
+        for badge_id in badges_to_award:
+            try:
+                # Vérifier si déjà possédé
+                check_query = """
+                SELECT id FROM user_badges 
+                WHERE user_id = :user_id AND badge_id = :badge_id
+                """
+                already_has = db.execute_query(check_query, {"user_id": user_id, "badge_id": badge_id})
+                
+                if not already_has:
+                    # Attribuer
+                    import uuid
+                    badge_award_id = f"ub-{uuid.uuid4()}"
+                    insert_query = """
+                    INSERT INTO user_badges (id, user_id, badge_id, earned_at)
+                    VALUES (:id, :user_id, :badge_id, CURRENT_TIMESTAMP())
+                    """
+                    db.execute_query(insert_query, {
+                        "id": badge_award_id,
+                        "user_id": user_id,
+                        "badge_id": badge_id
+                    })
+                    print(f"✅ Badge '{badge_id}' awarded to user {user_id}")
+            except Exception as e:
+                print(f"⚠️ Error awarding badge {badge_id}: {str(e)}")
+                continue
+    
+    except Exception as e:
+        print(f"⚠️ Error checking badges for user {user_id}: {str(e)}")
 
 
 # ============================================================================

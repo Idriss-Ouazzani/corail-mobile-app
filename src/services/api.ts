@@ -180,12 +180,36 @@ class ApiClient {
     const response = await this.client.get('/credits');
     return response.data;
   }
+
+  // ============================================================================
+  // 🏆 BADGES
+  // ============================================================================
+
+  /**
+   * Récupérer tous les badges disponibles
+   */
+  async getAllBadges() {
+    const { data } = await this.client.get('/badges');
+    return data;
+  }
+
+  /**
+   * Récupérer les badges d'un utilisateur
+   */
+  async getUserBadges(userId: string) {
+    const { data } = await this.client.get(`/users/${userId}/badges`);
+    return data;
+  }
+
+  /**
+   * Attribuer un badge à un utilisateur (manuel, pour tests)
+   */
+  async awardBadge(userId: string, badgeId: string) {
+    const { data } = await this.client.post(`/users/${userId}/badges/${badgeId}`);
+    return data;
+  }
 }
 
-// Export singleton instance
-// Backend URL - Databricks Apps
-// Force Production URL pour utiliser le backend Databricks
-// Backend déployé sur Render.com
 const API_BASE_URL = 'https://corail-backend-6e5o.onrender.com/api/v1';
 
 // Pour dev local, utiliser :

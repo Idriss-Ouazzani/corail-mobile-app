@@ -29,6 +29,7 @@ import GroupDetailScreen from './src/screens/GroupDetailScreen';
 import PersonalInfoScreen from './src/screens/PersonalInfoScreen';
 import NotificationsScreen from './src/screens/NotificationsScreen';
 import HelpSupportScreen from './src/screens/HelpSupportScreen';
+import BadgesScreen from './src/screens/BadgesScreen';
 import LoginScreen from './src/screens/LoginScreen';
 import { firebaseAuth } from './src/services/firebase';
 import { apiClient } from './src/services/api';
@@ -195,6 +196,7 @@ export default function App() {
   const [showPersonalInfo, setShowPersonalInfo] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
   const [showHelpSupport, setShowHelpSupport] = useState(false);
+  const [showBadges, setShowBadges] = useState(false);
   const [showFilters, setShowFilters] = useState(false);
   const [filters, setFilters] = useState<FilterOptions>({
     vehicleTypes: [],
@@ -207,45 +209,8 @@ export default function App() {
   const [loadingRides, setLoadingRides] = useState(false);
   const [userCredits, setUserCredits] = useState<number>(0);
 
-  // 🏆 Badges de l'utilisateur (mock data - à remplacer par API)
-  const userBadges = [
-    {
-      id: 'badge-early-adopter',
-      name: 'Early Adopter',
-      description: 'Parmi les premiers utilisateurs de Corail',
-      icon: 'rocket',
-      color: '#fbbf24',
-      rarity: 'LEGENDARY' as const,
-      earned_at: '2025-01-15T10:00:00Z',
-    },
-    {
-      id: 'badge-serial-publisher',
-      name: 'Serial Publisher',
-      description: 'Publié plus de 25 courses',
-      icon: 'newspaper',
-      color: '#10b981',
-      rarity: 'RARE' as const,
-      earned_at: '2025-01-20T14:30:00Z',
-    },
-    {
-      id: 'badge-first-ride',
-      name: 'Première course',
-      description: 'Publié votre première course',
-      icon: 'car-sport',
-      color: '#0ea5e9',
-      rarity: 'COMMON' as const,
-      earned_at: '2025-01-10T09:00:00Z',
-    },
-    {
-      id: 'badge-5-rides',
-      name: '5 courses',
-      description: 'Publié 5 courses',
-      icon: 'car-sport',
-      color: '#0ea5e9',
-      rarity: 'COMMON' as const,
-      earned_at: '2025-01-12T16:00:00Z',
-    },
-  ];
+  // 🏆 Badges de l'utilisateur (chargés depuis l'API)
+  const [userBadges, setUserBadges] = useState<any[]>([]);
 
   // 📥 Charger les rides depuis l'API
   const loadRides = async () => {
@@ -300,11 +265,34 @@ export default function App() {
     }
   };
 
-  // 🔄 Charger les rides et crédits au montage et après authentification
+  const loadBadges = async () => {
+    try {
+      if (!currentUserId) return;
+      const badges = await apiClient.getUserBadges(currentUserId);
+      // Mapper les données pour le format BadgeCard
+      const formattedBadges = badges.map((b: any) => ({
+        id: b.badge_id,
+        name: b.badge_name,
+        description: b.badge_description,
+        icon: b.badge_icon,
+        color: b.badge_color,
+        rarity: b.badge_rarity,
+        earned_at: b.earned_at,
+      }));
+      setUserBadges(formattedBadges.slice(0, 4)); // Afficher max 4 badges dans le profil
+      console.log('🏆 Badges chargés:', formattedBadges.length);
+    } catch (error: any) {
+      console.error('❌ Erreur chargement badges:', error);
+      setUserBadges([]);
+    }
+  };
+
+  // 🔄 Charger les rides, crédits et badges au montage et après authentification
   useEffect(() => {
     if (user) {
       loadRides();
       loadCredits();
+      loadBadges();
     }
   }, [user]);
 
@@ -920,7 +908,7 @@ export default function App() {
           <Text style={styles.sectionTitle}>
             <Ionicons name="trophy" size={20} color="#fbbf24" /> Badges ({userBadges.length})
           </Text>
-          <TouchableOpacity activeOpacity={0.7}>
+          <TouchableOpacity activeOpacity={0.7} onPress={() => setShowBadges(true)}>
             <Text style={styles.seeAllText}>Tout voir</Text>
           </TouchableOpacity>
         </View>
@@ -1074,6 +1062,10 @@ export default function App() {
   // If showing help & support screen
   if (showHelpSupport) {
     return <HelpSupportScreen onBack={() => setShowHelpSupport(false)} />;
+  }
+
+  if (showBadges) {
+    return <BadgesScreen onBack={() => setShowBadges(false)} currentUserId={currentUserId} />;
   }
 
   // If showing group detail screen
