@@ -215,10 +215,12 @@ export const BadgesScreen: React.FC<BadgesScreenProps> = ({ onBack, currentUserI
               <View style={styles.badgesGrid}>
                 {badges.map((badge) => (
                   <View key={badge.id} style={styles.badgeItem}>
-                    <BadgeCard badge={badge} size="medium" />
+                    <View style={styles.badgeCardWrapper}>
+                      <BadgeCard badge={badge} size="small" />
+                    </View>
                     {!badge.earned_at && (
                       <View style={styles.lockedOverlay}>
-                        <Ionicons name="lock-closed" size={24} color="#94a3b8" />
+                        <Ionicons name="lock-closed" size={20} color="#94a3b8" />
                       </View>
                     )}
                     {badge.requirement_description && !badge.earned_at && (
@@ -391,30 +393,36 @@ const styles = StyleSheet.create({
   badgesGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
+    justifyContent: 'space-between',
   },
   badgeItem: {
-    marginRight: 12,
-    marginBottom: 12,
+    width: '31%',
+    marginBottom: 16,
     position: 'relative',
+    alignItems: 'center',
+  },
+  badgeCardWrapper: {
+    marginRight: 0,
   },
   lockedOverlay: {
     position: 'absolute',
     top: 0,
     left: 0,
-    right: 12,
-    bottom: 0,
+    right: 0,
+    bottom: 24,
     backgroundColor: 'rgba(15, 23, 42, 0.8)',
     borderRadius: 20,
     justifyContent: 'center',
     alignItems: 'center',
   },
   badgeRequirement: {
-    fontSize: 10,
+    fontSize: 9,
     color: '#64748b',
-    marginTop: 4,
-    width: 100,
+    marginTop: 6,
+    width: '100%',
     textAlign: 'center',
-    lineHeight: 14,
+    lineHeight: 12,
+    paddingHorizontal: 2,
   },
   emptyState: {
     alignItems: 'center',
