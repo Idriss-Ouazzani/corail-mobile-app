@@ -315,6 +315,42 @@ async def get_my_rides(
         raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
 
 
+@app.delete("/api/v1/rides/{ride_id}")
+async def delete_ride(
+    ride_id: str,
+    user_id: str = CurrentUser
+):
+    """
+    Supprimer une course
+    
+    Seulement le créateur peut supprimer sa propre course
+    """
+    try:
+        # Vérifier que la course existe et appartient à l'utilisateur
+        check_query = "SELECT creator_id, status FROM rides WHERE id = :ride_id"
+        results = db.execute_query(check_query, {"ride_id": ride_id})
+        
+        if not results:
+            raise HTTPException(status_code=404, detail="Course non trouvée")
+        
+        if results[0]["creator_id"] != user_id:
+            raise HTTPException(status_code=403, detail="Vous ne pouvez supprimer que vos propres courses")
+        
+        # Supprimer la course
+        delete_query = "DELETE FROM rides WHERE id = :ride_id"
+        db.execute_non_query(delete_query, {"ride_id": ride_id})
+        
+        return {
+            "success": True,
+            "message": "Course supprimée avec succès"
+        }
+    
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error deleting ride: {str(e)}")
+
+
 # ============================================================================
 # DEV / DEBUG ROUTES
 # ============================================================================

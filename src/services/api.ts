@@ -149,6 +149,11 @@ class ApiClient {
     return response.data;
   }
 
+  async deleteRide(rideId: string): Promise<{ success: boolean; message: string }> {
+    const response = await this.client.delete(`/rides/${rideId}`);
+    return response.data;
+  }
+
   // Groups
   async listMyGroups(): Promise<{ data: Group[] }> {
     const response = await this.client.get('/groups/my-groups');

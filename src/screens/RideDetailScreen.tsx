@@ -18,6 +18,7 @@ interface RideDetailScreenProps {
   currentUserId: string;
   onBack: () => void;
   onClaim?: () => void;
+  onDelete?: () => void;
 }
 
 export const RideDetailScreen: React.FC<RideDetailScreenProps> = ({
@@ -25,8 +26,24 @@ export const RideDetailScreen: React.FC<RideDetailScreenProps> = ({
   currentUserId,
   onBack,
   onClaim,
+  onDelete,
 }) => {
   const isMyRide = ride.creator_id === currentUserId;
+  
+  const handleDelete = () => {
+    Alert.alert(
+      'Supprimer la course',
+      'Êtes-vous sûr de vouloir supprimer cette course ?',
+      [
+        { text: 'Annuler', style: 'cancel' },
+        {
+          text: 'Supprimer',
+          style: 'destructive',
+          onPress: () => onDelete?.(),
+        },
+      ]
+    );
+  };
   const formatPrice = (cents: number) => `${(cents / 100).toFixed(2)}€`;
   
   const formatDate = (dateString: string) => {
@@ -331,7 +348,7 @@ export const RideDetailScreen: React.FC<RideDetailScreenProps> = ({
         <View style={{ height: 100 }} />
       </ScrollView>
 
-      {/* Action Button */}
+      {/* Action Buttons */}
       {!isMyRide && ride.status === 'PUBLISHED' && onClaim && (
         <View style={styles.actionContainer}>
           <TouchableOpacity
@@ -345,6 +362,25 @@ export const RideDetailScreen: React.FC<RideDetailScreenProps> = ({
             >
               <Ionicons name="car" size={24} color="#fff" />
               <Text style={styles.actionButtonText}>Prendre cette course</Text>
+            </LinearGradient>
+          </TouchableOpacity>
+        </View>
+      )}
+
+      {/* Delete Button - Only for creator */}
+      {isMyRide && ride.status === 'PUBLISHED' && onDelete && (
+        <View style={styles.actionContainer}>
+          <TouchableOpacity
+            style={styles.deleteButton}
+            onPress={handleDelete}
+            activeOpacity={0.8}
+          >
+            <LinearGradient
+              colors={['#ef4444', '#dc2626']}
+              style={styles.actionButtonGradient}
+            >
+              <Ionicons name="trash" size={24} color="#fff" />
+              <Text style={styles.actionButtonText}>Supprimer cette course</Text>
             </LinearGradient>
           </TouchableOpacity>
         </View>
@@ -691,6 +727,15 @@ const styles = StyleSheet.create({
     borderRadius: 18,
     overflow: 'hidden',
     shadowColor: '#ff6b47',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.4,
+    shadowRadius: 12,
+    elevation: 8,
+  },
+  deleteButton: {
+    borderRadius: 18,
+    overflow: 'hidden',
+    shadowColor: '#ef4444',
     shadowOffset: { width: 0, height: 6 },
     shadowOpacity: 0.4,
     shadowRadius: 12,

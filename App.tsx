@@ -957,6 +957,20 @@ export default function App() {
           Alert.alert('Succès', 'Course réclamée !');
           setSelectedRide(null);
         }}
+        onDelete={async () => {
+          try {
+            console.log('🗑️ Suppression de la course:', selectedRide.id);
+            await apiClient.deleteRide(selectedRide.id);
+            console.log('✅ Course supprimée avec succès');
+            Alert.alert('Succès', 'Course supprimée avec succès !');
+            setSelectedRide(null);
+            // Recharger les courses
+            loadRides();
+          } catch (error: any) {
+            console.error('❌ Erreur suppression course:', error);
+            Alert.alert('Erreur', error.message || 'Impossible de supprimer la course');
+          }
+        }}
       />
     );
   }
