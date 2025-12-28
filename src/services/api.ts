@@ -27,6 +27,9 @@ class ApiClient {
         const token = await firebaseAuth.getIdToken();
         if (token) {
           config.headers.Authorization = `Bearer ${token}`;
+          console.log(`[API] 🔐 Token Firebase récupéré, longueur: ${token.length}`);
+        } else {
+          console.warn('[API] ⚠️ Pas de token Firebase disponible !');
         }
 
         // User ID pour tracking (optionnel)
@@ -35,6 +38,7 @@ class ApiClient {
         }
 
         console.log(`[API] ${config.method?.toUpperCase()} ${config.url}`);
+        console.log(`[API] Headers:`, JSON.stringify(config.headers, null, 2));
         return config;
       },
       (error) => Promise.reject(error)

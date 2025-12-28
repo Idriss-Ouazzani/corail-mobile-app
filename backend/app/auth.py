@@ -113,12 +113,17 @@ async def get_current_user(authorization: Optional[str] = Header(None)) -> str:
     
     En dev (sans Firebase configuré), retourne un user_id de test
     """
+    print(f"🔍 [AUTH] Firebase initialized: {_firebase_initialized}")
+    print(f"🔍 [AUTH] Authorization header: {authorization[:50] if authorization else 'None'}...")
+    
     # Mode dev sans Firebase
     if not _firebase_initialized:
+        print("⚠️ [AUTH] Mode dev - pas d'auth Firebase")
         return "dev-user-001"
     
     # Vérifier le header Authorization
     if not authorization:
+        print("❌ [AUTH] Header Authorization manquant")
         raise HTTPException(
             status_code=401,
             detail="Missing Authorization header"
@@ -126,29 +131,37 @@ async def get_current_user(authorization: Optional[str] = Header(None)) -> str:
     
     # Extraire le token
     if not authorization.startswith("Bearer "):
+        print(f"❌ [AUTH] Format invalide: {authorization[:50]}")
         raise HTTPException(
             status_code=401,
             detail="Invalid Authorization header format. Use: Bearer <token>"
         )
     
     token = authorization.replace("Bearer ", "")
+    print(f"🔍 [AUTH] Token reçu, longueur: {len(token)}")
     
     try:
         # Vérifier le token Firebase
         decoded_token = auth.verify_id_token(token)
         user_id = decoded_token['uid']
+        print(f"✅ [AUTH] Token valide, user_id: {user_id}")
         return user_id
     except auth.ExpiredIdTokenError:
+        print("❌ [AUTH] Token expiré")
         raise HTTPException(
             status_code=401,
             detail="Token expired"
         )
     except auth.RevokedIdTokenError:
+        print("❌ [AUTH] Token révoqué")
         raise HTTPException(
             status_code=401,
             detail="Token revoked"
         )
     except Exception as e:
+        print(f"❌ [AUTH] Erreur validation token: {type(e).__name__}: {str(e)}")
+        import traceback
+        traceback.print_exc()
         raise HTTPException(
             status_code=401,
             detail=f"Invalid token: {str(e)}"
