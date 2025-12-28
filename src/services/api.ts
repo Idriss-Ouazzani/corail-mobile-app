@@ -97,6 +97,9 @@ class ApiClient {
     scheduled_at: string;
     price_cents: number;
     visibility?: 'PUBLIC' | 'GROUP';
+    vehicle_type?: string;
+    distance_km?: number;
+    duration_minutes?: number;
     group_id?: string;
     commission_enabled?: boolean;
   }): Promise<Ride> {
@@ -144,9 +147,13 @@ class ApiClient {
 
 // Export singleton instance
 // Backend URL - Databricks Apps
-const API_BASE_URL = __DEV__ 
-  ? 'http://localhost:8000/api/v1'  // Local development
-  : 'https://corail-app-1444828305810485.aws.databricksapps.com/api/v1';   // Production (Databricks Apps)
+// Force Production URL pour utiliser le backend Databricks
+// Décommenter la ligne du dessous pour dev local
+// const API_BASE_URL = __DEV__ 
+//   ? 'http://localhost:8000/api/v1'
+//   : 'https://corail-app-317256275188044.aws.databricksapps.com/api/v1';
+
+const API_BASE_URL = 'https://corail-app-317256275188044.aws.databricksapps.com/api/v1';
 
 export const apiClient = new ApiClient(API_BASE_URL);
 export default apiClient;

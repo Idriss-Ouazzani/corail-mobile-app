@@ -857,9 +857,31 @@ export default function App() {
     return (
       <CreateRideScreen
         onBack={() => setShowCreateRide(false)}
-        onCreate={(ride) => {
-          console.log('New ride created:', ride);
-          setShowCreateRide(false);
+        onCreate={async (ride) => {
+          try {
+            console.log('📤 Envoi de la course au backend:', ride);
+            
+            // Appeler l'API pour créer la course
+            const response = await apiClient.createRide({
+              pickup_address: ride.pickup_address,
+              dropoff_address: ride.dropoff_address,
+              scheduled_at: ride.scheduled_at,
+              price_cents: ride.price_cents,
+              visibility: ride.visibility,
+              vehicle_type: ride.vehicle_type,
+              distance_km: ride.distance_km,
+              duration_minutes: ride.duration_minutes,
+              commission_enabled: ride.commission_enabled || true,
+              group_id: ride.group_ids && ride.group_ids.length > 0 ? ride.group_ids[0] : undefined,
+            });
+            
+            console.log('✅ Course créée avec succès:', response);
+            Alert.alert('Succès', 'Course créée avec succès !');
+            setShowCreateRide(false);
+          } catch (error: any) {
+            console.error('❌ Erreur création course:', error);
+            Alert.alert('Erreur', error.message || 'Impossible de créer la course');
+          }
         }}
       />
     );

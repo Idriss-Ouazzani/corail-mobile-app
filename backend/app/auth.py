@@ -70,7 +70,7 @@ def init_firebase():
     try:
         # Priorité 1 : Lire depuis Databricks Secret (App resources)
         print("📍 Tentative 1: Lecture depuis Databricks Secrets API")
-        firebase_secret_json = get_databricks_secret_via_sdk("corail-firebase-app", "secret-firebase")
+        firebase_secret_json = get_databricks_secret_via_sdk("corail-backend", "secret-firebase")
         
         if firebase_secret_json:
             try:
