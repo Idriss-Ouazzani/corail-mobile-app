@@ -13,6 +13,17 @@ from .config import FIREBASE_CREDENTIALS_PATH
 # Initialiser Firebase Admin SDK
 _firebase_initialized = False
 
+def get_databricks_secret(scope: str, key: str) -> Optional[str]:
+    """Récupère un secret depuis Databricks"""
+    try:
+        from databricks.sdk import WorkspaceClient
+        w = WorkspaceClient()
+        secret_value = w.secrets.get_secret(scope=scope, key=key)
+        return secret_value.value
+    except Exception as e:
+        print(f"⚠️ Impossible de lire le secret Databricks {scope}/{key}: {e}")
+        return None
+
 def init_firebase():
     """Initialise Firebase Admin SDK"""
     global _firebase_initialized
@@ -21,18 +32,30 @@ def init_firebase():
         return
     
     try:
-        # Priorité 1 : Secret Databricks (depuis variable d'environnement)
+        # Priorité 1 : Secret Databricks via API
+        try:
+            firebase_secret_json = get_databricks_secret("corail-firebase-app", "secret-firebase")
+            if firebase_secret_json:
+                cred_dict = json.loads(firebase_secret_json)
+                cred = credentials.Certificate(cred_dict)
+                initialize_app(cred)
+                _firebase_initialized = True
+                print("✅ Firebase initialisé avec Databricks Secret (API)")
+                return
+        except Exception as e:
+            print(f"⚠️ Erreur lecture secret Databricks: {e}")
+        
+        # Priorité 2 : Secret depuis variable d'environnement
         firebase_secret = os.getenv("FIREBASE_SECRET")
         if firebase_secret:
-            # Le secret contient le JSON complet
             cred_dict = json.loads(firebase_secret)
             cred = credentials.Certificate(cred_dict)
             initialize_app(cred)
             _firebase_initialized = True
-            print("✅ Firebase initialisé avec Databricks Secret")
+            print("✅ Firebase initialisé avec variable d'environnement")
             return
         
-        # Priorité 2 : Fichier local (dev uniquement)
+        # Priorité 3 : Fichier local (dev uniquement)
         if os.path.exists(FIREBASE_CREDENTIALS_PATH):
             cred = credentials.Certificate(FIREBASE_CREDENTIALS_PATH)
             initialize_app(cred)
@@ -42,6 +65,7 @@ def init_firebase():
         
         # Aucune credential trouvée
         print("⚠️ Firebase credentials non trouvées")
+        print("   - Pas de secret Databricks")
         print("   - Pas de variable FIREBASE_SECRET")
         print(f"   - Pas de fichier local: {FIREBASE_CREDENTIALS_PATH}")
         print("   L'app fonctionnera en mode dev sans auth")
