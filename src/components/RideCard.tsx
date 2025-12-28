@@ -44,6 +44,22 @@ export const RideCard: React.FC<RideCardProps> = ({ ride, onPress, currentUserId
     }
   };
 
+  // Obtenir le nom d'affichage du créateur
+  const getCreatorDisplayName = () => {
+    if (isMyRide) return 'Vous-même';
+    if (ride.creator?.full_name) return ride.creator.full_name;
+    // Afficher les 8 premiers caractères du creator_id si pas de nom
+    return `Utilisateur ${ride.creator_id.slice(0, 8)}...`;
+  };
+
+  const getCreatorInitials = () => {
+    if (ride.creator?.full_name) {
+      return ride.creator.full_name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
+    }
+    // Utiliser les 2 premiers caractères de l'ID Firebase
+    return ride.creator_id.slice(0, 2).toUpperCase();
+  };
+
   return (
     <TouchableOpacity
       onPress={onPress}
@@ -113,27 +129,25 @@ export const RideCard: React.FC<RideCardProps> = ({ ride, onPress, currentUserId
           </View>
         </View>
         
-        {/* Creator - Enhanced Highlight */}
-        {ride.creator && (
-          <View style={[styles.creatorSection, isMyRide && styles.creatorSectionMyRide]}>
-            <View style={[styles.creatorAvatar, isMyRide && styles.creatorAvatarMyRide]}>
-              <Text style={styles.creatorInitials}>
-                {ride.creator.full_name?.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)}
-              </Text>
-            </View>
-            <View style={styles.creatorInfo}>
-              <Text style={styles.creatorLabel}>Apporteur d'affaires</Text>
-              <Text style={[styles.creatorName, isMyRide && styles.creatorNameMyRide]}>
-                {isMyRide ? 'Vous-même' : ride.creator.full_name}
-              </Text>
-            </View>
-            {isMyRide && (
-              <View style={styles.myRideIndicator}>
-                <Ionicons name="star" size={16} color="#fbbf24" />
-              </View>
-            )}
+        {/* Creator - Always visible with elegant design */}
+        <View style={[styles.creatorSection, isMyRide && styles.creatorSectionMyRide]}>
+          <View style={[styles.creatorAvatar, isMyRide && styles.creatorAvatarMyRide]}>
+            <Text style={styles.creatorInitials}>
+              {getCreatorInitials()}
+            </Text>
           </View>
-        )}
+          <View style={styles.creatorInfo}>
+            <Text style={styles.creatorLabel}>Apporteur d'affaires</Text>
+            <Text style={[styles.creatorName, isMyRide && styles.creatorNameMyRide]}>
+              {getCreatorDisplayName()}
+            </Text>
+          </View>
+          {isMyRide && (
+            <View style={styles.myRideIndicator}>
+              <Ionicons name="star" size={16} color="#fbbf24" />
+            </View>
+          )}
+        </View>
 
         {/* Tags */}
         <View style={styles.tags}>
@@ -160,10 +174,10 @@ export const RideCard: React.FC<RideCardProps> = ({ ride, onPress, currentUserId
 
 const styles = StyleSheet.create({
   container: {
-    marginBottom: 16,
+    marginBottom: 12,
   },
   gradient: {
-    padding: 18,
+    padding: 14,
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.08)',
     borderRadius: 20,
@@ -200,7 +214,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 16,
+    marginBottom: 12,
   },
   priceContainer: {
     backgroundColor: 'rgba(255, 107, 71, 0.2)',
@@ -226,10 +240,10 @@ const styles = StyleSheet.create({
   // Route - Improved with continuous line
   route: {
     flexDirection: 'row',
-    marginBottom: 20,
+    marginBottom: 12,
     backgroundColor: 'rgba(30, 41, 59, 0.4)',
-    borderRadius: 16,
-    padding: 16,
+    borderRadius: 12,
+    padding: 12,
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.05)',
   },
@@ -298,9 +312,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: 'rgba(255, 255, 255, 0.02)',
-    borderRadius: 12,
-    padding: 12,
-    marginBottom: 12,
+    borderRadius: 10,
+    padding: 10,
+    marginBottom: 10,
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.05)',
   },

@@ -372,6 +372,14 @@ export default function App() {
         if (!filters.vehicleTypes.includes(ride.vehicle_type)) return false;
       }
       
+      // Region filter (case insensitive search in pickup or dropoff address)
+      if (selectedCity && selectedCity !== 'toulouse') {
+        const cityName = selectedCity.charAt(0).toUpperCase() + selectedCity.slice(1);
+        const pickupMatch = ride.pickup_address.toLowerCase().includes(cityName.toLowerCase());
+        const dropoffMatch = ride.dropoff_address.toLowerCase().includes(cityName.toLowerCase());
+        if (!pickupMatch && !dropoffMatch) return false;
+      }
+      
       // Only show published rides in marketplace
       return ride.status === 'PUBLISHED';
     });
@@ -427,6 +435,24 @@ export default function App() {
             </LinearGradient>
           </TouchableOpacity>
         </View>
+
+        {/* Selected Region Indicator */}
+        <TouchableOpacity
+          style={styles.regionIndicator}
+          onPress={() => setCurrentScreen('home')}
+          activeOpacity={0.7}
+        >
+          <Ionicons name="location" size={16} color="#ff6b47" />
+          <Text style={styles.regionText}>
+            {selectedCity === 'toulouse' ? 'Toulouse' : 
+             selectedCity === 'paris' ? 'Paris' :
+             selectedCity === 'lyon' ? 'Lyon' :
+             selectedCity === 'marseille' ? 'Marseille' :
+             selectedCity === 'bordeaux' ? 'Bordeaux' :
+             selectedCity === 'nice' ? 'Nice' : 'Toutes les régions'}
+          </Text>
+          <Ionicons name="chevron-down" size={14} color="#64748b" />
+        </TouchableOpacity>
 
         {/* Filters */}
         <View style={styles.filtersRow}>
@@ -1205,6 +1231,24 @@ const styles = StyleSheet.create({
   pageSubtitle: { fontSize: 14, color: '#94a3b8' },
 
   // Filters
+  regionIndicator: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255, 107, 71, 0.08)',
+    borderRadius: 12,
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 107, 71, 0.2)',
+    alignSelf: 'flex-start',
+  },
+  regionText: {
+    fontSize: 14,
+    color: '#f1f5f9',
+    fontWeight: '600',
+    marginHorizontal: 8,
+  },
   filtersRow: { 
     flexDirection: 'row', 
     marginBottom: 20,
