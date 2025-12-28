@@ -947,10 +947,15 @@ export default function App() {
             });
             
             console.log('✅ Course créée avec succès:', response);
-            Alert.alert('Succès', 'Course créée avec succès !');
+            
+            // Recharger les courses AVANT de fermer le modal
+            console.log('🔄 Rechargement des courses...');
+            await loadRides();
+            console.log('✅ Courses rechargées');
+            
+            // Fermer le modal après le rechargement
             setShowCreateRide(false);
-            // Recharger les courses
-            loadRides();
+            Alert.alert('Succès', 'Course créée avec succès !');
           } catch (error: any) {
             console.error('❌ Erreur création course:', error);
             Alert.alert('Erreur', error.message || 'Impossible de créer la course');
@@ -976,10 +981,15 @@ export default function App() {
             console.log('🗑️ Suppression de la course:', selectedRide.id);
             await apiClient.deleteRide(selectedRide.id);
             console.log('✅ Course supprimée avec succès');
-            Alert.alert('Succès', 'Course supprimée avec succès !');
+            
+            // Recharger les courses AVANT de fermer le modal
+            console.log('🔄 Rechargement des courses...');
+            await loadRides();
+            console.log('✅ Courses rechargées');
+            
+            // Fermer le modal après le rechargement
             setSelectedRide(null);
-            // Recharger les courses
-            loadRides();
+            Alert.alert('Succès', 'Course supprimée avec succès !');
           } catch (error: any) {
             console.error('❌ Erreur suppression course:', error);
             Alert.alert('Erreur', error.message || 'Impossible de supprimer la course');
