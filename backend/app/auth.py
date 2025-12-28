@@ -3,6 +3,7 @@ Firebase Authentication Middleware
 """
 import os
 import json
+import base64
 from fastapi import Header, HTTPException, Depends
 from firebase_admin import credentials, auth, initialize_app
 from pathlib import Path
@@ -31,9 +32,18 @@ def get_databricks_secret_via_sdk(scope: str, key: str) -> Optional[str]:
         
         # Le secret est dans l'attribut 'value'
         if hasattr(secret_response, 'value') and secret_response.value:
-            secret_str = secret_response.value
-            print(f"✅ Secret lu avec succès via SDK, longueur: {len(secret_str)}")
-            return secret_str
+            secret_encoded = secret_response.value
+            print(f"✅ Secret lu avec succès via SDK, longueur encodée: {len(secret_encoded)}")
+            
+            # Les secrets Databricks sont encodés en Base64
+            try:
+                secret_decoded = base64.b64decode(secret_encoded).decode('utf-8')
+                print(f"✅ Secret décodé, longueur: {len(secret_decoded)}")
+                return secret_decoded
+            except Exception as e:
+                print(f"⚠️ Erreur décodage Base64, tentative sans décodage: {e}")
+                # Si le décodage échoue, retourner tel quel
+                return secret_encoded
         
         print(f"⚠️ Secret vide ou inaccessible: {scope}/{key}")
         print(f"   Response: {secret_response}")
