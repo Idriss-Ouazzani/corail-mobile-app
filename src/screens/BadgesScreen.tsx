@@ -213,8 +213,14 @@ export const BadgesScreen: React.FC<BadgesScreenProps> = ({ onBack, currentUserI
                 <Text style={styles.rarityCount}>{badges.length}</Text>
               </View>
               <View style={styles.badgesGrid}>
-                {badges.map((badge) => (
-                  <View key={badge.id} style={styles.badgeItem}>
+                {badges.map((badge, index) => (
+                  <View 
+                    key={badge.id} 
+                    style={[
+                      styles.badgeItem,
+                      (index + 1) % 3 === 0 && styles.badgeItemLast
+                    ]}
+                  >
                     <View style={styles.badgeCardWrapper}>
                       <BadgeCard badge={badge} size="small" />
                     </View>
@@ -223,6 +229,11 @@ export const BadgesScreen: React.FC<BadgesScreenProps> = ({ onBack, currentUserI
                         <Ionicons name="lock-closed" size={20} color="#94a3b8" />
                       </View>
                     )}
+                    {/* Nom du badge - toujours visible */}
+                    <Text style={styles.badgeName} numberOfLines={2}>
+                      {badge.name}
+                    </Text>
+                    {/* Critère - seulement si verrouillé */}
                     {badge.requirement_description && !badge.earned_at && (
                       <Text style={styles.badgeRequirement} numberOfLines={2}>
                         {badge.requirement_description}
@@ -393,13 +404,16 @@ const styles = StyleSheet.create({
   badgesGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    justifyContent: 'space-around',
   },
   badgeItem: {
-    width: '28%',
+    width: '30.33%',
+    marginRight: '4.5%',
     marginBottom: 16,
     position: 'relative',
     alignItems: 'center',
+  },
+  badgeItemLast: {
+    marginRight: 0,
   },
   badgeCardWrapper: {
     marginRight: 0,
@@ -409,16 +423,26 @@ const styles = StyleSheet.create({
     top: 0,
     left: 0,
     right: 0,
-    bottom: 24,
+    height: 70,
     backgroundColor: 'rgba(15, 23, 42, 0.8)',
     borderRadius: 20,
     justifyContent: 'center',
     alignItems: 'center',
   },
+  badgeName: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#f1f5f9',
+    marginTop: 6,
+    width: '100%',
+    textAlign: 'center',
+    lineHeight: 14,
+    paddingHorizontal: 2,
+  },
   badgeRequirement: {
     fontSize: 9,
     color: '#64748b',
-    marginTop: 6,
+    marginTop: 4,
     width: '100%',
     textAlign: 'center',
     lineHeight: 12,
