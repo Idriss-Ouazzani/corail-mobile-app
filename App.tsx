@@ -204,6 +204,57 @@ export default function App() {
     sortBy: null,
   });
   const [myRidesTab, setMyRidesTab] = useState<'claimed' | 'published'>('claimed');
+  
+  // 🗄️ Rides depuis Databricks
+  const [rides, setRides] = useState<Ride[]>([]);
+  const [loadingRides, setLoadingRides] = useState(false);
+
+  // 📥 Charger les rides depuis l'API
+  const loadRides = async () => {
+    try {
+      setLoadingRides(true);
+      console.log('📡 Chargement des courses... (peut prendre 30-60s si le serveur dort)');
+      const response = await apiClient.getRides();
+      console.log('📦 Réponse brute:', response);
+      console.log('📦 Type de réponse:', typeof response);
+      console.log('📦 Est un tableau ?', Array.isArray(response));
+      
+      if (Array.isArray(response)) {
+        console.log('✅ Courses chargées depuis Databricks:', response.length);
+        setRides(response);
+      } else {
+        console.error('❌ La réponse n\'est pas un tableau:', response);
+        Alert.alert('Erreur', 'Format de réponse invalide');
+      }
+    } catch (error: any) {
+      console.error('❌ Erreur chargement courses:', error);
+      console.error('❌ Message:', error.message);
+      console.error('❌ Détails:', error.response?.data || error);
+      
+      // Message plus explicite pour timeout
+      if (error.message === 'Erreur de connexion au serveur') {
+        Alert.alert(
+          'Serveur en démarrage', 
+          'Le serveur se réveille (plan gratuit). Réessayez dans 10 secondes.',
+          [
+            { text: 'OK' },
+            { text: 'Réessayer', onPress: () => loadRides() }
+          ]
+        );
+      } else {
+        Alert.alert('Erreur', error.message || 'Impossible de charger les courses');
+      }
+    } finally {
+      setLoadingRides(false);
+    }
+  };
+
+  // 🔄 Charger les rides au montage et après authentification
+  useEffect(() => {
+    if (user) {
+      loadRides();
+    }
+  }, [user]);
 
   // 🔐 Afficher écran de chargement pendant l'initialisation
   if (authLoading) {
@@ -311,7 +362,7 @@ export default function App() {
 
   const renderMarketplace = () => {
     // Filter rides based on active filter and filters
-    let filteredRides = MOCK_RIDES.filter((ride) => {
+    let filteredRides = rides.filter((ride) => {
       // Visibility filter
       if (activeFilter === 'public' && ride.visibility !== 'PUBLIC') return false;
       if (activeFilter === 'groups' && ride.visibility !== 'GROUP') return false;
@@ -421,7 +472,13 @@ export default function App() {
           </TouchableOpacity>
         </View>
 
-        {filteredRides.length > 0 ? (
+        {loadingRides ? (
+          <View style={styles.loadingState}>
+            <ActivityIndicator size="large" color="#ff6b47" />
+            <Text style={styles.loadingText}>Chargement des courses...</Text>
+            <Text style={styles.loadingSubtext}>Première connexion ? Cela peut prendre 30-60 secondes ⏳</Text>
+          </View>
+        ) : filteredRides.length > 0 ? (
           filteredRides.map((ride) => (
             <RideCard 
               key={ride.id} 
@@ -448,12 +505,12 @@ export default function App() {
 
   const renderMyRides = () => {
     // Filter rides where current user is the picker (claimed rides)
-    const claimedByMe = MOCK_RIDES.filter((ride) => ride.picker_id === CURRENT_USER_ID);
+    const claimedByMe = rides.filter((ride) => ride.picker_id === CURRENT_USER_ID);
     const claimedRides = claimedByMe.filter((ride) => ride.status === 'CLAIMED');
     const completedRides = claimedByMe.filter((ride) => ride.status === 'COMPLETED');
 
     // Filter rides where current user is the creator (published rides)
-    const publishedByMe = MOCK_RIDES.filter((ride) => ride.creator_id === CURRENT_USER_ID);
+    const publishedByMe = rides.filter((ride) => ride.creator_id === CURRENT_USER_ID);
     const activePublished = publishedByMe.filter((ride) => ride.status === 'PUBLISHED');
     const claimedPublished = publishedByMe.filter((ride) => ride.status === 'CLAIMED' || ride.status === 'COMPLETED');
 
@@ -878,6 +935,8 @@ export default function App() {
             console.log('✅ Course créée avec succès:', response);
             Alert.alert('Succès', 'Course créée avec succès !');
             setShowCreateRide(false);
+            // Recharger les courses
+            loadRides();
           } catch (error: any) {
             console.error('❌ Erreur création course:', error);
             Alert.alert('Erreur', error.message || 'Impossible de créer la course');
@@ -1224,6 +1283,24 @@ const styles = StyleSheet.create({
     color: '#64748b',
     marginTop: 8,
     textAlign: 'center',
+  },
+  loadingState: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 60,
+  },
+  loadingText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#94a3b8',
+    marginTop: 16,
+  },
+  loadingSubtext: {
+    fontSize: 13,
+    color: '#64748b',
+    marginTop: 8,
+    textAlign: 'center',
+    paddingHorizontal: 40,
   },
 
   // My Rides Stats

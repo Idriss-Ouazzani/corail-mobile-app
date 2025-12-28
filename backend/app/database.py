@@ -4,6 +4,7 @@ Databricks SQL Warehouse Connection
 from databricks import sql
 from typing import List, Dict, Any
 import os
+from datetime import datetime
 
 from .config import DATABRICKS_HOST, DATABRICKS_HTTP_PATH, DATABRICKS_TOKEN, CATALOG, SCHEMA
 
@@ -41,7 +42,15 @@ class DatabricksConnection:
                     rows = cursor.fetchall()
                     
                     # Convertir en liste de dictionnaires
-                    return [dict(zip(columns, row)) for row in rows]
+                    results = [dict(zip(columns, row)) for row in rows]
+                    
+                    # Convertir les datetime en strings pour la sérialisation JSON
+                    for result in results:
+                        for key, value in result.items():
+                            if isinstance(value, datetime):
+                                result[key] = value.isoformat()
+                    
+                    return results
         
         except Exception as e:
             print(f"❌ Erreur Databricks query: {e}")

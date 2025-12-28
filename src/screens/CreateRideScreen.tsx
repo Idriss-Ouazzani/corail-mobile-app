@@ -7,9 +7,12 @@ import {
   TouchableOpacity,
   TextInput,
   Alert,
+  Platform,
+  Modal,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
+import DateTimePicker from '@react-native-community/datetimepicker';
 
 interface Group {
   id: string;
@@ -64,15 +67,77 @@ export const CreateRideScreen: React.FC<CreateRideScreenProps> = ({ onBack, onCr
   const [pickup, setPickup] = useState('');
   const [dropoff, setDropoff] = useState('');
   const [price, setPrice] = useState('');
-  const [date, setDate] = useState('');
+  const [selectedDate, setSelectedDate] = useState(new Date());
+  const [showDatePicker, setShowDatePicker] = useState(false);
+  const [showTimePicker, setShowTimePicker] = useState(false);
   const [visibility, setVisibility] = useState<'PUBLIC' | 'GROUP'>('PUBLIC');
   const [selectedGroups, setSelectedGroups] = useState<Group[]>([]);
   const [vehicleType, setVehicleType] = useState<string>('STANDARD');
   const [distance, setDistance] = useState('');
   const [duration, setDuration] = useState('');
 
+  // Formater la date pour l'API (YYYY-MM-DD HH:MM)
+  const formatDateForAPI = (date: Date): string => {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    const hours = String(date.getHours()).padStart(2, '0');
+    const minutes = String(date.getMinutes()).padStart(2, '0');
+    return `${year}-${month}-${day} ${hours}:${minutes}`;
+  };
+
+  // Formater la date pour l'affichage (ex: Lun 31 Déc 2025)
+  const formatDateDisplay = (date: Date): string => {
+    return date.toLocaleDateString('fr-FR', { 
+      weekday: 'short', 
+      day: 'numeric', 
+      month: 'short', 
+      year: 'numeric' 
+    });
+  };
+
+  // Formater l'heure pour l'affichage (ex: 14:30)
+  const formatTimeDisplay = (date: Date): string => {
+    return date.toLocaleTimeString('fr-FR', { 
+      hour: '2-digit', 
+      minute: '2-digit' 
+    });
+  };
+
+  const onDateChange = (event: any, selected?: Date) => {
+    // Sur Android, fermer automatiquement après sélection ou annulation
+    if (Platform.OS === 'android') {
+      setShowDatePicker(false);
+      if (selected) {
+        setSelectedDate(selected);
+      }
+    } else if (selected) {
+      // Sur iOS, juste mettre à jour la date (le modal reste ouvert jusqu'au clic sur "Valider")
+      setSelectedDate(selected);
+    }
+  };
+
+  const onTimeChange = (event: any, selected?: Date) => {
+    // Sur Android, fermer automatiquement après sélection ou annulation
+    if (Platform.OS === 'android') {
+      setShowTimePicker(false);
+      if (selected) {
+        const newDate = new Date(selectedDate);
+        newDate.setHours(selected.getHours());
+        newDate.setMinutes(selected.getMinutes());
+        setSelectedDate(newDate);
+      }
+    } else if (selected) {
+      // Sur iOS, juste mettre à jour l'heure (le modal reste ouvert jusqu'au clic sur "Valider")
+      const newDate = new Date(selectedDate);
+      newDate.setHours(selected.getHours());
+      newDate.setMinutes(selected.getMinutes());
+      setSelectedDate(newDate);
+    }
+  };
+
   const handleCreate = () => {
-    if (!pickup || !dropoff || !price || !date) {
+    if (!pickup || !dropoff || !price) {
       Alert.alert('Erreur', 'Veuillez remplir tous les champs obligatoires');
       return;
     }
@@ -87,7 +152,7 @@ export const CreateRideScreen: React.FC<CreateRideScreenProps> = ({ onBack, onCr
       pickup_address: pickup,
       dropoff_address: dropoff,
       price_cents: parseFloat(price) * 100,
-      scheduled_at: date,
+      scheduled_at: formatDateForAPI(selectedDate),
       visibility,
       group_ids: selectedGroups.map(g => g.id),
       vehicle_type: vehicleType,
@@ -169,18 +234,39 @@ export const CreateRideScreen: React.FC<CreateRideScreenProps> = ({ onBack, onCr
           />
         </View>
 
-        {/* Date */}
+        {/* Date & Time */}
         <View style={styles.section}>
           <Text style={styles.label}>
             <Ionicons name="calendar" size={16} color="#0ea5e9" /> Date et heure
           </Text>
-          <TextInput
-            style={styles.input}
-            placeholder="Ex: 2025-01-15 14:30"
-            placeholderTextColor="#64748b"
-            value={date}
-            onChangeText={setDate}
-          />
+          
+          <View style={styles.dateTimeContainer}>
+            {/* Date Picker Button */}
+            <TouchableOpacity 
+              style={styles.dateButton}
+              onPress={() => setShowDatePicker(true)}
+            >
+              <Ionicons name="calendar-outline" size={20} color="#0ea5e9" />
+              <Text style={styles.dateText}>
+                {formatDateDisplay(selectedDate)}
+              </Text>
+            </TouchableOpacity>
+
+            {/* Separator */}
+            <View style={styles.dateSeparator} />
+
+            {/* Time Picker Button */}
+            <TouchableOpacity 
+              style={styles.timeButton}
+              onPress={() => setShowTimePicker(true)}
+            >
+              <Ionicons name="time-outline" size={20} color="#8b5cf6" />
+              <Text style={styles.timeText}>
+                {formatTimeDisplay(selectedDate)}
+              </Text>
+            </TouchableOpacity>
+          </View>
+
         </View>
 
         {/* Vehicle Type */}
@@ -353,6 +439,85 @@ export const CreateRideScreen: React.FC<CreateRideScreenProps> = ({ onBack, onCr
           </LinearGradient>
         </TouchableOpacity>
       </View>
+
+      {/* Date Picker Modal */}
+      <Modal
+        visible={showDatePicker}
+        transparent={true}
+        animationType="slide"
+        onRequestClose={() => setShowDatePicker(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Sélectionner la date</Text>
+              <TouchableOpacity onPress={() => setShowDatePicker(false)}>
+                <Ionicons name="close-circle" size={28} color="#64748b" />
+              </TouchableOpacity>
+            </View>
+            <DateTimePicker
+              value={selectedDate}
+              mode="date"
+              display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+              onChange={onDateChange}
+              minimumDate={new Date()}
+              textColor="#fff"
+            />
+            {Platform.OS === 'ios' && (
+              <TouchableOpacity
+                style={styles.modalButton}
+                onPress={() => setShowDatePicker(false)}
+              >
+                <LinearGradient
+                  colors={['#0ea5e9', '#06b6d4']}
+                  style={styles.modalButtonGradient}
+                >
+                  <Text style={styles.modalButtonText}>Valider</Text>
+                </LinearGradient>
+              </TouchableOpacity>
+            )}
+          </View>
+        </View>
+      </Modal>
+
+      {/* Time Picker Modal */}
+      <Modal
+        visible={showTimePicker}
+        transparent={true}
+        animationType="slide"
+        onRequestClose={() => setShowTimePicker(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Sélectionner l'heure</Text>
+              <TouchableOpacity onPress={() => setShowTimePicker(false)}>
+                <Ionicons name="close-circle" size={28} color="#64748b" />
+              </TouchableOpacity>
+            </View>
+            <DateTimePicker
+              value={selectedDate}
+              mode="time"
+              display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+              onChange={onTimeChange}
+              textColor="#fff"
+            />
+            {Platform.OS === 'ios' && (
+              <TouchableOpacity
+                style={styles.modalButton}
+                onPress={() => setShowTimePicker(false)}
+              >
+                <LinearGradient
+                  colors={['#8b5cf6', '#a78bfa']}
+                  style={styles.modalButtonGradient}
+                >
+                  <Text style={styles.modalButtonText}>Valider</Text>
+                </LinearGradient>
+              </TouchableOpacity>
+            )}
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 };
@@ -396,6 +561,12 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#f1f5f9',
     marginBottom: 10,
+  },
+  hint: {
+    fontSize: 12,
+    color: '#fbbf24',
+    marginBottom: 8,
+    fontStyle: 'italic',
   },
   input: {
     backgroundColor: 'rgba(255, 255, 255, 0.05)',
@@ -459,6 +630,48 @@ const styles = StyleSheet.create({
   },
   row: {
     flexDirection: 'row',
+  },
+  dateTimeContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    borderRadius: 16,
+    borderWidth: 1.5,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
+    overflow: 'hidden',
+  },
+  dateButton: {
+    flex: 2,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 16,
+    gap: 10,
+  },
+  dateText: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#f1f5f9',
+    textAlign: 'center',
+  },
+  dateSeparator: {
+    width: 1,
+    height: '60%',
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+  },
+  timeButton: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 16,
+    gap: 8,
+  },
+  timeText: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#f1f5f9',
+    textAlign: 'center',
   },
   actionContainer: {
     padding: 20,
@@ -544,6 +757,47 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: '#64748b',
     marginTop: 2,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.75)',
+    justifyContent: 'flex-end',
+  },
+  modalContent: {
+    backgroundColor: '#1e293b',
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    padding: 20,
+    paddingBottom: Platform.OS === 'ios' ? 40 : 20,
+    borderTopWidth: 2,
+    borderLeftWidth: 1,
+    borderRightWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#f1f5f9',
+  },
+  modalButton: {
+    marginTop: 16,
+    borderRadius: 16,
+    overflow: 'hidden',
+  },
+  modalButtonGradient: {
+    paddingVertical: 14,
+    alignItems: 'center',
+  },
+  modalButtonText: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#fff',
   },
 });
 

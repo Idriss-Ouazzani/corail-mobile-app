@@ -80,13 +80,21 @@ export const firebaseAuth = {
    */
   async getIdToken(): Promise<string | null> {
     try {
+      console.log('[Firebase] 🔍 getIdToken() appelé');
       const user = auth.currentUser;
-      if (!user) return null;
+      console.log('[Firebase] 👤 Utilisateur actuel:', user ? `${user.email} (${user.uid})` : 'null');
       
+      if (!user) {
+        console.warn('[Firebase] ⚠️ Pas d\'utilisateur connecté');
+        return null;
+      }
+      
+      console.log('[Firebase] 🔐 Récupération du token...');
       const token = await user.getIdToken();
+      console.log('[Firebase] ✅ Token récupéré, longueur:', token.length);
       return token;
     } catch (error) {
-      console.error('Error getting ID token:', error);
+      console.error('[Firebase] ❌ Erreur getting ID token:', error);
       return null;
     }
   },

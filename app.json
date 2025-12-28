@@ -32,6 +32,9 @@
     "scheme": "corail",
     "extra": {
       "apiUrl": "https://your-api-url.com/api/v1"
-    }
+    },
+    "plugins": [
+      "@react-native-community/datetimepicker"
+    ]
   }
 }

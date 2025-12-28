@@ -14,7 +14,7 @@ class ApiClient {
   constructor(baseURL: string) {
     this.client = axios.create({
       baseURL,
-      timeout: 10000,
+      timeout: 60000, // 60 secondes pour Render (réveil) + Databricks
       headers: {
         'Content-Type': 'application/json',
       },
@@ -23,13 +23,22 @@ class ApiClient {
     // Request interceptor - Ajoute automatiquement le token Firebase
     this.client.interceptors.request.use(
       async (config) => {
+        console.log('[API] 🔄 Interceptor appelé');
+        
         // Récupérer le token Firebase automatiquement
-        const token = await firebaseAuth.getIdToken();
-        if (token) {
-          config.headers.Authorization = `Bearer ${token}`;
-          console.log(`[API] 🔐 Token Firebase récupéré, longueur: ${token.length}`);
-        } else {
-          console.warn('[API] ⚠️ Pas de token Firebase disponible !');
+        try {
+          console.log('[API] 🔍 Tentative de récupération du token...');
+          const token = await firebaseAuth.getIdToken();
+          console.log('[API] 📦 Token reçu:', token ? `Oui (${token.length} chars)` : 'Non (null/undefined)');
+          
+          if (token) {
+            config.headers.Authorization = `Bearer ${token}`;
+            console.log(`[API] 🔐 Token Firebase ajouté aux headers`);
+          } else {
+            console.warn('[API] ⚠️ Pas de token Firebase disponible !');
+          }
+        } catch (error) {
+          console.error('[API] ❌ Erreur récupération token:', error);
         }
 
         // User ID pour tracking (optionnel)
@@ -37,11 +46,14 @@ class ApiClient {
           config.headers['X-User-Id'] = this.userId;
         }
 
-        console.log(`[API] ${config.method?.toUpperCase()} ${this.client.defaults.baseURL}${config.url}`);
-        console.log(`[API] Headers:`, JSON.stringify(config.headers, null, 2));
+        console.log(`[API] 📤 ${config.method?.toUpperCase()} ${this.client.defaults.baseURL}${config.url}`);
+        console.log(`[API] 📋 Headers:`, config.headers);
         return config;
       },
-      (error) => Promise.reject(error)
+      (error) => {
+        console.error('[API] ❌ Erreur dans interceptor:', error);
+        return Promise.reject(error);
+      }
     );
 
     // Response interceptor
@@ -92,6 +104,17 @@ class ApiClient {
 
   async listMyRides(): Promise<RideListResponse> {
     const response = await this.client.get('/rides/my-rides');
+    return response.data;
+  }
+
+  // Rides
+  async getRides(params?: {
+    status?: string;
+    visibility?: string;
+    skip?: number;
+    limit?: number;
+  }): Promise<Ride[]> {
+    const response = await this.client.get('/rides', { params });
     return response.data;
   }
 
