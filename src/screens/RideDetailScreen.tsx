@@ -16,6 +16,7 @@ import type { Ride } from '../types';
 interface RideDetailScreenProps {
   ride: Ride;
   currentUserId: string;
+  userCredits?: number;
   onBack: () => void;
   onClaim?: () => void;
   onDelete?: () => void;
@@ -24,6 +25,7 @@ interface RideDetailScreenProps {
 export const RideDetailScreen: React.FC<RideDetailScreenProps> = ({
   ride,
   currentUserId,
+  userCredits = 0,
   onBack,
   onClaim,
   onDelete,

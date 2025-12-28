@@ -49,7 +49,6 @@ const MOCK_RIDES: Ride[] = [
     updated_at: new Date().toISOString(),
     completed_at: null,
     visibility: 'PUBLIC',
-    commission_enabled: true,
     vehicle_type: 'STANDARD',
     distance_km: 8,
     duration_minutes: 15,
@@ -68,7 +67,6 @@ const MOCK_RIDES: Ride[] = [
     updated_at: new Date().toISOString(),
     completed_at: null,
     visibility: 'PUBLIC',
-    commission_enabled: false,
     vehicle_type: 'ELECTRIC',
     distance_km: 12,
     duration_minutes: 20,
@@ -87,7 +85,6 @@ const MOCK_RIDES: Ride[] = [
     updated_at: new Date().toISOString(),
     completed_at: null,
     visibility: 'PUBLIC',
-    commission_enabled: true,
     vehicle_type: 'PREMIUM',
     distance_km: 18,
     duration_minutes: 30,
@@ -109,7 +106,6 @@ const MOCK_RIDES: Ride[] = [
     updated_at: new Date().toISOString(),
     completed_at: null,
     visibility: 'PUBLIC',
-    commission_enabled: true,
     vehicle_type: 'LUXURY',
     distance_km: 22,
     duration_minutes: 35,
@@ -129,7 +125,6 @@ const MOCK_RIDES: Ride[] = [
     updated_at: new Date(Date.now() - 86400000).toISOString(),
     completed_at: new Date(Date.now() - 86400000).toISOString(),
     visibility: 'PUBLIC',
-    commission_enabled: true,
     vehicle_type: 'STANDARD',
     distance_km: 10,
     duration_minutes: 18,
@@ -149,7 +144,6 @@ const MOCK_RIDES: Ride[] = [
     updated_at: new Date(Date.now() - 259200000).toISOString(),
     completed_at: new Date(Date.now() - 259200000).toISOString(),
     visibility: 'GROUP',
-    commission_enabled: false,
     vehicle_type: 'VAN',
     distance_km: 14,
     duration_minutes: 22,
@@ -209,6 +203,7 @@ export default function App() {
   // 🗄️ Rides depuis Databricks
   const [rides, setRides] = useState<Ride[]>([]);
   const [loadingRides, setLoadingRides] = useState(false);
+  const [userCredits, setUserCredits] = useState<number>(0);
 
   // 📥 Charger les rides depuis l'API
   const loadRides = async () => {
@@ -250,10 +245,24 @@ export default function App() {
     }
   };
 
-  // 🔄 Charger les rides au montage et après authentification
+  // 🪸 Charger les crédits Corail
+  const loadCredits = async () => {
+    try {
+      const response = await apiClient.getCredits();
+      setUserCredits(response.credits);
+      console.log('💰 Crédits chargés:', response.credits);
+    } catch (error: any) {
+      console.error('❌ Erreur chargement crédits:', error);
+      // Ne pas afficher d'erreur, juste mettre 0 par défaut
+      setUserCredits(0);
+    }
+  };
+
+  // 🔄 Charger les rides et crédits au montage et après authentification
   useEffect(() => {
     if (user) {
       loadRides();
+      loadCredits();
     }
   }, [user]);
 
@@ -539,6 +548,16 @@ export default function App() {
               <Ionicons name="car-sport" size={14} color="#b9e6fe" /> {totalCount} courses au total
             </Text>
           </View>
+          <TouchableOpacity
+            style={styles.refreshButton}
+            onPress={async () => {
+              console.log('🔄 Rechargement manuel des courses...');
+              await loadRides();
+            }}
+            activeOpacity={0.7}
+          >
+            <Ionicons name="refresh" size={22} color="#64748b" />
+          </TouchableOpacity>
         </View>
 
         {/* Tabs */}
@@ -755,6 +774,15 @@ export default function App() {
         {/* Stats */}
         <View style={styles.profileStats}>
           <View style={styles.profileStatItem}>
+            <Text style={styles.profileStatValue}>{userCredits}</Text>
+            <Text style={styles.profileStatLabel}>
+              <View style={{ width: 12, height: 12, borderRadius: 6, backgroundColor: '#ff6b47', alignItems: 'center', justifyContent: 'center', marginRight: 4 }}>
+                <Text style={{ color: '#fff', fontSize: 8, fontWeight: 'bold' }}>C</Text>
+              </View> Crédits
+            </Text>
+          </View>
+          <View style={styles.profileStatDivider} />
+          <View style={styles.profileStatItem}>
             <Text style={styles.profileStatValue}>4.8</Text>
             <Text style={styles.profileStatLabel}>
               <Ionicons name="star" size={12} color="#fbbf24" /> Note
@@ -942,20 +970,28 @@ export default function App() {
               vehicle_type: ride.vehicle_type,
               distance_km: ride.distance_km,
               duration_minutes: ride.duration_minutes,
-              commission_enabled: ride.commission_enabled || true,
               group_id: ride.group_ids && ride.group_ids.length > 0 ? ride.group_ids[0] : undefined,
             });
             
             console.log('✅ Course créée avec succès:', response);
             
-            // Recharger les courses AVANT de fermer le modal
-            console.log('🔄 Rechargement des courses...');
-            await loadRides();
-            console.log('✅ Courses rechargées');
+            // Ajouter la nouvelle course au state local immédiatement
+            const newRide: Ride = {
+              ...response,
+              creator_id: currentUserId,
+              creator: undefined, // Sera chargé lors du prochain refresh
+              picker_id: null,
+              picker: undefined,
+            };
+            setRides(prevRides => [newRide, ...prevRides]);
+            console.log('✅ Course ajoutée au state local - compteur devrait augmenter');
             
-            // Fermer le modal après le rechargement
+            // 🪸 Recharger les crédits après création (devrait avoir +1 crédit)
+            await loadCredits();
+            
+            // Fermer le modal
             setShowCreateRide(false);
-            Alert.alert('Succès', 'Course créée avec succès !');
+            Alert.alert('Succès', 'Course créée avec succès ! +1 crédit 🪸');
           } catch (error: any) {
             console.error('❌ Erreur création course:', error);
             Alert.alert('Erreur', error.message || 'Impossible de créer la course');
@@ -971,23 +1007,50 @@ export default function App() {
       <RideDetailScreen
         ride={selectedRide}
         currentUserId={currentUserId}
+        userCredits={userCredits}
         onBack={() => setSelectedRide(null)}
-        onClaim={() => {
-          Alert.alert('Succès', 'Course réclamée !');
-          setSelectedRide(null);
+        onClaim={async () => {
+          try {
+            // 🪸 Vérifier les crédits avant de prendre la course
+            if (userCredits < 1) {
+              Alert.alert(
+                'Crédits insuffisants',
+                'Vous avez besoin d\'au moins 1 crédit pour prendre une course. Publiez des courses pour gagner des crédits !',
+                [{ text: 'OK' }]
+              );
+              return;
+            }
+
+            // Prendre la course
+            await apiClient.claimRide(selectedRide.id);
+            console.log('✅ Course réclamée avec succès');
+            
+            // Recharger les crédits et les rides
+            await loadCredits();
+            await loadRides();
+            
+            // Fermer le modal
+            setSelectedRide(null);
+            Alert.alert('Succès', 'Course réclamée ! -1 crédit 🪸');
+          } catch (error: any) {
+            console.error('❌ Erreur réclamation course:', error);
+            Alert.alert('Erreur', error.message || 'Impossible de réclamer la course');
+          }
         }}
         onDelete={async () => {
           try {
             console.log('🗑️ Suppression de la course:', selectedRide.id);
-            await apiClient.deleteRide(selectedRide.id);
+            const deletedRideId = selectedRide.id;
+            
+            // Supprimer de la base de données
+            await apiClient.deleteRide(deletedRideId);
             console.log('✅ Course supprimée avec succès');
             
-            // Recharger les courses AVANT de fermer le modal
-            console.log('🔄 Rechargement des courses...');
-            await loadRides();
-            console.log('✅ Courses rechargées');
+            // Mettre à jour immédiatement le state local
+            setRides(prevRides => prevRides.filter(r => r.id !== deletedRideId));
+            console.log('✅ State local mis à jour - compteur devrait changer instantanément');
             
-            // Fermer le modal après le rechargement
+            // Fermer le modal
             setSelectedRide(null);
             Alert.alert('Succès', 'Course supprimée avec succès !');
           } catch (error: any) {
@@ -1227,6 +1290,11 @@ const styles = StyleSheet.create({
   },
   pageTitle: { fontSize: 32, fontWeight: 'bold', color: '#f1f5f9', marginBottom: 4 },
   pageSubtitle: { fontSize: 14, color: '#94a3b8' },
+  refreshButton: {
+    padding: 8,
+    borderRadius: 8,
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+  },
 
   // Filters
   regionIndicator: {

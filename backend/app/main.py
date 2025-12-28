@@ -41,6 +41,7 @@ class User(BaseModel):
     full_name: Optional[str] = None
     rating: Optional[int] = None
     total_reviews: Optional[int] = None
+    credits: Optional[int] = 0
 
 
 class GroupMember(BaseModel):
@@ -85,7 +86,6 @@ class Ride(BaseModel):
     vehicle_type: Optional[str]
     distance_km: Optional[float]
     duration_minutes: Optional[int]
-    commission_enabled: bool
     group_id: Optional[str]
     created_at: Optional[str] = None
     updated_at: Optional[str] = None
@@ -103,7 +103,6 @@ class CreateRideRequest(BaseModel):
     vehicle_type: str = "STANDARD"
     distance_km: Optional[float] = None
     duration_minutes: Optional[int] = None
-    commission_enabled: bool = True
     group_ids: Optional[List[str]] = []
 
 
@@ -164,7 +163,6 @@ async def get_rides(
             r.vehicle_type,
             r.distance_km,
             r.duration_minutes,
-            r.commission_enabled,
             r.group_id,
             r.created_at,
             r.updated_at,
@@ -173,7 +171,8 @@ async def get_rides(
             u.email as creator_email,
             u.full_name as creator_full_name,
             u.rating as creator_rating,
-            u.total_reviews as creator_total_reviews
+            u.total_reviews as creator_total_reviews,
+            u.credits as creator_credits
         FROM rides r
         LEFT JOIN users u ON r.creator_id = u.id
         WHERE 1=1
@@ -211,7 +210,6 @@ async def get_rides(
                 "vehicle_type": row.get("vehicle_type"),
                 "distance_km": row.get("distance_km"),
                 "duration_minutes": row.get("duration_minutes"),
-                "commission_enabled": row["commission_enabled"],
                 "group_id": row.get("group_id"),
                 "created_at": row.get("created_at"),
                 "updated_at": row.get("updated_at"),
@@ -226,6 +224,7 @@ async def get_rides(
                     "full_name": row.get("creator_full_name"),
                     "rating": row.get("creator_rating"),
                     "total_reviews": row.get("creator_total_reviews"),
+                    "credits": row.get("creator_credits", 0),
                 }
             
             rides.append(ride_data)
@@ -264,7 +263,6 @@ async def create_ride(
             vehicle_type,
             distance_km,
             duration_minutes,
-            commission_enabled,
             group_id,
             created_at,
             updated_at
@@ -280,7 +278,6 @@ async def create_ride(
             :vehicle_type,
             :distance_km,
             :duration_minutes,
-            :commission_enabled,
             :group_id,
             CURRENT_TIMESTAMP(),
             CURRENT_TIMESTAMP()
@@ -298,16 +295,25 @@ async def create_ride(
             "vehicle_type": ride.vehicle_type,
             "distance_km": ride.distance_km,
             "duration_minutes": ride.duration_minutes,
-            "commission_enabled": ride.commission_enabled,
             "group_id": ride.group_ids[0] if ride.group_ids else None
         }
         
         db.execute_non_query(query, params)
         
+        # 🎉 SYSTÈME DE CRÉDITS : +1 crédit pour avoir publié une course
+        credit_query = """
+        UPDATE users 
+        SET credits = COALESCE(credits, 0) + 1
+        WHERE id = :user_id
+        """
+        db.execute_non_query(credit_query, {"user_id": user_id})
+        
+        print(f"✅ +1 crédit Corail pour {user_id} (publication de course)")
+        
         return {
             "success": True,
             "ride_id": ride_id,
-            "message": "Course créée avec succès"
+            "message": "Course créée avec succès ! +1 crédit Corail 🪸"
         }
     
     except Exception as e:
@@ -342,6 +348,16 @@ async def claim_ride(
 ):
     """Prendre une course (claim)"""
     try:
+        # 🎯 SYSTÈME DE CRÉDITS : Vérifier que l'utilisateur a au moins 1 crédit
+        credits_query = "SELECT credits FROM users WHERE id = :user_id"
+        credits_result = db.execute_query(credits_query, {"user_id": user_id})
+        
+        if not credits_result or credits_result[0].get("credits", 0) < 1:
+            raise HTTPException(
+                status_code=402,  # Payment Required
+                detail="Crédits insuffisants. Publiez des courses pour gagner des crédits !"
+            )
+        
         # Vérifier que la course existe et est disponible
         check_query = "SELECT status, creator_id FROM rides WHERE id = :ride_id"
         results = db.execute_query(check_query, {"ride_id": ride_id})
@@ -365,6 +381,16 @@ async def claim_ride(
         """
         
         db.execute_non_query(update_query, {"user_id": user_id, "ride_id": ride_id})
+        
+        # 🎉 SYSTÈME DE CRÉDITS : -1 crédit pour avoir pris une course
+        deduct_credit_query = """
+        UPDATE users 
+        SET credits = credits - 1
+        WHERE id = :user_id
+        """
+        db.execute_non_query(deduct_credit_query, {"user_id": user_id})
+        
+        print(f"✅ -1 crédit Corail pour {user_id} (prise de course)")
         
         return {
             "success": True,
@@ -435,6 +461,100 @@ async def delete_ride(
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error deleting ride: {str(e)}")
+
+
+@app.post("/api/v1/rides/{ride_id}/complete")
+async def complete_ride(
+    ride_id: str,
+    user_id: str = CurrentUser
+):
+    """
+    Marquer une course comme terminée
+    
+    Seulement le picker peut marquer la course comme complétée.
+    🎉 Le créateur reçoit +1 crédit supplémentaire (total +2 pour la course)
+    """
+    try:
+        # Vérifier que la course existe et appartient au picker
+        check_query = "SELECT creator_id, picker_id, status FROM rides WHERE id = :ride_id"
+        results = db.execute_query(check_query, {"ride_id": ride_id})
+        
+        if not results:
+            raise HTTPException(status_code=404, detail="Course non trouvée")
+        
+        ride = results[0]
+        
+        if ride["picker_id"] != user_id:
+            raise HTTPException(
+                status_code=403, 
+                detail="Seul le chauffeur qui a pris la course peut la marquer comme terminée"
+            )
+        
+        if ride["status"] != "CLAIMED":
+            raise HTTPException(
+                status_code=400, 
+                detail=f"La course doit être en statut CLAIMED (statut actuel: {ride['status']})"
+            )
+        
+        # Marquer la course comme terminée
+        update_query = """
+        UPDATE rides 
+        SET status = 'COMPLETED',
+            completed_at = CURRENT_TIMESTAMP(),
+            updated_at = CURRENT_TIMESTAMP()
+        WHERE id = :ride_id
+        """
+        db.execute_non_query(update_query, {"ride_id": ride_id})
+        
+        # 🎉 SYSTÈME DE CRÉDITS : +1 crédit bonus au créateur (course prise ET validée)
+        credit_query = """
+        UPDATE users 
+        SET credits = COALESCE(credits, 0) + 1
+        WHERE id = :creator_id
+        """
+        db.execute_non_query(credit_query, {"creator_id": ride["creator_id"]})
+        
+        print(f"✅ +1 crédit Corail bonus pour {ride['creator_id']} (course terminée)")
+        
+        return {
+            "success": True,
+            "message": "Course terminée avec succès ! +1 crédit pour l'apporteur d'affaires 🪸"
+        }
+    
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error completing ride: {str(e)}")
+
+
+# ============================================================================
+# CREDITS ROUTES
+# ============================================================================
+
+@app.get("/api/v1/credits")
+async def get_user_credits(
+    user_id: str = CurrentUser
+):
+    """
+    Récupérer le solde de crédits Corail de l'utilisateur
+    """
+    try:
+        query = "SELECT credits FROM users WHERE id = :user_id"
+        results = db.execute_query(query, {"user_id": user_id})
+        
+        if not results:
+            # Si l'utilisateur n'existe pas encore dans la table users, le créer avec 5 crédits
+            insert_query = """
+            INSERT INTO users (id, email, full_name, credits)
+            VALUES (:user_id, '', '', 5)
+            """
+            db.execute_non_query(insert_query, {"user_id": user_id})
+            return {"credits": 5}
+        
+        return {"credits": results[0].get("credits", 0)}
+    
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error fetching credits: {str(e)}")
 
 
 # ============================================================================

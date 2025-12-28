@@ -128,7 +128,6 @@ class ApiClient {
     distance_km?: number;
     duration_minutes?: number;
     group_id?: string;
-    commission_enabled?: boolean;
   }): Promise<Ride> {
     const response = await this.client.post('/rides', rideData);
     return response.data;
@@ -174,6 +173,12 @@ class ApiClient {
   async getCurrentUser(): Promise<User> {
     if (!this.userId) throw new Error('User ID not set');
     return this.getUser(this.userId);
+  }
+
+  // Credits Corail 🪸
+  async getCredits(): Promise<{ credits: number }> {
+    const response = await this.client.get('/credits');
+    return response.data;
   }
 }
 

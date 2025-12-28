@@ -17,6 +17,7 @@ export interface User {
   subscription_plan?: SubscriptionPlan
   rating: number
   total_reviews: number
+  credits?: number
   created_at: string
   avatar_url?: string
 }
@@ -35,7 +36,6 @@ export interface Ride {
   completed_at: string | null
   visibility?: RideVisibility
   group_id?: string | null
-  commission_enabled?: boolean
   vehicle_type?: VehicleType
   distance_km?: number
   duration_minutes?: number
