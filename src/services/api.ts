@@ -5,11 +5,11 @@
 
 import axios, { AxiosInstance, AxiosError } from 'axios';
 import type { Ride, RideListResponse, User, Group, ApiError } from '../types';
+import { firebaseAuth } from './firebase';
 
 class ApiClient {
   private client: AxiosInstance;
   private userId: string | null = null;
-  private authToken: string | null = null;
 
   constructor(baseURL: string) {
     this.client = axios.create({
@@ -20,15 +20,20 @@ class ApiClient {
       },
     });
 
-    // Request interceptor
+    // Request interceptor - Ajoute automatiquement le token Firebase
     this.client.interceptors.request.use(
-      (config) => {
-        if (this.authToken) {
-          config.headers.Authorization = `Bearer ${this.authToken}`;
+      async (config) => {
+        // Récupérer le token Firebase automatiquement
+        const token = await firebaseAuth.getIdToken();
+        if (token) {
+          config.headers.Authorization = `Bearer ${token}`;
         }
+
+        // User ID pour tracking (optionnel)
         if (this.userId) {
           config.headers['X-User-Id'] = this.userId;
         }
+
         console.log(`[API] ${config.method?.toUpperCase()} ${config.url}`);
         return config;
       },
@@ -41,6 +46,12 @@ class ApiClient {
       (error: AxiosError<ApiError>) => {
         if (error.response) {
           console.error(`[API Error] ${error.response.status}:`, error.response.data);
+          
+          // Gérer l'erreur 401 (non authentifié)
+          if (error.response.status === 401) {
+            throw new Error('Session expirée. Reconnectez-vous.');
+          }
+          
           throw new Error(error.response.data?.detail || 'Une erreur est survenue');
         }
         throw new Error('Erreur de connexion au serveur');
@@ -48,17 +59,12 @@ class ApiClient {
     );
   }
 
-  // Auth
-  setAuthToken(token: string) {
-    this.authToken = token;
-  }
-
+  // Auth - Simplifié car Firebase gère les tokens
   setUserId(userId: string) {
     this.userId = userId;
   }
 
   clearAuth() {
-    this.authToken = null;
     this.userId = null;
   }
 
@@ -137,10 +143,10 @@ class ApiClient {
 }
 
 // Export singleton instance
-// TODO: Replace with your actual backend URL
+// Backend URL - À mettre à jour après déploiement Databricks Apps
 const API_BASE_URL = __DEV__ 
   ? 'http://localhost:8000/api/v1'  // Local development
-  : 'https://your-api.com/api/v1';   // Production (AWS Lambda/App Runner)
+  : 'https://corail-api-xxxxx.databricksapps.com/api/v1';   // Production (Databricks Apps)
 
 export const apiClient = new ApiClient(API_BASE_URL);
 export default apiClient;

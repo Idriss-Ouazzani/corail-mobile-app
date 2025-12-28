@@ -2,7 +2,7 @@
  * Corail - Design proche de VTC Market Web 🪸
  */
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -11,6 +11,7 @@ import {
   ScrollView,
   Dimensions,
   Alert,
+  ActivityIndicator,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons, MaterialIcons, FontAwesome5 } from '@expo/vector-icons';
@@ -26,7 +27,11 @@ import GroupDetailScreen from './src/screens/GroupDetailScreen';
 import PersonalInfoScreen from './src/screens/PersonalInfoScreen';
 import NotificationsScreen from './src/screens/NotificationsScreen';
 import HelpSupportScreen from './src/screens/HelpSupportScreen';
+import LoginScreen from './src/screens/LoginScreen';
+import { firebaseAuth } from './src/services/firebase';
+import { apiClient } from './src/services/api';
 import type { Ride } from './src/types';
+import type { User as FirebaseUser } from './src/services/firebase';
 
 const { width } = Dimensions.get('window');
 
@@ -156,6 +161,32 @@ const MOCK_RIDES: Ride[] = [
 const CURRENT_USER_ID = 'user2'; // Hassan Al Masri
 
 export default function App() {
+  // 🔐 Gestion de l'authentification Firebase
+  const [user, setUser] = useState<FirebaseUser | null>(null);
+  const [authLoading, setAuthLoading] = useState(true);
+
+  // Écouter les changements d'état d'authentification
+  useEffect(() => {
+    const unsubscribe = firebaseAuth.onAuthStateChanged((firebaseUser) => {
+      setUser(firebaseUser);
+      
+      if (firebaseUser) {
+        // Configurer l'API client avec le user ID
+        apiClient.setUserId(firebaseUser.uid);
+        console.log('✅ Utilisateur connecté:', firebaseUser.email);
+      } else {
+        apiClient.clearAuth();
+        console.log('❌ Utilisateur déconnecté');
+      }
+      
+      setAuthLoading(false);
+    });
+
+    // Cleanup
+    return () => unsubscribe();
+  }, []);
+
+  // États de l'application
   const [currentScreen, setCurrentScreen] = useState<'home' | 'marketplace' | 'myrides' | 'profile'>('home');
   const [selectedCity, setSelectedCity] = useState('toulouse');
   const [selectedRide, setSelectedRide] = useState<Ride | null>(null);
@@ -173,6 +204,26 @@ export default function App() {
     sortBy: null,
   });
   const [myRidesTab, setMyRidesTab] = useState<'claimed' | 'published'>('claimed');
+
+  // 🔐 Afficher écran de chargement pendant l'initialisation
+  if (authLoading) {
+    return (
+      <View style={styles.loadingContainer}>
+        <LinearGradient colors={['#0f172a', '#1e293b']} style={StyleSheet.absoluteFill}>
+          <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+            <CoralLogo size={100} />
+            <ActivityIndicator size="large" color="#ff6b47" style={{ marginTop: 24 }} />
+            <Text style={{ color: '#94a3b8', marginTop: 16, fontSize: 16 }}>Chargement...</Text>
+          </View>
+        </LinearGradient>
+      </View>
+    );
+  }
+
+  // 🔐 Afficher écran de connexion si pas authentifié
+  if (!user) {
+    return <LoginScreen onLoginSuccess={() => {}} />;
+  }
 
   const renderHome = () => (
     <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
@@ -714,6 +765,50 @@ export default function App() {
           <Ionicons name="chevron-forward" size={20} color="rgba(255, 255, 255, 0.3)" />
         </TouchableOpacity>
       </View>
+
+      {/* Déconnexion */}
+      <View style={styles.section}>
+        <TouchableOpacity
+          style={[styles.menuItem, { backgroundColor: 'rgba(239, 68, 68, 0.1)', borderColor: 'rgba(239, 68, 68, 0.2)' }]}
+          onPress={async () => {
+            Alert.alert(
+              'Déconnexion',
+              'Êtes-vous sûr de vouloir vous déconnecter ?',
+              [
+                { text: 'Annuler', style: 'cancel' },
+                {
+                  text: 'Déconnexion',
+                  style: 'destructive',
+                  onPress: async () => {
+                    try {
+                      await firebaseAuth.signOut();
+                      Alert.alert('Déconnecté', 'Vous avez été déconnecté avec succès');
+                    } catch (error: any) {
+                      Alert.alert('Erreur', error.message);
+                    }
+                  },
+                },
+              ]
+            );
+          }}
+          activeOpacity={0.7}
+        >
+          <View style={[styles.menuIconWrapper, { backgroundColor: 'rgba(239, 68, 68, 0.1)' }]}>
+            <Ionicons name="log-out" size={20} color="#ef4444" />
+          </View>
+          <Text style={[styles.menuTitle, { color: '#ef4444' }]}>Déconnexion</Text>
+        </TouchableOpacity>
+
+        {/* User info */}
+        <View style={{ marginTop: 24, paddingTop: 24, borderTopWidth: 1, borderTopColor: 'rgba(255, 255, 255, 0.05)' }}>
+          <Text style={{ color: '#64748b', fontSize: 13, textAlign: 'center' }}>
+            Connecté en tant que
+          </Text>
+          <Text style={{ color: '#94a3b8', fontSize: 14, textAlign: 'center', marginTop: 4 }}>
+            {user?.email}
+          </Text>
+        </View>
+      </View>
     </ScrollView>
   );
 
@@ -904,6 +999,7 @@ export default function App() {
 const styles = StyleSheet.create({
   container: { flex: 1 },
   gradient: { flex: 1 },
+  loadingContainer: { flex: 1 },
   scrollContent: { paddingTop: 60, paddingBottom: 120, paddingHorizontal: 20 },
 
   // Hero
