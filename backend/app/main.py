@@ -35,6 +35,14 @@ app.add_middleware(
 # MODELS
 # ============================================================================
 
+class User(BaseModel):
+    id: str
+    email: str
+    full_name: Optional[str] = None
+    rating: Optional[int] = None
+    total_reviews: Optional[int] = None
+
+
 class Ride(BaseModel):
     id: str
     creator_id: str
@@ -50,6 +58,11 @@ class Ride(BaseModel):
     duration_minutes: Optional[int]
     commission_enabled: bool
     group_id: Optional[str]
+    created_at: Optional[str] = None
+    updated_at: Optional[str] = None
+    completed_at: Optional[str] = None
+    creator: Optional[User] = None
+    picker: Optional[User] = None
 
 
 class CreateRideRequest(BaseModel):
@@ -107,24 +120,33 @@ async def get_rides(
     - Pagination
     """
     try:
-        # Construire la requête SQL
+        # Construire la requête SQL avec jointure users
         query = """
         SELECT 
-            id,
-            creator_id,
-            picker_id,
-            pickup_address,
-            dropoff_address,
-            scheduled_at,
-            price_cents,
-            status,
-            visibility,
-            vehicle_type,
-            distance_km,
-            duration_minutes,
-            commission_enabled,
-            group_id
-        FROM rides
+            r.id,
+            r.creator_id,
+            r.picker_id,
+            r.pickup_address,
+            r.dropoff_address,
+            r.scheduled_at,
+            r.price_cents,
+            r.status,
+            r.visibility,
+            r.vehicle_type,
+            r.distance_km,
+            r.duration_minutes,
+            r.commission_enabled,
+            r.group_id,
+            r.created_at,
+            r.updated_at,
+            r.completed_at,
+            u.id as creator_user_id,
+            u.email as creator_email,
+            u.full_name as creator_full_name,
+            u.rating as creator_rating,
+            u.total_reviews as creator_total_reviews
+        FROM rides r
+        LEFT JOIN users u ON r.creator_id = u.id
         WHERE 1=1
         """
         
@@ -144,7 +166,42 @@ async def get_rides(
         
         results = db.execute_query(query, params)
         
-        return results
+        # Transformer les résultats pour inclure les informations du créateur
+        rides = []
+        for row in results:
+            ride_data = {
+                "id": row["id"],
+                "creator_id": row["creator_id"],
+                "picker_id": row.get("picker_id"),
+                "pickup_address": row["pickup_address"],
+                "dropoff_address": row["dropoff_address"],
+                "scheduled_at": row["scheduled_at"],
+                "price_cents": row["price_cents"],
+                "status": row["status"],
+                "visibility": row["visibility"],
+                "vehicle_type": row.get("vehicle_type"),
+                "distance_km": row.get("distance_km"),
+                "duration_minutes": row.get("duration_minutes"),
+                "commission_enabled": row["commission_enabled"],
+                "group_id": row.get("group_id"),
+                "created_at": row.get("created_at"),
+                "updated_at": row.get("updated_at"),
+                "completed_at": row.get("completed_at"),
+            }
+            
+            # Ajouter les informations du créateur si disponibles
+            if row.get("creator_user_id"):
+                ride_data["creator"] = {
+                    "id": row["creator_user_id"],
+                    "email": row.get("creator_email"),
+                    "full_name": row.get("creator_full_name"),
+                    "rating": row.get("creator_rating"),
+                    "total_reviews": row.get("creator_total_reviews"),
+                }
+            
+            rides.append(ride_data)
+        
+        return rides
     
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")

@@ -158,12 +158,13 @@ const MOCK_RIDES: Ride[] = [
   },
 ];
 
-const CURRENT_USER_ID = 'user2'; // Hassan Al Masri
-
 export default function App() {
   // 🔐 Gestion de l'authentification Firebase
   const [user, setUser] = useState<FirebaseUser | null>(null);
   const [authLoading, setAuthLoading] = useState(true);
+  
+  // 🆔 ID de l'utilisateur courant (Firebase UID)
+  const currentUserId = user?.uid || '';
 
   // Écouter les changements d'état d'authentification
   useEffect(() => {
@@ -436,23 +437,10 @@ export default function App() {
           </TouchableOpacity>
         </View>
 
-        {/* Selected Region Indicator */}
-        <TouchableOpacity
-          style={styles.regionIndicator}
-          onPress={() => setCurrentScreen('home')}
-          activeOpacity={0.7}
-        >
-          <Ionicons name="location" size={16} color="#ff6b47" />
-          <Text style={styles.regionText}>
-            {selectedCity === 'toulouse' ? 'Toulouse' : 
-             selectedCity === 'paris' ? 'Paris' :
-             selectedCity === 'lyon' ? 'Lyon' :
-             selectedCity === 'marseille' ? 'Marseille' :
-             selectedCity === 'bordeaux' ? 'Bordeaux' :
-             selectedCity === 'nice' ? 'Nice' : 'Toutes les régions'}
-          </Text>
-          <Ionicons name="chevron-down" size={14} color="#64748b" />
-        </TouchableOpacity>
+        {/* Selected Region Indicator - Opens CitySelector */}
+        <View style={{ marginBottom: 16 }}>
+          <CitySelector selectedCity={selectedCity} onCityChange={setSelectedCity} />
+        </View>
 
         {/* Filters */}
         <View style={styles.filtersRow}>
@@ -509,7 +497,7 @@ export default function App() {
             <RideCard 
               key={ride.id} 
               ride={ride} 
-              currentUserId={CURRENT_USER_ID}
+              currentUserId={currentUserId}
               onPress={() => {
                 console.log('Ride selected:', ride.id);
                 setSelectedRide(ride);
@@ -531,12 +519,12 @@ export default function App() {
 
   const renderMyRides = () => {
     // Filter rides where current user is the picker (claimed rides)
-    const claimedByMe = rides.filter((ride) => ride.picker_id === CURRENT_USER_ID);
+    const claimedByMe = rides.filter((ride) => ride.picker_id === currentUserId);
     const claimedRides = claimedByMe.filter((ride) => ride.status === 'CLAIMED');
     const completedRides = claimedByMe.filter((ride) => ride.status === 'COMPLETED');
 
     // Filter rides where current user is the creator (published rides)
-    const publishedByMe = rides.filter((ride) => ride.creator_id === CURRENT_USER_ID);
+    const publishedByMe = rides.filter((ride) => ride.creator_id === currentUserId);
     const activePublished = publishedByMe.filter((ride) => ride.status === 'PUBLISHED');
     const claimedPublished = publishedByMe.filter((ride) => ride.status === 'CLAIMED' || ride.status === 'COMPLETED');
 
@@ -619,7 +607,7 @@ export default function App() {
                   <RideCard 
                     key={ride.id} 
                     ride={ride} 
-                    currentUserId={CURRENT_USER_ID}
+                    currentUserId={currentUserId}
                     onPress={() => setSelectedRide(ride)}
                   />
                 ))}
@@ -636,7 +624,7 @@ export default function App() {
                   <RideCard 
                     key={ride.id} 
                     ride={ride} 
-                    currentUserId={CURRENT_USER_ID}
+                    currentUserId={currentUserId}
                     onPress={() => setSelectedRide(ride)}
                   />
                 ))}
@@ -687,7 +675,7 @@ export default function App() {
                   <RideCard 
                     key={ride.id} 
                     ride={ride} 
-                    currentUserId={CURRENT_USER_ID}
+                    currentUserId={currentUserId}
                     onPress={() => setSelectedRide(ride)}
                   />
                 ))}
@@ -704,7 +692,7 @@ export default function App() {
                   <View key={ride.id} style={styles.publishedRideWrapper}>
                     <RideCard 
                       ride={ride} 
-                      currentUserId={CURRENT_USER_ID}
+                      currentUserId={currentUserId}
                       onPress={() => setSelectedRide(ride)}
                     />
                     {ride.picker && (
@@ -977,7 +965,7 @@ export default function App() {
     return (
       <RideDetailScreen
         ride={selectedRide}
-        currentUserId={CURRENT_USER_ID}
+        currentUserId={currentUserId}
         onBack={() => setSelectedRide(null)}
         onClaim={() => {
           Alert.alert('Succès', 'Course réclamée !');
