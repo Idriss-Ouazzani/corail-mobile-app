@@ -85,6 +85,19 @@ export default function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
     }
   };
 
+  const handleGoogleSignIn = async () => {
+    setLoading(true);
+    try {
+      await firebaseAuth.signInWithGoogle();
+      onLoginSuccess();
+    } catch (error: any) {
+      console.error('Google Sign-In Error:', error);
+      Alert.alert('Erreur', error.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <LinearGradient
       colors={['#0f172a', '#1e293b', '#2d3748']}
@@ -213,6 +226,28 @@ export default function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
                   </Text>
                 )}
               </LinearGradient>
+            </TouchableOpacity>
+
+            {/* Séparateur "OU" */}
+            <View style={styles.dividerContainer}>
+              <View style={styles.dividerLine} />
+              <Text style={styles.dividerText}>OU</Text>
+              <View style={styles.dividerLine} />
+            </View>
+
+            {/* Bouton Google */}
+            <TouchableOpacity
+              style={[styles.googleButton, loading && styles.buttonDisabled]}
+              onPress={handleGoogleSignIn}
+              disabled={loading}
+              activeOpacity={0.8}
+            >
+              <View style={styles.googleButtonContent}>
+                <Ionicons name="logo-google" size={22} color="#ea4335" />
+                <Text style={styles.googleButtonText}>
+                  Continuer avec Google
+                </Text>
+              </View>
             </TouchableOpacity>
 
             {/* Toggle connexion/inscription */}
@@ -377,6 +412,47 @@ const styles = StyleSheet.create({
     fontSize: 17,
     fontWeight: '700',
     color: '#fff',
+  },
+  dividerContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginVertical: 24,
+  },
+  dividerLine: {
+    flex: 1,
+    height: 1,
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+  },
+  dividerText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#64748b',
+    marginHorizontal: 16,
+    letterSpacing: 1,
+  },
+  googleButton: {
+    backgroundColor: '#fff',
+    borderRadius: 14,
+    overflow: 'hidden',
+    borderWidth: 1.5,
+    borderColor: 'rgba(255, 255, 255, 0.9)',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  googleButtonContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 16,
+  },
+  googleButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#1e293b',
+    marginLeft: 12,
   },
   toggleContainer: {
     flexDirection: 'row',

@@ -8,9 +8,19 @@ import {
   createUserWithEmailAndPassword,
   signOut as firebaseSignOut,
   onAuthStateChanged,
+  GoogleAuthProvider,
+  signInWithPopup,
+  signInWithCredential,
+  OAuthCredential,
   User,
   UserCredential
 } from 'firebase/auth';
+import * as Google from 'expo-auth-session/providers/google';
+import * as WebBrowser from 'expo-web-browser';
+import { Platform } from 'react-native';
+
+// Nécessaire pour que le navigateur se ferme après l'authentification
+WebBrowser.maybeCompleteAuthSession();
 
 // Configuration Firebase
 const firebaseConfig = {
@@ -53,6 +63,47 @@ export const firebaseAuth = {
     } catch (error: any) {
       console.error('Firebase signUp error:', error);
       throw new Error(this.getErrorMessage(error.code));
+    }
+  },
+
+  /**
+   * Se connecter avec Google
+   * Note: Fonctionne uniquement sur le web avec Expo Go
+   * Pour mobile natif, il faut configurer expo-auth-session avec les Client IDs
+   */
+  async signInWithGoogle(): Promise<User> {
+    try {
+      console.log('[Firebase] 🔵 Tentative de connexion Google...');
+      
+      if (Platform.OS === 'web') {
+        // Pour le web, utiliser signInWithPopup
+        const provider = new GoogleAuthProvider();
+        provider.setCustomParameters({
+          prompt: 'select_account'
+        });
+        
+        const result = await signInWithPopup(auth, provider);
+        console.log('[Firebase] ✅ Connexion Google réussie (web):', result.user.email);
+        return result.user;
+      } else {
+        // Pour mobile, retourner une erreur explicite
+        // TODO: Implémenter avec expo-auth-session si nécessaire
+        throw new Error(
+          'Connexion Google non disponible sur mobile avec Expo Go. ' +
+          'Utilisez l\'email/mot de passe ou compilez l\'app en standalone.'
+        );
+      }
+    } catch (error: any) {
+      console.error('[Firebase] ❌ Erreur Google Sign-In:', error);
+      
+      if (error.code === 'auth/popup-closed-by-user') {
+        throw new Error('Connexion annulée');
+      }
+      if (error.code === 'auth/cancelled-popup-request') {
+        throw new Error('Connexion annulée');
+      }
+      
+      throw new Error(error.message || 'Erreur lors de la connexion avec Google');
     }
   },
 
@@ -120,6 +171,9 @@ export const firebaseAuth = {
       'auth/too-many-requests': 'Trop de tentatives. Réessayez plus tard',
       'auth/network-request-failed': 'Erreur réseau. Vérifiez votre connexion',
       'auth/invalid-credential': 'Email ou mot de passe incorrect',
+      'auth/popup-closed-by-user': 'Connexion annulée',
+      'auth/cancelled-popup-request': 'Connexion annulée',
+      'auth/account-exists-with-different-credential': 'Un compte existe déjà avec cet email',
     };
 
     return errorMessages[errorCode] || 'Une erreur est survenue. Réessayez.';
