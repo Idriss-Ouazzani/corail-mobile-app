@@ -13,17 +13,6 @@ from .config import FIREBASE_CREDENTIALS_PATH
 # Initialiser Firebase Admin SDK
 _firebase_initialized = False
 
-def get_databricks_secret(scope: str, key: str) -> Optional[str]:
-    """Récupère un secret depuis Databricks"""
-    try:
-        from databricks.sdk import WorkspaceClient
-        w = WorkspaceClient()
-        secret_value = w.secrets.get_secret(scope=scope, key=key)
-        return secret_value.value
-    except Exception as e:
-        print(f"⚠️ Impossible de lire le secret Databricks {scope}/{key}: {e}")
-        return None
-
 def init_firebase():
     """Initialise Firebase Admin SDK"""
     global _firebase_initialized
@@ -32,20 +21,19 @@ def init_firebase():
         return
     
     try:
-        # Priorité 1 : Secret Databricks via API
-        try:
-            firebase_secret_json = get_databricks_secret("corail-firebase-app", "secret-firebase")
-            if firebase_secret_json:
-                cred_dict = json.loads(firebase_secret_json)
-                cred = credentials.Certificate(cred_dict)
-                initialize_app(cred)
-                _firebase_initialized = True
-                print("✅ Firebase initialisé avec Databricks Secret (API)")
-                return
-        except Exception as e:
-            print(f"⚠️ Erreur lecture secret Databricks: {e}")
+        # Priorité 1 : Secret depuis Resource Key (Databricks Apps)
+        # Le Resource key "secret-firebase" devient une variable d'environnement
+        firebase_secret = os.getenv("secret-firebase")
+        if firebase_secret:
+            print(f"🔍 Found secret-firebase env var, length: {len(firebase_secret)}")
+            cred_dict = json.loads(firebase_secret)
+            cred = credentials.Certificate(cred_dict)
+            initialize_app(cred)
+            _firebase_initialized = True
+            print("✅ Firebase initialisé avec Databricks Apps Resource")
+            return
         
-        # Priorité 2 : Secret depuis variable d'environnement
+        # Priorité 2 : Secret depuis variable FIREBASE_SECRET
         firebase_secret = os.getenv("FIREBASE_SECRET")
         if firebase_secret:
             cred_dict = json.loads(firebase_secret)
@@ -63,9 +51,16 @@ def init_firebase():
             print(f"✅ Firebase initialisé avec fichier local: {FIREBASE_CREDENTIALS_PATH}")
             return
         
+        # Debug : lister toutes les variables d'environnement qui contiennent "secret" ou "firebase"
+        print("🔍 Variables d'environnement disponibles:")
+        for key in os.environ.keys():
+            if 'secret' in key.lower() or 'firebase' in key.lower():
+                value_preview = os.environ[key][:50] + "..." if len(os.environ[key]) > 50 else os.environ[key]
+                print(f"   - {key}: {value_preview}")
+        
         # Aucune credential trouvée
         print("⚠️ Firebase credentials non trouvées")
-        print("   - Pas de secret Databricks")
+        print("   - Pas de variable 'secret-firebase' (Resource key)")
         print("   - Pas de variable FIREBASE_SECRET")
         print(f"   - Pas de fichier local: {FIREBASE_CREDENTIALS_PATH}")
         print("   L'app fonctionnera en mode dev sans auth")
@@ -75,6 +70,8 @@ def init_firebase():
         print("   L'app fonctionnera en mode dev sans auth")
     except Exception as e:
         print(f"❌ Erreur Firebase init: {e}")
+        import traceback
+        traceback.print_exc()
         print("   L'app fonctionnera en mode dev sans auth")
 
 
