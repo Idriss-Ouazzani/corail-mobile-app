@@ -331,22 +331,35 @@ export default function App() {
         </LinearGradient>
       </TouchableOpacity>
 
-      {/* Stats Grid */}
-      <View style={styles.statsContainer}>
+      {/* Stats Grid - Compact */}
+      <View style={styles.statsContainerCompact}>
         {[
-          { icon: 'car-sport', label: 'Courses disponibles', value: '156', color: '#ff6b47', library: 'Ionicons' },
-          { icon: 'flash', label: 'En cours', value: '3', color: '#0ea5e9', library: 'Ionicons' },
-          { icon: 'wallet', label: 'Gains du mois', value: '850€', color: '#10b981', library: 'Ionicons' },
-          { icon: 'star', label: 'Note moyenne', value: '4.8', color: '#fbbf24', library: 'Ionicons' },
+          { icon: 'car-sport', label: 'Disponibles', value: '156', color: '#ff6b47' },
+          { icon: 'flash', label: 'En cours', value: '3', color: '#0ea5e9' },
         ].map((stat, index) => (
-          <View key={index} style={styles.statCard}>
-            <View style={[styles.statIconWrapper, { backgroundColor: stat.color + '20' }]}>
-              <Ionicons name={stat.icon as any} size={24} color={stat.color} />
+          <View key={index} style={styles.statCardCompact}>
+            <View style={[styles.statIconWrapperCompact, { backgroundColor: stat.color + '20' }]}>
+              <Ionicons name={stat.icon as any} size={20} color={stat.color} />
             </View>
-            <Text style={styles.statValue}>{stat.value}</Text>
-            <Text style={styles.statLabel}>{stat.label}</Text>
+            <View style={styles.statInfoCompact}>
+              <Text style={styles.statValueCompact}>{stat.value}</Text>
+              <Text style={styles.statLabelCompact}>{stat.label}</Text>
+            </View>
           </View>
         ))}
+      </View>
+      
+      {/* Secondary Stats Row */}
+      <View style={styles.secondaryStatsRow}>
+        <View style={styles.secondaryStatItem}>
+          <Ionicons name="wallet" size={16} color="#10b981" />
+          <Text style={styles.secondaryStatText}>850€ ce mois</Text>
+        </View>
+        <View style={styles.secondaryStatDivider} />
+        <View style={styles.secondaryStatItem}>
+          <Ionicons name="star" size={16} color="#fbbf24" />
+          <Text style={styles.secondaryStatText}>4.8 note</Text>
+        </View>
       </View>
 
       {/* City Selector */}
@@ -469,7 +482,7 @@ export default function App() {
               activeOpacity={0.8}
             >
               <LinearGradient
-                colors={['#0ea5e9', '#0284c7']}
+                colors={['#10b981', '#059669']}
                 style={styles.createButtonGradient}
               >
                 <Ionicons name="add" size={20} color="#fff" />
@@ -1342,6 +1355,71 @@ const styles = StyleSheet.create({
   statValue: { fontSize: 22, fontWeight: 'bold', color: '#f1f5f9', marginBottom: 4 },
   statLabel: { fontSize: 11, color: '#94a3b8', textAlign: 'center' },
 
+  // Stats Compact
+  statsContainerCompact: {
+    flexDirection: 'row',
+    marginBottom: 16,
+  },
+  statCardCompact: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.03)',
+    borderRadius: 16,
+    padding: 14,
+    marginHorizontal: 4,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+  },
+  statIconWrapperCompact: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
+  },
+  statInfoCompact: {
+    flex: 1,
+  },
+  statValueCompact: { 
+    fontSize: 20, 
+    fontWeight: 'bold', 
+    color: '#f1f5f9', 
+    marginBottom: 2 
+  },
+  statLabelCompact: { 
+    fontSize: 11, 
+    color: '#94a3b8' 
+  },
+  secondaryStatsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.02)',
+    borderRadius: 12,
+    padding: 12,
+    marginBottom: 30,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.05)',
+  },
+  secondaryStatItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  secondaryStatText: {
+    fontSize: 13,
+    color: '#94a3b8',
+    marginLeft: 6,
+    fontWeight: '600',
+  },
+  secondaryStatDivider: {
+    width: 1,
+    height: 16,
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    marginHorizontal: 16,
+  },
+
   // Section
   section: { marginBottom: 30 },
   sectionTitle: { fontSize: 20, fontWeight: 'bold', color: '#f1f5f9', marginBottom: 16 },
@@ -1808,7 +1886,7 @@ const styles = StyleSheet.create({
   createButtonCompact: {
     borderRadius: 16,
     overflow: 'hidden',
-    shadowColor: '#0ea5e9',
+    shadowColor: '#10b981',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.3,
     shadowRadius: 4,

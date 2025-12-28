@@ -108,17 +108,27 @@ export const SubscriptionScreen: React.FC<SubscriptionScreenProps> = ({ onBack }
         {/* Plans */}
         <Text style={styles.sectionTitle}>Choisir un forfait</Text>
         {PLANS.map((plan) => (
-          <View key={plan.id} style={styles.planCard}>
-            {plan.popular && (
+          <View key={plan.id} style={[
+            styles.planCard,
+            currentPlan === plan.id && styles.planCardActive
+          ]}>
+            {plan.popular && currentPlan !== plan.id && (
               <View style={styles.popularBadge}>
                 <Text style={styles.popularText}>POPULAIRE</Text>
               </View>
             )}
+            {currentPlan === plan.id && (
+              <View style={styles.currentPlanTopBadge}>
+                <Ionicons name="checkmark-circle" size={16} color="#10b981" />
+                <Text style={styles.currentPlanTopBadgeText}>PLAN ACTUEL</Text>
+              </View>
+            )}
             <LinearGradient
-              colors={[
-                `${plan.color}15`,
-                `${plan.color}05`,
-              ]}
+              colors={
+                currentPlan === plan.id
+                  ? [`${plan.color}25`, `${plan.color}10`]
+                  : [`${plan.color}15`, `${plan.color}05`]
+              }
               style={styles.planGradient}
             >
               {/* Plan Header */}
@@ -331,6 +341,30 @@ const styles = StyleSheet.create({
   planCard: {
     marginBottom: 20,
     position: 'relative',
+  },
+  planCardActive: {
+    borderWidth: 2,
+    borderColor: '#10b981',
+    borderRadius: 20,
+  },
+  currentPlanTopBadge: {
+    position: 'absolute',
+    top: -8,
+    right: 20,
+    zIndex: 10,
+    backgroundColor: '#10b981',
+    paddingHorizontal: 12,
+    paddingVertical: 4,
+    borderRadius: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  currentPlanTopBadgeText: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#fff',
+    letterSpacing: 0.5,
+    marginLeft: 4,
   },
   popularBadge: {
     position: 'absolute',
