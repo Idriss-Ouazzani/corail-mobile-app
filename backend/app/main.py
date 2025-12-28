@@ -43,6 +43,35 @@ class User(BaseModel):
     total_reviews: Optional[int] = None
 
 
+class GroupMember(BaseModel):
+    id: str
+    user_id: Optional[str]
+    email: str
+    role: str  # ADMIN, MEMBER
+    status: str  # ACTIVE, PENDING, REJECTED, LEFT
+    full_name: Optional[str] = None
+
+
+class Group(BaseModel):
+    id: str
+    name: str
+    description: Optional[str]
+    owner_id: str  # Databricks utilise owner_id, pas creator_id
+    icon: str
+    created_at: Optional[str] = None
+    members: Optional[List[GroupMember]] = []
+
+
+class CreateGroupRequest(BaseModel):
+    name: str
+    description: Optional[str] = None
+    icon: str = "👥"
+
+
+class InviteToGroupRequest(BaseModel):
+    email: str
+
+
 class Ride(BaseModel):
     id: str
     creator_id: str
@@ -406,6 +435,251 @@ async def delete_ride(
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error deleting ride: {str(e)}")
+
+
+# ============================================================================
+# GROUPS ROUTES
+# ============================================================================
+
+@app.get("/api/v1/groups", response_model=List[Group])
+async def get_my_groups(user_id: str = CurrentUser):
+    """
+    Récupère les groupes de l'utilisateur
+    """
+    try:
+        query = """
+        SELECT DISTINCT
+            g.id,
+            g.name,
+            g.description,
+            g.owner_id,
+            g.icon,
+            g.created_at
+        FROM groups g
+        JOIN group_members gm ON g.id = gm.group_id
+        WHERE gm.user_id = :user_id AND gm.status = 'ACTIVE'
+        ORDER BY g.created_at DESC
+        """
+        
+        groups_data = db.execute_query(query, {"user_id": user_id})
+        
+        # Pour chaque groupe, récupérer les membres
+        groups = []
+        for group in groups_data:
+            members_query = """
+            SELECT 
+                gm.id,
+                gm.user_id,
+                gm.email,
+                gm.role,
+                gm.status,
+                u.full_name
+            FROM group_members gm
+            LEFT JOIN users u ON gm.user_id = u.id
+            WHERE gm.group_id = :group_id AND gm.status IN ('ACTIVE', 'PENDING')
+            ORDER BY gm.role DESC, gm.status, gm.email
+            """
+            members_data = db.execute_query(members_query, {"group_id": group["id"]})
+            
+            groups.append({
+                "id": group["id"],
+                "name": group["name"],
+                "description": group.get("description"),
+                "owner_id": group["owner_id"],
+                "icon": group.get("icon", "👥"),
+                "created_at": group.get("created_at"),
+                "members": members_data
+            })
+        
+        return groups
+    
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
+
+
+@app.post("/api/v1/groups")
+async def create_group(
+    group: CreateGroupRequest,
+    user_id: str = CurrentUser
+):
+    """
+    Créer un nouveau groupe
+    """
+    try:
+        import uuid
+        from datetime import datetime
+        
+        group_id = f"group-{uuid.uuid4()}"
+        
+        # Créer le groupe
+        create_group_query = """
+        INSERT INTO groups (id, name, description, owner_id, icon, created_at, updated_at)
+        VALUES (:id, :name, :description, :owner_id, :icon, CURRENT_TIMESTAMP(), CURRENT_TIMESTAMP())
+        """
+        
+        db.execute_non_query(create_group_query, {
+            "id": group_id,
+            "name": group.name,
+            "description": group.description,
+            "owner_id": user_id,
+            "icon": group.icon
+        })
+        
+        # Ajouter le créateur comme membre admin
+        member_id = f"member-{uuid.uuid4()}"
+        add_member_query = """
+        INSERT INTO group_members (id, group_id, user_id, email, role, status, invited_by, created_at, updated_at)
+        SELECT :id, :group_id, :user_id, u.email, 'ADMIN', 'ACTIVE', NULL, CURRENT_TIMESTAMP(), CURRENT_TIMESTAMP()
+        FROM users u WHERE u.id = :user_id
+        """
+        
+        db.execute_non_query(add_member_query, {
+            "id": member_id,
+            "group_id": group_id,
+            "user_id": user_id
+        })
+        
+        return {
+            "success": True,
+            "group_id": group_id,
+            "message": "Groupe créé avec succès"
+        }
+    
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error creating group: {str(e)}")
+
+
+@app.post("/api/v1/groups/{group_id}/invite")
+async def invite_to_group(
+    group_id: str,
+    invitation: InviteToGroupRequest,
+    user_id: str = CurrentUser
+):
+    """
+    Inviter quelqu'un à rejoindre un groupe
+    
+    L'invitation est créée avec status=PENDING.
+    Un vrai système d'email/notification nécessiterait Firebase Cloud Functions.
+    """
+    try:
+        import uuid
+        
+        # Vérifier que l'utilisateur est admin du groupe
+        check_admin_query = """
+        SELECT role FROM group_members
+        WHERE group_id = :group_id AND user_id = :user_id AND status = 'ACTIVE'
+        """
+        admin_check = db.execute_query(check_admin_query, {"group_id": group_id, "user_id": user_id})
+        
+        if not admin_check or admin_check[0]["role"] != "ADMIN":
+            raise HTTPException(status_code=403, detail="Seuls les admins peuvent inviter des membres")
+        
+        # Vérifier si l'email existe déjà dans le groupe
+        check_existing_query = """
+        SELECT status FROM group_members
+        WHERE group_id = :group_id AND email = :email
+        """
+        existing = db.execute_query(check_existing_query, {"group_id": group_id, "email": invitation.email})
+        
+        if existing:
+            if existing[0]["status"] == "ACTIVE":
+                raise HTTPException(status_code=400, detail="Cet utilisateur est déjà membre du groupe")
+            elif existing[0]["status"] == "PENDING":
+                raise HTTPException(status_code=400, detail="Une invitation est déjà en attente pour cet email")
+        
+        # Récupérer le user_id si l'email existe dans la table users
+        find_user_query = "SELECT id FROM users WHERE email = :email"
+        user_result = db.execute_query(find_user_query, {"email": invitation.email})
+        found_user_id = user_result[0]["id"] if user_result else None
+        
+        # Créer l'invitation
+        invitation_id = f"member-{uuid.uuid4()}"
+        create_invitation_query = """
+        INSERT INTO group_members (id, group_id, user_id, email, role, status, invited_by, invited_at, created_at, updated_at)
+        VALUES (:id, :group_id, :user_id, :email, 'MEMBER', 'PENDING', :invited_by, CURRENT_TIMESTAMP(), CURRENT_TIMESTAMP(), CURRENT_TIMESTAMP())
+        """
+        
+        db.execute_non_query(create_invitation_query, {
+            "id": invitation_id,
+            "group_id": group_id,
+            "user_id": found_user_id,
+            "email": invitation.email,
+            "invited_by": user_id
+        })
+        
+        return {
+            "success": True,
+            "invitation_id": invitation_id,
+            "message": f"Invitation envoyée à {invitation.email}",
+            "note": "⚠️ Système d'email non implémenté. L'utilisateur doit accepter manuellement l'invitation."
+        }
+    
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error inviting to group: {str(e)}")
+
+
+@app.get("/api/v1/groups/{group_id}")
+async def get_group_details(
+    group_id: str,
+    user_id: str = CurrentUser
+):
+    """
+    Récupère les détails d'un groupe
+    """
+    try:
+        # Vérifier que l'utilisateur est membre du groupe
+        check_member_query = """
+        SELECT status FROM group_members
+        WHERE group_id = :group_id AND user_id = :user_id
+        """
+        member_check = db.execute_query(check_member_query, {"group_id": group_id, "user_id": user_id})
+        
+        if not member_check or member_check[0]["status"] != "ACTIVE":
+            raise HTTPException(status_code=403, detail="Vous n'êtes pas membre de ce groupe")
+        
+        # Récupérer les infos du groupe
+        group_query = """
+        SELECT id, name, description, owner_id, icon, created_at
+        FROM groups WHERE id = :group_id
+        """
+        group_data = db.execute_query(group_query, {"group_id": group_id})
+        
+        if not group_data:
+            raise HTTPException(status_code=404, detail="Groupe non trouvé")
+        
+        # Récupérer les membres
+        members_query = """
+        SELECT 
+            gm.id,
+            gm.user_id,
+            gm.email,
+            gm.role,
+            gm.status,
+            u.full_name
+        FROM group_members gm
+        LEFT JOIN users u ON gm.user_id = u.id
+        WHERE gm.group_id = :group_id AND gm.status IN ('ACTIVE', 'PENDING')
+        ORDER BY gm.role DESC, gm.status, gm.email
+        """
+        members_data = db.execute_query(members_query, {"group_id": group_id})
+        
+        group = group_data[0]
+        return {
+            "id": group["id"],
+            "name": group["name"],
+            "description": group.get("description"),
+            "owner_id": group["owner_id"],
+            "icon": group.get("icon", "👥"),
+            "created_at": group.get("created_at"),
+            "members": members_data
+        }
+    
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
 
 
 # ============================================================================
