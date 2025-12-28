@@ -79,6 +79,18 @@ async def root():
     }
 
 
+@app.get("/health")
+async def health():
+    """Health check for monitoring"""
+    return {"status": "healthy"}
+
+
+@app.get("/api/v1/health")
+async def api_health():
+    """API health check"""
+    return {"status": "healthy", "version": "1.0.0"}
+
+
 @app.get("/api/v1/rides", response_model=List[Ride])
 async def get_rides(
     user_id: str = CurrentUser,

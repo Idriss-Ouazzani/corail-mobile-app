@@ -37,7 +37,7 @@ class ApiClient {
           config.headers['X-User-Id'] = this.userId;
         }
 
-        console.log(`[API] ${config.method?.toUpperCase()} ${config.url}`);
+        console.log(`[API] ${config.method?.toUpperCase()} ${this.client.defaults.baseURL}${config.url}`);
         console.log(`[API] Headers:`, JSON.stringify(config.headers, null, 2));
         return config;
       },

@@ -1,0 +1,24 @@
+services:
+  - type: web
+    name: corail-backend
+    env: python
+    region: frankfurt  # EU region
+    plan: free
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.0
+      - key: DATABRICKS_HOST
+        sync: false
+      - key: DATABRICKS_HTTP_PATH
+        sync: false
+      - key: DATABRICKS_TOKEN
+        sync: false
+      - key: CATALOG
+        value: io_catalog
+      - key: SCHEMA
+        value: corail
+      - key: FIREBASE_SECRET
+        sync: false
+
