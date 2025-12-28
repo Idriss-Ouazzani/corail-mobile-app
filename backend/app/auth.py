@@ -2,6 +2,7 @@
 Firebase Authentication Middleware
 """
 import os
+import json
 from fastapi import Header, HTTPException, Depends
 from firebase_admin import credentials, auth, initialize_app
 from pathlib import Path
@@ -20,15 +21,34 @@ def init_firebase():
         return
     
     try:
-        # Vérifier si le fichier de credentials existe
+        # Priorité 1 : Secret Databricks (depuis variable d'environnement)
+        firebase_secret = os.getenv("FIREBASE_SECRET")
+        if firebase_secret:
+            # Le secret contient le JSON complet
+            cred_dict = json.loads(firebase_secret)
+            cred = credentials.Certificate(cred_dict)
+            initialize_app(cred)
+            _firebase_initialized = True
+            print("✅ Firebase initialisé avec Databricks Secret")
+            return
+        
+        # Priorité 2 : Fichier local (dev uniquement)
         if os.path.exists(FIREBASE_CREDENTIALS_PATH):
             cred = credentials.Certificate(FIREBASE_CREDENTIALS_PATH)
             initialize_app(cred)
             _firebase_initialized = True
-            print(f"✅ Firebase initialisé avec: {FIREBASE_CREDENTIALS_PATH}")
-        else:
-            print(f"⚠️ Firebase credentials non trouvées: {FIREBASE_CREDENTIALS_PATH}")
-            print("   L'app fonctionnera en mode dev sans auth")
+            print(f"✅ Firebase initialisé avec fichier local: {FIREBASE_CREDENTIALS_PATH}")
+            return
+        
+        # Aucune credential trouvée
+        print("⚠️ Firebase credentials non trouvées")
+        print("   - Pas de variable FIREBASE_SECRET")
+        print(f"   - Pas de fichier local: {FIREBASE_CREDENTIALS_PATH}")
+        print("   L'app fonctionnera en mode dev sans auth")
+        
+    except json.JSONDecodeError as e:
+        print(f"❌ Erreur parsing Firebase secret JSON: {e}")
+        print("   L'app fonctionnera en mode dev sans auth")
     except Exception as e:
         print(f"❌ Erreur Firebase init: {e}")
         print("   L'app fonctionnera en mode dev sans auth")

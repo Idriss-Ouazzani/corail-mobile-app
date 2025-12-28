@@ -143,10 +143,10 @@ class ApiClient {
 }
 
 // Export singleton instance
-// Backend URL - À mettre à jour après déploiement Databricks Apps
+// Backend URL - Databricks Apps
 const API_BASE_URL = __DEV__ 
   ? 'http://localhost:8000/api/v1'  // Local development
-  : 'https://corail-api-xxxxx.databricksapps.com/api/v1';   // Production (Databricks Apps)
+  : 'https://corail-app-1444828305810485.aws.databricksapps.com/api/v1';   // Production (Databricks Apps)
 
 export const apiClient = new ApiClient(API_BASE_URL);
 export default apiClient;

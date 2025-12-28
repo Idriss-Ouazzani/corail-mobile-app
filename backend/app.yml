@@ -1,0 +1,33 @@
+# Databricks Apps Configuration pour Corail Backend
+# Documentation: https://docs.databricks.com/en/apps/index.html
+
+app:
+  name: corail-backend
+  description: Backend API pour Corail VTC avec Firebase Auth
+  
+  # Command pour démarrer l'app
+  command:
+    - /bin/bash
+    - -c
+    - "pip install -r requirements.txt && uvicorn app.main:app --host 0.0.0.0 --port 8000"
+  
+  # Variables d'environnement (références aux secrets)
+  env:
+    - name: DATABRICKS_HOST
+      value: ${DATABRICKS_HOST}
+    - name: DATABRICKS_HTTP_PATH
+      value: ${DATABRICKS_HTTP_PATH}
+    - name: DATABRICKS_TOKEN
+      value: ${DATABRICKS_TOKEN}
+    - name: CATALOG
+      value: io_catalog
+    - name: SCHEMA
+      value: corail
+    - name: FIREBASE_SECRET
+      value: ${FIREBASE_SECRET}
+  
+  # Ressources
+  resources:
+    cpu: "1"
+    memory: "2Gi"
+
