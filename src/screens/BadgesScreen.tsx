@@ -393,10 +393,10 @@ const styles = StyleSheet.create({
   badgesGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    justifyContent: 'space-between',
+    justifyContent: 'space-around',
   },
   badgeItem: {
-    width: '31%',
+    width: '28%',
     marginBottom: 16,
     position: 'relative',
     alignItems: 'center',
