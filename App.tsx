@@ -2,7 +2,7 @@
  * Corail - Design proche de VTC Market Web 🪸
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -12,6 +12,7 @@ import {
   Dimensions,
   Alert,
   ActivityIndicator,
+  Animated,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons, MaterialIcons, FontAwesome5 } from '@expo/vector-icons';
@@ -170,6 +171,93 @@ const formatName = (name: string): string => {
     .join(' ');
 };
 
+/**
+ * Composant d'écran de chargement avec animation
+ */
+const LoadingScreen: React.FC<{ message?: string }> = ({ message = 'Chargement...' }) => {
+  const pulseAnim = useRef(new Animated.Value(1)).current;
+  const rotateAnim = useRef(new Animated.Value(0)).current;
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    // Animation de pulsation du logo
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(pulseAnim, {
+          toValue: 1.15,
+          duration: 1000,
+          useNativeDriver: true,
+        }),
+        Animated.timing(pulseAnim, {
+          toValue: 1,
+          duration: 1000,
+          useNativeDriver: true,
+        }),
+      ])
+    ).start();
+
+    // Animation de rotation subtile
+    Animated.loop(
+      Animated.timing(rotateAnim, {
+        toValue: 1,
+        duration: 3000,
+        useNativeDriver: true,
+      })
+    ).start();
+
+    // Fade in du texte
+    Animated.timing(fadeAnim, {
+      toValue: 1,
+      duration: 800,
+      useNativeDriver: true,
+    }).start();
+  }, []);
+
+  const rotate = rotateAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: ['0deg', '360deg'],
+  });
+
+  return (
+    <View style={styles.loadingContainer}>
+      <LinearGradient colors={['#0f172a', '#1e293b']} style={StyleSheet.absoluteFill}>
+        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+          {/* Logo avec animations */}
+          <Animated.View
+            style={{
+              transform: [{ scale: pulseAnim }, { rotate }],
+            }}
+          >
+            <View style={styles.logoGlow}>
+              <CoralLogo size={100} />
+            </View>
+          </Animated.View>
+
+          {/* Cercles de chargement décoratifs */}
+          <View style={styles.loadingRings}>
+            <View style={[styles.loadingRing, styles.loadingRing1]} />
+            <View style={[styles.loadingRing, styles.loadingRing2]} />
+            <View style={[styles.loadingRing, styles.loadingRing3]} />
+          </View>
+
+          {/* Spinner */}
+          <ActivityIndicator size="large" color="#ff6b47" style={{ marginTop: 40 }} />
+
+          {/* Message avec fade-in */}
+          <Animated.View style={{ opacity: fadeAnim, marginTop: 24, alignItems: 'center' }}>
+            <Text style={styles.loadingText}>{message}</Text>
+            <View style={styles.loadingDots}>
+              <View style={[styles.loadingDot, { animationDelay: '0s' }]} />
+              <View style={[styles.loadingDot, { animationDelay: '0.2s' }]} />
+              <View style={[styles.loadingDot, { animationDelay: '0.4s' }]} />
+            </View>
+          </Animated.View>
+        </View>
+      </LinearGradient>
+    </View>
+  );
+};
+
 export default function App() {
   // 🔐 Gestion de l'authentification Firebase
   const [user, setUser] = useState<FirebaseUser | null>(null);
@@ -195,8 +283,17 @@ export default function App() {
         apiClient.setUserId(firebaseUser.uid);
         console.log('✅ Utilisateur connecté:', firebaseUser.email);
       } else {
+        // 🧹 Nettoyer toutes les données de la session précédente
         apiClient.clearAuth();
-        console.log('❌ Utilisateur déconnecté');
+        setVerificationStatus(null);
+        setUserFullName('');
+        setVerificationSubmittedAt(undefined);
+        setIsAdmin(false);
+        setVerificationLoading(true);
+        setRides([]);
+        setUserCredits(0);
+        setUserBadges([]);
+        console.log('❌ Utilisateur déconnecté - Cache nettoyé');
       }
       
       setAuthLoading(false);
@@ -342,17 +439,7 @@ export default function App() {
 
   // 🔐 Afficher écran de chargement pendant l'initialisation
   if (authLoading) {
-    return (
-      <View style={styles.loadingContainer}>
-        <LinearGradient colors={['#0f172a', '#1e293b']} style={StyleSheet.absoluteFill}>
-          <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
-            <CoralLogo size={100} />
-            <ActivityIndicator size="large" color="#ff6b47" style={{ marginTop: 24 }} />
-            <Text style={{ color: '#94a3b8', marginTop: 16, fontSize: 16 }}>Chargement...</Text>
-          </View>
-        </LinearGradient>
-      </View>
-    );
+    return <LoadingScreen message="Initialisation..." />;
   }
 
   // 🔐 Afficher écran de connexion si pas authentifié
@@ -362,17 +449,7 @@ export default function App() {
 
   // 🔄 Afficher écran de chargement pendant la vérification du statut
   if (verificationLoading || verificationStatus === null) {
-    return (
-      <View style={styles.loadingContainer}>
-        <LinearGradient colors={['#0f172a', '#1e293b']} style={StyleSheet.absoluteFill}>
-          <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
-            <CoralLogo size={100} />
-            <ActivityIndicator size="large" color="#ff6b47" style={{ marginTop: 24 }} />
-            <Text style={{ color: '#94a3b8', marginTop: 16, fontSize: 16 }}>Vérification du profil...</Text>
-          </View>
-        </LinearGradient>
-      </View>
-    );
+    return <LoadingScreen message="Vérification du profil..." />;
   }
 
   // ✅ Afficher écran de vérification si pas vérifié
@@ -1457,6 +1534,58 @@ const styles = StyleSheet.create({
   gradient: { flex: 1 },
   loadingContainer: { flex: 1 },
   scrollContent: { paddingTop: 60, paddingBottom: 120, paddingHorizontal: 20 },
+
+  // 🎨 Loading Screen Styles
+  logoGlow: {
+    shadowColor: '#ff6b47',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.6,
+    shadowRadius: 30,
+    elevation: 20,
+  },
+  loadingRings: {
+    position: 'absolute',
+    width: 200,
+    height: 200,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  loadingRing: {
+    position: 'absolute',
+    borderRadius: 100,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 107, 71, 0.2)',
+  },
+  loadingRing1: {
+    width: 150,
+    height: 150,
+  },
+  loadingRing2: {
+    width: 180,
+    height: 180,
+  },
+  loadingRing3: {
+    width: 210,
+    height: 210,
+  },
+  loadingText: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#f1f5f9',
+    letterSpacing: 0.5,
+  },
+  loadingDots: {
+    flexDirection: 'row',
+    marginTop: 12,
+    gap: 6,
+  },
+  loadingDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: '#ff6b47',
+    opacity: 0.6,
+  },
 
   // Hero
   heroSection: { marginBottom: 20 },
