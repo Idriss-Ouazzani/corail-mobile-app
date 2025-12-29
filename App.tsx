@@ -38,6 +38,9 @@ import PendingVerificationScreen from './src/screens/PendingVerificationScreen';
 import AdminPanelScreen from './src/screens/AdminPanelScreen';
 import QRCodeScreen from './src/screens/QRCodeScreen';
 import PersonalRidesScreen from './src/screens/PersonalRidesScreen';
+import DashboardScreen from './src/screens/DashboardScreen';
+import CoursesScreen from './src/screens/CoursesScreen';
+import ToolsScreen from './src/screens/ToolsScreen';
 import { firebaseAuth } from './src/services/firebase';
 import { apiClient } from './src/services/api';
 import type { Ride } from './src/types';
@@ -392,7 +395,7 @@ export default function App() {
   }, []);
 
   // États de l'application
-  const [currentScreen, setCurrentScreen] = useState<'home' | 'marketplace' | 'myrides' | 'profile'>('home');
+  const [currentScreen, setCurrentScreen] = useState<'dashboard' | 'courses' | 'tools' | 'profile'>('dashboard');
   const [selectedCity, setSelectedCity] = useState('toulouse');
   const [selectedRide, setSelectedRide] = useState<Ride | null>(null);
   const [activeFilter, setActiveFilter] = useState<'all' | 'public' | 'groups'>('all');
@@ -1588,9 +1591,28 @@ export default function App() {
   return (
     <View style={styles.container}>
       <LinearGradient colors={['#0f172a', '#1e293b', '#334155']} style={styles.gradient}>
-        {currentScreen === 'home' && renderHome()}
-        {currentScreen === 'marketplace' && renderMarketplace()}
-        {currentScreen === 'myrides' && renderMyRides()}
+        {currentScreen === 'dashboard' && (
+          <DashboardScreen
+            userFullName={userFullName}
+            userCredits={userCredits}
+            onNavigateToCourses={() => setCurrentScreen('courses')}
+            onNavigateToTools={() => setCurrentScreen('tools')}
+            onOpenQRCode={() => setShowQRCode(true)}
+          />
+        )}
+        {currentScreen === 'courses' && (
+          <CoursesScreen
+            marketplaceContent={renderMarketplace()}
+            myRidesContent={renderMyRides()}
+            historyContent={<PersonalRidesScreen onClose={() => setCurrentScreen('dashboard')} />}
+          />
+        )}
+        {currentScreen === 'tools' && (
+          <ToolsScreen
+            onOpenQRCode={() => setShowQRCode(true)}
+            onOpenPersonalRides={() => setShowPersonalRides(true)}
+          />
+        )}
         {currentScreen === 'profile' && renderProfile()}
 
         {/* Marketplace Filters Modal */}
@@ -1608,39 +1630,39 @@ export default function App() {
             style={styles.bottomNavGradient}
           >
             <View style={styles.bottomNavContent}>
-              {/* Home */}
+              {/* Dashboard */}
               <TouchableOpacity
                 style={styles.navItem}
-                onPress={() => setCurrentScreen('home')}
+                onPress={() => setCurrentScreen('dashboard')}
                 activeOpacity={0.7}
               >
-                <View style={[styles.navIconBox, currentScreen === 'home' && styles.navIconBoxActive]}>
+                <View style={[styles.navIconBox, currentScreen === 'dashboard' && styles.navIconBoxActive]}>
                   <Ionicons
-                    name={currentScreen === 'home' ? 'home' : 'home-outline'}
+                    name={currentScreen === 'dashboard' ? 'analytics' : 'analytics-outline'}
                     size={22}
-                    color={currentScreen === 'home' ? '#fff' : '#94a3b8'}
+                    color={currentScreen === 'dashboard' ? '#fff' : '#94a3b8'}
                   />
                 </View>
-                <Text style={[styles.navText, currentScreen === 'home' && styles.navTextActive]}>
-                  Accueil
+                <Text style={[styles.navText, currentScreen === 'dashboard' && styles.navTextActive]}>
+                  Dashboard
                 </Text>
               </TouchableOpacity>
 
-              {/* Marketplace */}
+              {/* Courses */}
               <TouchableOpacity
                 style={styles.navItem}
-                onPress={() => setCurrentScreen('marketplace')}
+                onPress={() => setCurrentScreen('courses')}
                 activeOpacity={0.7}
               >
-                <View style={[styles.navIconBox, currentScreen === 'marketplace' && styles.navIconBoxActive]}>
+                <View style={[styles.navIconBox, currentScreen === 'courses' && styles.navIconBoxActive]}>
                   <Ionicons
-                    name={currentScreen === 'marketplace' ? 'search' : 'search-outline'}
+                    name={currentScreen === 'courses' ? 'car-sport' : 'car-sport-outline'}
                     size={22}
-                    color={currentScreen === 'marketplace' ? '#fff' : '#94a3b8'}
+                    color={currentScreen === 'courses' ? '#fff' : '#94a3b8'}
                   />
                 </View>
-                <Text style={[styles.navText, currentScreen === 'marketplace' && styles.navTextActive]}>
-                  Marché
+                <Text style={[styles.navText, currentScreen === 'courses' && styles.navTextActive]}>
+                  Courses
                 </Text>
               </TouchableOpacity>
 
@@ -1658,21 +1680,21 @@ export default function App() {
                 </LinearGradient>
               </TouchableOpacity>
 
-              {/* My Rides */}
+              {/* Outils */}
               <TouchableOpacity
                 style={styles.navItem}
-                onPress={() => setCurrentScreen('myrides')}
+                onPress={() => setCurrentScreen('tools')}
                 activeOpacity={0.7}
               >
-                <View style={[styles.navIconBox, currentScreen === 'myrides' && styles.navIconBoxActive]}>
+                <View style={[styles.navIconBox, currentScreen === 'tools' && styles.navIconBoxActive]}>
                   <Ionicons
-                    name={currentScreen === 'myrides' ? 'car-sport' : 'car-sport-outline'}
+                    name={currentScreen === 'tools' ? 'construct' : 'construct-outline'}
                     size={22}
-                    color={currentScreen === 'myrides' ? '#fff' : '#94a3b8'}
+                    color={currentScreen === 'tools' ? '#fff' : '#94a3b8'}
                   />
                 </View>
-                <Text style={[styles.navText, currentScreen === 'myrides' && styles.navTextActive]}>
-                  Courses
+                <Text style={[styles.navText, currentScreen === 'tools' && styles.navTextActive]}>
+                  Outils
                 </Text>
               </TouchableOpacity>
 
