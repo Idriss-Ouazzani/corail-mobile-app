@@ -3,16 +3,18 @@
  */
 
 import React from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
+import { Ionicons } from '@expo/vector-icons';
 
 interface GlobalCreditsBadgeProps {
   credits: number;
+  onPress?: () => void;
 }
 
-export default function GlobalCreditsBadge({ credits }: GlobalCreditsBadgeProps) {
+export default function GlobalCreditsBadge({ credits, onPress }: GlobalCreditsBadgeProps) {
   return (
-    <View style={styles.container}>
+    <TouchableOpacity style={styles.container} onPress={onPress} activeOpacity={0.8}>
       <LinearGradient
         colors={['#ff6b47', '#ff8a6d']}
         start={{ x: 0, y: 0 }}
@@ -21,8 +23,11 @@ export default function GlobalCreditsBadge({ credits }: GlobalCreditsBadgeProps)
       >
         <Text style={styles.label}>C</Text>
         <Text style={styles.value}>{credits}</Text>
+        <View style={styles.plusButton}>
+          <Ionicons name="add" size={14} color="#fff" />
+        </View>
       </LinearGradient>
-    </View>
+    </TouchableOpacity>
   );
 }
 
@@ -56,6 +61,15 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: '700',
     color: '#fff',
+  },
+  plusButton: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    backgroundColor: 'rgba(255, 255, 255, 0.3)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginLeft: 2,
   },
 });
 

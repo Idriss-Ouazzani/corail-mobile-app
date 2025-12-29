@@ -49,49 +49,51 @@ export default function CoursesScreen({
         <Text style={styles.headerTitle}>Courses</Text>
       </View>
 
-      {/* Tabs */}
-      <View style={styles.tabs}>
-        <TouchableOpacity
-          style={[styles.tab, activeTab === 'marketplace' && styles.tabActive]}
-          onPress={() => setActiveTab('marketplace')}
-        >
-          <Ionicons 
-            name="storefront" 
-            size={18} 
-            color={activeTab === 'marketplace' ? '#fff' : '#64748b'} 
-          />
-          <Text style={[styles.tabText, activeTab === 'marketplace' && styles.tabTextActive]}>
-            Marketplace
-          </Text>
-        </TouchableOpacity>
+      {/* Tabs - Pills Style */}
+      <View style={styles.tabsWrapper}>
+        <View style={styles.tabs}>
+          <TouchableOpacity
+            style={[styles.tab, activeTab === 'marketplace' && styles.tabActive]}
+            onPress={() => setActiveTab('marketplace')}
+          >
+            <Ionicons 
+              name="storefront" 
+              size={18} 
+              color={activeTab === 'marketplace' ? '#fff' : '#94a3b8'} 
+            />
+            <Text style={[styles.tabText, activeTab === 'marketplace' && styles.tabTextActive]}>
+              Marketplace
+            </Text>
+          </TouchableOpacity>
 
-        <TouchableOpacity
-          style={[styles.tab, activeTab === 'myrides' && styles.tabActive]}
-          onPress={() => setActiveTab('myrides')}
-        >
-          <Ionicons 
-            name="car" 
-            size={18} 
-            color={activeTab === 'myrides' ? '#fff' : '#64748b'} 
-          />
-          <Text style={[styles.tabText, activeTab === 'myrides' && styles.tabTextActive]}>
-            Mes Courses
-          </Text>
-        </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.tab, activeTab === 'myrides' && styles.tabActive]}
+            onPress={() => setActiveTab('myrides')}
+          >
+            <Ionicons 
+              name="car" 
+              size={18} 
+              color={activeTab === 'myrides' ? '#fff' : '#94a3b8'} 
+            />
+            <Text style={[styles.tabText, activeTab === 'myrides' && styles.tabTextActive]}>
+              Mes Courses
+            </Text>
+          </TouchableOpacity>
 
-        <TouchableOpacity
-          style={[styles.tab, activeTab === 'history' && styles.tabActive]}
-          onPress={() => setActiveTab('history')}
-        >
-          <Ionicons 
-            name="time" 
-            size={18} 
-            color={activeTab === 'history' ? '#fff' : '#64748b'} 
-          />
-          <Text style={[styles.tabText, activeTab === 'history' && styles.tabTextActive]}>
-            Historique
-          </Text>
-        </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.tab, activeTab === 'history' && styles.tabActive]}
+            onPress={() => setActiveTab('history')}
+          >
+            <Ionicons 
+              name="list" 
+              size={18} 
+              color={activeTab === 'history' ? '#fff' : '#94a3b8'} 
+            />
+            <Text style={[styles.tabText, activeTab === 'history' && styles.tabTextActive]}>
+              Historique
+            </Text>
+          </TouchableOpacity>
+        </View>
       </View>
 
       {/* Content */}
@@ -118,31 +120,34 @@ const styles = StyleSheet.create({
     color: '#e2e8f0',
     letterSpacing: 0.5,
   },
+  tabsWrapper: {
+    paddingHorizontal: 20,
+    marginBottom: 16,
+  },
   tabs: {
     flexDirection: 'row',
     backgroundColor: '#1e293b',
-    marginHorizontal: 20,
-    marginBottom: 16,
-    borderRadius: 12,
-    padding: 6,
-    gap: 6,
+    borderRadius: 14,
+    padding: 8,
+    gap: 8,
   },
   tab: {
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 12,
+    paddingVertical: 14,
+    paddingHorizontal: 12,
     borderRadius: 10,
-    gap: 8,
+    gap: 6,
   },
   tabActive: {
     backgroundColor: '#6366f1',
   },
   tabText: {
-    fontSize: 12,
+    fontSize: 13,
     fontWeight: '600',
-    color: '#64748b',
+    color: '#94a3b8',
   },
   tabTextActive: {
     color: '#fff',

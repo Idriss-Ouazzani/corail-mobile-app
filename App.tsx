@@ -42,6 +42,7 @@ import DashboardScreen from './src/screens/DashboardScreen';
 import CoursesScreen from './src/screens/CoursesScreen';
 import ToolsScreen from './src/screens/ToolsScreen';
 import GlobalCreditsBadge from './src/components/GlobalCreditsBadge';
+import ActivityHistoryList from './src/components/ActivityHistoryList';
 import { firebaseAuth } from './src/services/firebase';
 import { apiClient } from './src/services/api';
 import type { Ride } from './src/types';
@@ -786,23 +787,20 @@ export default function App() {
             </Text>
           </View>
           
-          {/* 🪸 Credits Badge + Créer button */}
-          <View style={styles.headerActions}>
-            <CreditsBadge credits={userCredits} onPress={() => setShowSubscription(true)} />
-            <TouchableOpacity
-              style={[styles.createButtonCompact, { marginLeft: 8 }]}
-              onPress={() => setShowCreateRide(true)}
-              activeOpacity={0.8}
+          {/* Créer button */}
+          <TouchableOpacity
+            style={styles.createButtonCompact}
+            onPress={() => setShowCreateRide(true)}
+            activeOpacity={0.8}
+          >
+            <LinearGradient
+              colors={['#10b981', '#059669']}
+              style={styles.createButtonGradient}
             >
-              <LinearGradient
-                colors={['#10b981', '#059669']}
-                style={styles.createButtonGradient}
-              >
-                <Ionicons name="add" size={20} color="#fff" />
-                <Text style={styles.createButtonText}>Créer</Text>
-              </LinearGradient>
-            </TouchableOpacity>
-          </View>
+              <Ionicons name="add" size={20} color="#fff" />
+              <Text style={styles.createButtonText}>Créer</Text>
+            </LinearGradient>
+          </TouchableOpacity>
         </View>
 
         {/* Selected Region Indicator - Opens CitySelector */}
@@ -908,20 +906,17 @@ export default function App() {
             </Text>
           </View>
           
-          {/* 🪸 Credits Badge + Refresh button */}
-          <View style={styles.headerActions}>
-            <CreditsBadge credits={userCredits} onPress={() => setShowSubscription(true)} />
-            <TouchableOpacity
-              style={[styles.refreshButton, { marginLeft: 8 }]}
-              onPress={async () => {
-                console.log('🔄 Rechargement manuel des courses...');
-                await loadRides();
-              }}
-              activeOpacity={0.7}
-            >
-              <Ionicons name="refresh" size={22} color="#64748b" />
-            </TouchableOpacity>
-          </View>
+          {/* Refresh button */}
+          <TouchableOpacity
+            style={styles.refreshButton}
+            onPress={async () => {
+              console.log('🔄 Rechargement manuel des courses...');
+              await loadRides();
+            }}
+            activeOpacity={0.7}
+          >
+            <Ionicons name="refresh" size={22} color="#64748b" />
+          </TouchableOpacity>
         </View>
 
         {/* Tabs */}
@@ -1530,7 +1525,7 @@ export default function App() {
     <View style={styles.container}>
       <LinearGradient colors={['#0f172a', '#1e293b', '#334155']} style={styles.gradient}>
         {/* Global Credits Badge - Affiché partout */}
-        <GlobalCreditsBadge credits={userCredits} />
+        <GlobalCreditsBadge credits={userCredits} onPress={() => setShowSubscription(true)} />
         
         {currentScreen === 'dashboard' && (
           <DashboardScreen
@@ -1545,7 +1540,7 @@ export default function App() {
           <CoursesScreen
             marketplaceContent={renderMarketplace()}
             myRidesContent={renderMyRides()}
-            historyContent={<PersonalRidesScreen onClose={() => setCurrentScreen('dashboard')} />}
+            historyContent={<ActivityHistoryList />}
           />
         )}
         {currentScreen === 'tools' && (
