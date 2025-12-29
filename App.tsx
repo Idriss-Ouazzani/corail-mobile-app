@@ -412,6 +412,7 @@ export default function App() {
   const [showFilters, setShowFilters] = useState(false);
   const [showAdminPanel, setShowAdminPanel] = useState(false);
   const [showQRCode, setShowQRCode] = useState(false);
+  const [showCreditsInfo, setShowCreditsInfo] = useState(true); // Bandeau crédits marketplace
   const [showPersonalRides, setShowPersonalRides] = useState(false);
   const [filters, setFilters] = useState<FilterOptions>({
     vehicleTypes: [],
@@ -802,6 +803,26 @@ export default function App() {
             </LinearGradient>
           </TouchableOpacity>
         </View>
+
+        {/* Credits Info Banner - Collapsible */}
+        {showCreditsInfo && (
+          <View style={styles.creditsInfoBanner}>
+            <View style={styles.creditsInfoHeader}>
+              <View style={styles.creditsInfoLeft}>
+                <View style={styles.creditsInfoIcon}>
+                  <Text style={styles.creditsInfoIconText}>C</Text>
+                </View>
+                <Text style={styles.creditsInfoTitle}>Prendre une course = -1 crédit</Text>
+              </View>
+              <TouchableOpacity onPress={() => setShowCreditsInfo(false)} style={styles.creditsInfoClose}>
+                <Ionicons name="close" size={18} color="#64748b" />
+              </TouchableOpacity>
+            </View>
+            <Text style={styles.creditsInfoText}>
+              💡 Publiez des courses pour gagner des crédits et accéder à la Marketplace !
+            </Text>
+          </View>
+        )}
 
         {/* Selected Region Indicator - Opens CitySelector */}
         <View style={{ marginBottom: 16 }}>
@@ -2082,6 +2103,60 @@ const styles = StyleSheet.create({
     color: '#f1f5f9',
     fontWeight: '600',
     marginHorizontal: 8,
+  },
+  creditsInfoBanner: {
+    backgroundColor: 'rgba(255, 107, 71, 0.1)',
+    borderRadius: 12,
+    padding: 14,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 107, 71, 0.3)',
+  },
+  creditsInfoHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 8,
+  },
+  creditsInfoLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+    gap: 10,
+  },
+  creditsInfoIcon: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: 'rgba(255, 107, 71, 0.25)',
+    borderWidth: 1.5,
+    borderColor: 'rgba(255, 107, 71, 0.5)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  creditsInfoIconText: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: '#ff6b47',
+  },
+  creditsInfoTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#e2e8f0',
+    flex: 1,
+  },
+  creditsInfoClose: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: 'rgba(100, 116, 139, 0.1)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  creditsInfoText: {
+    fontSize: 13,
+    color: '#cbd5e1',
+    lineHeight: 18,
   },
   filtersRow: { 
     flexDirection: 'row', 
