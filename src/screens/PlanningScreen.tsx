@@ -42,6 +42,7 @@ export default function PlanningScreen({ onBack }: PlanningScreenProps) {
   const [events, setEvents] = useState<PlanningEvent[]>([]);
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
   const [viewMode, setViewMode] = useState<'calendar' | 'day'>('calendar');
+  const [selectedEvent, setSelectedEvent] = useState<PlanningEvent | null>(null);
 
   useEffect(() => {
     loadEvents();
@@ -71,6 +72,7 @@ export default function PlanningScreen({ onBack }: PlanningScreenProps) {
       }
       
       // Charger les courses de la marketplace et les convertir en événements
+      // UNIQUEMENT les courses CLAIMED (prises/validées)
       let ridesAsEvents: PlanningEvent[] = [];
       try {
         const rides = await apiClient.getRides();
@@ -78,7 +80,7 @@ export default function PlanningScreen({ onBack }: PlanningScreenProps) {
           ridesAsEvents = rides
             .filter(ride => 
               ride.scheduled_at && 
-              ride.status !== 'CANCELLED' &&
+              ride.status === 'CLAIMED' && // SEULEMENT les courses CLAIMED
               new Date(ride.scheduled_at) >= startOfMonth &&
               new Date(ride.scheduled_at) <= endOfMonth
             )
@@ -96,7 +98,7 @@ export default function PlanningScreen({ onBack }: PlanningScreenProps) {
                 end_address: ride.dropoff_address,
                 ride_source: 'MARKETPLACE',
                 status: ride.status,
-                notes: `Course ${ride.status === 'PUBLISHED' ? 'publiée' : ride.status === 'CLAIMED' ? 'réclamée' : 'terminée'}`,
+                notes: `Course réclamée`,
                 color: '#ff6b47', // Corail color
               };
             });
@@ -208,69 +210,91 @@ export default function PlanningScreen({ onBack }: PlanningScreenProps) {
 
   const renderDayView = () => {
     const dayEvents = getDayEvents();
-    
-    if (dayEvents.length === 0) {
-      return (
-        <View style={styles.emptyState}>
-          <Ionicons name="calendar-outline" size={64} color="#64748b" />
-          <Text style={styles.emptyText}>Aucun événement ce jour</Text>
-          <TouchableOpacity 
-            style={styles.addButton}
-            onPress={() => Alert.alert('Créer un événement', 'Fonctionnalité à venir')}
-            activeOpacity={0.8}
-          >
-            <Text style={styles.addButtonText}>+ Ajouter un événement</Text>
-          </TouchableOpacity>
-        </View>
-      );
-    }
+    const hours = Array.from({ length: 24 }, (_, i) => i); // 0-23
     
     return (
       <ScrollView style={styles.dayView} showsVerticalScrollIndicator={false}>
-        {dayEvents.map(event => (
-          <TouchableOpacity
-            key={event.id}
-            style={[styles.eventCard, { borderLeftColor: event.color || getEventColor(event.event_type) }]}
-            activeOpacity={0.7}
-          >
-            <View style={styles.eventHeader}>
-              <View style={styles.eventHeaderLeft}>
-                <Ionicons 
-                  name={getEventIcon(event.event_type, event.ride_source) as any} 
-                  size={20} 
-                  color={event.color || getEventColor(event.event_type)} 
-                />
-                <Text style={styles.eventLabel}>{getEventLabel(event)}</Text>
-              </View>
-              <Text style={styles.eventTime}>
-                {formatTime(event.start_time)} - {formatTime(event.end_time)}
-              </Text>
-            </View>
-            
-            {event.start_address && event.end_address && (
-              <View style={styles.eventRoute}>
-                <View style={styles.routePoint}>
-                  <Ionicons name="location" size={14} color="#10b981" />
-                  <Text style={styles.routeText} numberOfLines={1}>{event.start_address}</Text>
+        {/* Header jour sélectionné */}
+        <View style={styles.dayHeader}>
+          <Text style={styles.dayHeaderText}>
+            {new Date(selectedDate).toLocaleDateString('fr-FR', { 
+              weekday: 'long', 
+              day: 'numeric', 
+              month: 'long' 
+            })}
+          </Text>
+          <Text style={styles.dayHeaderCount}>
+            {dayEvents.length} {dayEvents.length <= 1 ? 'événement' : 'événements'}
+          </Text>
+        </View>
+
+        {/* Timeline heure par heure */}
+        <View style={styles.timeline}>
+          {hours.map(hour => {
+            // Trouver les événements pour cette heure
+            const hourEvents = dayEvents.filter(event => {
+              const eventStartHour = new Date(event.start_time).getHours();
+              return eventStartHour === hour;
+            });
+
+            return (
+              <View key={hour} style={styles.timeSlot}>
+                {/* Colonne heure */}
+                <View style={styles.timeColumn}>
+                  <Text style={styles.timeText}>
+                    {hour.toString().padStart(2, '0')}:00
+                  </Text>
                 </View>
-                <View style={styles.routePoint}>
-                  <Ionicons name="flag" size={14} color="#ff6b47" />
-                  <Text style={styles.routeText} numberOfLines={1}>{event.end_address}</Text>
+
+                {/* Colonne événements */}
+                <View style={styles.eventsColumn}>
+                  {hourEvents.length === 0 ? (
+                    <View style={styles.emptySlot} />
+                  ) : (
+                    hourEvents.map(event => (
+                      <TouchableOpacity
+                        key={event.id}
+                        style={[
+                          styles.timelineEvent,
+                          { borderLeftColor: event.color || getEventColor(event.event_type) }
+                        ]}
+                        onPress={() => setSelectedEvent(event)}
+                        activeOpacity={0.7}
+                      >
+                        <View style={styles.timelineEventHeader}>
+                          <Ionicons 
+                            name={getEventIcon(event.event_type, event.ride_source) as any} 
+                            size={16} 
+                            color={event.color || getEventColor(event.event_type)} 
+                          />
+                          <Text style={styles.timelineEventLabel}>
+                            {getEventLabel(event)}
+                          </Text>
+                        </View>
+                        <Text style={styles.timelineEventTime}>
+                          {formatTime(event.start_time)} - {formatTime(event.end_time)}
+                        </Text>
+                        {event.start_address && (
+                          <Text style={styles.timelineEventAddress} numberOfLines={1}>
+                            <Ionicons name="location" size={12} color="#94a3b8" /> {event.start_address}
+                          </Text>
+                        )}
+                      </TouchableOpacity>
+                    ))
+                  )}
                 </View>
               </View>
-            )}
-            
-            {event.notes && (
-              <Text style={styles.eventNotes} numberOfLines={2}>{event.notes}</Text>
-            )}
-            
-            {event.status && (
-              <View style={[styles.statusBadge, { backgroundColor: getStatusColor(event.status) }]}>
-                <Text style={styles.statusText}>{getStatusLabel(event.status)}</Text>
-              </View>
-            )}
-          </TouchableOpacity>
-        ))}
+            );
+          })}
+        </View>
+
+        {/* Message si aucun événement */}
+        {dayEvents.length === 0 && (
+          <View style={styles.emptyDayMessage}>
+            <Ionicons name="calendar-outline" size={48} color="#64748b" />
+            <Text style={styles.emptyDayText}>Aucun événement ce jour</Text>
+          </View>
+        )}
       </ScrollView>
     );
   };
@@ -406,6 +430,105 @@ export default function PlanningScreen({ onBack }: PlanningScreenProps) {
           <Ionicons name="add" size={28} color="#fff" />
         </LinearGradient>
       </TouchableOpacity>
+
+      {/* Modal détail événement */}
+      {selectedEvent && (
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <View style={styles.modalHeaderLeft}>
+                <Ionicons 
+                  name={getEventIcon(selectedEvent.event_type, selectedEvent.ride_source) as any} 
+                  size={24} 
+                  color={selectedEvent.color || getEventColor(selectedEvent.event_type)} 
+                />
+                <Text style={styles.modalTitle}>{getEventLabel(selectedEvent)}</Text>
+              </View>
+              <TouchableOpacity 
+                onPress={() => setSelectedEvent(null)}
+                style={styles.modalCloseButton}
+                activeOpacity={0.7}
+              >
+                <Ionicons name="close" size={24} color="#94a3b8" />
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView style={styles.modalBody}>
+              {/* Horaires */}
+              <View style={styles.modalSection}>
+                <View style={styles.modalRow}>
+                  <Ionicons name="time" size={20} color="#10b981" />
+                  <View style={styles.modalRowContent}>
+                    <Text style={styles.modalLabel}>Horaire</Text>
+                    <Text style={styles.modalValue}>
+                      {formatTime(selectedEvent.start_time)} - {formatTime(selectedEvent.end_time)}
+                    </Text>
+                  </View>
+                </View>
+              </View>
+
+              {/* Adresses */}
+              {selectedEvent.start_address && selectedEvent.end_address && (
+                <View style={styles.modalSection}>
+                  <View style={styles.modalRow}>
+                    <Ionicons name="location" size={20} color="#10b981" />
+                    <View style={styles.modalRowContent}>
+                      <Text style={styles.modalLabel}>Départ</Text>
+                      <Text style={styles.modalValue}>{selectedEvent.start_address}</Text>
+                    </View>
+                  </View>
+                  <View style={[styles.modalRow, { marginTop: 12 }]}>
+                    <Ionicons name="flag" size={20} color="#ff6b47" />
+                    <View style={styles.modalRowContent}>
+                      <Text style={styles.modalLabel}>Arrivée</Text>
+                      <Text style={styles.modalValue}>{selectedEvent.end_address}</Text>
+                    </View>
+                  </View>
+                </View>
+              )}
+
+              {/* Statut */}
+              {selectedEvent.status && (
+                <View style={styles.modalSection}>
+                  <View style={styles.modalRow}>
+                    <Ionicons name="information-circle" size={20} color="#6366f1" />
+                    <View style={styles.modalRowContent}>
+                      <Text style={styles.modalLabel}>Statut</Text>
+                      <View style={[styles.statusBadge, { backgroundColor: getStatusColor(selectedEvent.status) }]}>
+                        <Text style={styles.statusText}>{getStatusLabel(selectedEvent.status)}</Text>
+                      </View>
+                    </View>
+                  </View>
+                </View>
+              )}
+
+              {/* Notes */}
+              {selectedEvent.notes && (
+                <View style={styles.modalSection}>
+                  <View style={styles.modalRow}>
+                    <Ionicons name="document-text" size={20} color="#94a3b8" />
+                    <View style={styles.modalRowContent}>
+                      <Text style={styles.modalLabel}>Notes</Text>
+                      <Text style={styles.modalValue}>{selectedEvent.notes}</Text>
+                    </View>
+                  </View>
+                </View>
+              )}
+            </ScrollView>
+
+            {/* Actions */}
+            <View style={styles.modalActions}>
+              <TouchableOpacity 
+                style={styles.modalButton}
+                onPress={() => setSelectedEvent(null)}
+                activeOpacity={0.8}
+              >
+                <Text style={styles.modalButtonText}>Fermer</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      )}
     </View>
   );
 }
@@ -481,94 +604,103 @@ const styles = StyleSheet.create({
   },
   dayView: {
     flex: 1,
-    paddingHorizontal: 20,
-    paddingTop: 16,
   },
-  eventCard: {
+  dayHeader: {
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255, 255, 255, 0.1)',
     backgroundColor: '#1e293b',
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 12,
-    borderLeftWidth: 4,
+  },
+  dayHeaderText: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#e2e8f0',
+    textTransform: 'capitalize',
+    marginBottom: 4,
+  },
+  dayHeaderCount: {
+    fontSize: 13,
+    color: '#94a3b8',
+  },
+  timeline: {
+    paddingVertical: 8,
+  },
+  timeSlot: {
+    flexDirection: 'row',
+    minHeight: 60,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255, 255, 255, 0.05)',
+  },
+  timeColumn: {
+    width: 70,
+    paddingTop: 12,
+    paddingLeft: 16,
+  },
+  timeText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#64748b',
+  },
+  eventsColumn: {
+    flex: 1,
+    paddingVertical: 8,
+    paddingRight: 16,
+    gap: 8,
+  },
+  emptySlot: {
+    height: 44,
+  },
+  timelineEvent: {
+    backgroundColor: '#1e293b',
+    borderRadius: 8,
+    padding: 12,
+    borderLeftWidth: 3,
     borderWidth: 1,
     borderColor: '#334155',
   },
-  eventHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 12,
-  },
-  eventHeaderLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-  },
-  eventLabel: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: '#e2e8f0',
-  },
-  eventTime: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: '#94a3b8',
-  },
-  eventRoute: {
-    gap: 6,
-    marginBottom: 8,
-  },
-  routePoint: {
+  timelineEventHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
+    marginBottom: 4,
   },
-  routeText: {
-    flex: 1,
-    fontSize: 13,
-    color: '#cbd5e1',
+  timelineEventLabel: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#e2e8f0',
   },
-  eventNotes: {
+  timelineEventTime: {
     fontSize: 12,
+    fontWeight: '600',
     color: '#94a3b8',
-    fontStyle: 'italic',
-    marginTop: 8,
+    marginBottom: 4,
+  },
+  timelineEventAddress: {
+    fontSize: 11,
+    color: '#64748b',
+  },
+  emptyDayMessage: {
+    alignItems: 'center',
+    paddingTop: 60,
+    paddingBottom: 40,
+  },
+  emptyDayText: {
+    fontSize: 14,
+    color: '#64748b',
+    marginTop: 12,
   },
   statusBadge: {
     alignSelf: 'flex-start',
     paddingHorizontal: 10,
     paddingVertical: 4,
     borderRadius: 8,
-    marginTop: 8,
   },
   statusText: {
     fontSize: 11,
     fontWeight: '700',
     color: '#e2e8f0',
     textTransform: 'uppercase',
-  },
-  emptyState: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingTop: 80,
-  },
-  emptyText: {
-    fontSize: 16,
-    color: '#64748b',
-    marginTop: 16,
-    marginBottom: 24,
-  },
-  addButton: {
-    backgroundColor: '#ff6b47',
-    paddingHorizontal: 24,
-    paddingVertical: 12,
-    borderRadius: 12,
-  },
-  addButtonText: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: '#fff',
   },
   fab: {
     position: 'absolute',
@@ -589,6 +721,94 @@ const styles = StyleSheet.create({
     height: '100%',
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  modalOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0, 0, 0, 0.7)',
+    justifyContent: 'flex-end',
+  },
+  modalContent: {
+    backgroundColor: '#1e293b',
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    maxHeight: '80%',
+    paddingBottom: 40,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingTop: 24,
+    paddingBottom: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255, 255, 255, 0.1)',
+  },
+  modalHeaderLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    flex: 1,
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: '#e2e8f0',
+  },
+  modalCloseButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalBody: {
+    paddingHorizontal: 20,
+    paddingTop: 20,
+    maxHeight: 400,
+  },
+  modalSection: {
+    marginBottom: 20,
+  },
+  modalRow: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  modalRowContent: {
+    flex: 1,
+  },
+  modalLabel: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#64748b',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    marginBottom: 4,
+  },
+  modalValue: {
+    fontSize: 15,
+    color: '#e2e8f0',
+    lineHeight: 22,
+  },
+  modalActions: {
+    paddingHorizontal: 20,
+    paddingTop: 20,
+  },
+  modalButton: {
+    backgroundColor: '#ff6b47',
+    borderRadius: 12,
+    paddingVertical: 14,
+    alignItems: 'center',
+  },
+  modalButtonText: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#fff',
   },
 });
 
