@@ -41,6 +41,7 @@ import PersonalRidesScreen from './src/screens/PersonalRidesScreen';
 import DashboardScreen from './src/screens/DashboardScreen';
 import CoursesScreen from './src/screens/CoursesScreen';
 import ToolsScreen from './src/screens/ToolsScreen';
+import PlanningScreen from './src/screens/PlanningScreen';
 import GlobalCreditsBadge from './src/components/GlobalCreditsBadge';
 import ActivityHistoryList from './src/components/ActivityHistoryList';
 import { firebaseAuth } from './src/services/firebase';
@@ -386,6 +387,8 @@ export default function App() {
         setRides([]);
         setUserCredits(0);
         setUserBadges([]);
+        setShowPersonalRides(false);
+        setShowPlanning(false);
         console.log('❌ Utilisateur déconnecté - Cache nettoyé');
       }
       
@@ -415,6 +418,7 @@ export default function App() {
   const [showQRCode, setShowQRCode] = useState(false);
   const [showCreditsInfo, setShowCreditsInfo] = useState(true); // Bandeau crédits marketplace
   const [showPersonalRides, setShowPersonalRides] = useState(false);
+  const [showPlanning, setShowPlanning] = useState(false);
   const [filters, setFilters] = useState<FilterOptions>({
     vehicleTypes: [],
     sortBy: null,
@@ -1414,6 +1418,11 @@ export default function App() {
     return <PersonalRidesScreen onClose={() => setShowPersonalRides(false)} />;
   }
 
+  // 📅 If showing Planning
+  if (showPlanning) {
+    return <PlanningScreen onBack={() => setShowPlanning(false)} />;
+  }
+
   // 👨‍💼 If showing admin panel
   if (showAdminPanel) {
     return <AdminPanelScreen onBack={() => setShowAdminPanel(false)} />;
@@ -1581,6 +1590,7 @@ export default function App() {
           <ToolsScreen
             onOpenQRCode={() => setShowQRCode(true)}
             onOpenPersonalRides={() => setShowPersonalRides(true)}
+            onOpenPlanning={() => setShowPlanning(true)}
           />
         )}
         {currentScreen === 'profile' && renderProfile()}

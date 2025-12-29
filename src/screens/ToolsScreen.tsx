@@ -18,9 +18,10 @@ import { Ionicons } from '@expo/vector-icons';
 interface ToolsScreenProps {
   onOpenQRCode: () => void;
   onOpenPersonalRides: () => void;
+  onOpenPlanning: () => void;
 }
 
-export default function ToolsScreen({ onOpenQRCode, onOpenPersonalRides }: ToolsScreenProps) {
+export default function ToolsScreen({ onOpenQRCode, onOpenPersonalRides, onOpenPlanning }: ToolsScreenProps) {
   return (
     <View style={styles.container}>
       <StatusBar barStyle="light-content" />
@@ -85,27 +86,36 @@ export default function ToolsScreen({ onOpenQRCode, onOpenPersonalRides }: Tools
               <Ionicons name="chevron-forward" size={24} color="rgba(255,255,255,0.8)" />
             </LinearGradient>
           </TouchableOpacity>
+
+          {/* Planning */}
+          <TouchableOpacity
+            style={styles.toolButton}
+            onPress={onOpenPlanning}
+            activeOpacity={0.8}
+          >
+            <LinearGradient
+              colors={['#10b981', '#059669']}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 0 }}
+              style={styles.toolGradient}
+            >
+              <View style={styles.toolLeft}>
+                <View style={styles.toolIconContainer}>
+                  <Ionicons name="calendar" size={28} color="#fff" />
+                </View>
+                <View>
+                  <Text style={styles.toolTitle}>Planning</Text>
+                  <Text style={styles.toolDescription}>Organisez votre emploi du temps</Text>
+                </View>
+              </View>
+              <Ionicons name="chevron-forward" size={24} color="rgba(255,255,255,0.8)" />
+            </LinearGradient>
+          </TouchableOpacity>
         </View>
 
         {/* Section Outils à venir */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Bientôt disponibles</Text>
-
-          {/* Planning */}
-          <View style={styles.comingSoonCard}>
-            <View style={styles.comingSoonIconContainer}>
-              <Ionicons name="calendar" size={24} color="#64748b" />
-            </View>
-            <View style={styles.comingSoonContent}>
-              <Text style={styles.comingSoonTitle}>Planning</Text>
-              <Text style={styles.comingSoonDescription}>
-                Organisez vos courses et gérez votre emploi du temps
-              </Text>
-            </View>
-            <View style={styles.comingSoonBadge}>
-              <Text style={styles.comingSoonBadgeText}>Bientôt</Text>
-            </View>
-          </View>
 
           {/* Statistiques avancées */}
           <View style={styles.comingSoonCard}>
