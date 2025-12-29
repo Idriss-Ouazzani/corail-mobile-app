@@ -374,7 +374,13 @@ export const RideDetailScreen: React.FC<RideDetailScreenProps> = ({
               style={styles.actionButtonGradient}
             >
               <Ionicons name="car" size={24} color="#fff" />
-              <Text style={styles.actionButtonText}>Prendre cette course (-1 🪸)</Text>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                <Text style={styles.actionButtonText}>Prendre cette course (-1</Text>
+                <View style={styles.creditIconInButton}>
+                  <Text style={styles.creditIconInButtonText}>C</Text>
+                </View>
+                <Text style={styles.actionButtonText}>)</Text>
+              </View>
             </LinearGradient>
           </TouchableOpacity>
         </View>
@@ -799,6 +805,21 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#fff',
     marginLeft: 10,
+  },
+  creditIconInButton: {
+    width: 18,
+    height: 18,
+    borderRadius: 9,
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.3)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  creditIconInButtonText: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#fff',
   },
 });
 

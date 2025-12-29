@@ -1587,7 +1587,7 @@ export default function App() {
             
             // Fermer le modal
             setSelectedRide(null);
-            Alert.alert('Succès', 'Course réclamée ! -1 crédit 🪸');
+            Alert.alert('Succès', 'Course réclamée ! -1 crédit [C]');
           } catch (error: any) {
             console.error('❌ Erreur réclamation course:', error);
             Alert.alert('Erreur', error.message || 'Impossible de réclamer la course');
