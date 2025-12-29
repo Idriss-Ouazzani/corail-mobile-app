@@ -280,6 +280,9 @@ export default function App() {
   // ✅ Statut de vérification et infos utilisateur
   const [verificationStatus, setVerificationStatus] = useState<string | null>(null);
   const [userFullName, setUserFullName] = useState<string>('');
+  const [userPhone, setUserPhone] = useState<string>('');
+  const [userSiren, setUserSiren] = useState<string>('');
+  const [userProfessionalCard, setUserProfessionalCard] = useState<string>('');
   const [verificationSubmittedAt, setVerificationSubmittedAt] = useState<string | undefined>();
   const [isAdmin, setIsAdmin] = useState<boolean>(false);
   const [verificationLoading, setVerificationLoading] = useState<boolean>(true);
@@ -298,6 +301,9 @@ export default function App() {
         apiClient.clearAuth();
         setVerificationStatus(null);
         setUserFullName('');
+        setUserPhone('');
+        setUserSiren('');
+        setUserProfessionalCard('');
         setVerificationSubmittedAt(undefined);
         setIsAdmin(false);
         setVerificationLoading(true);
@@ -427,6 +433,9 @@ export default function App() {
       
       setVerificationStatus(response.verification_status || 'UNVERIFIED');
       setUserFullName(response.full_name || '');
+      setUserPhone(response.phone || '');
+      setUserSiren(response.siren || '');
+      setUserProfessionalCard(response.professional_card_number || '');
       setVerificationSubmittedAt(response.verification_submitted_at);
       setIsAdmin(response.is_admin === true || response.is_admin === 'true');
     } catch (error: any) {
@@ -1329,10 +1338,10 @@ export default function App() {
         userData={{
           name: userFullName || user?.displayName || 'Utilisateur',
           email: user?.email || '',
-          phone: undefined, // TODO: Add phone from user profile
-          company: 'Corail VTC',
-          siren: undefined, // TODO: Add SIREN from user profile
-          professionalCardNumber: undefined, // TODO: Add from user profile
+          phone: userPhone || undefined,
+          company: undefined, // B2B: Pas d'intermédiaire, contact direct chauffeur
+          siren: userSiren || undefined,
+          professionalCardNumber: userProfessionalCard || undefined,
         }}
       />
     );

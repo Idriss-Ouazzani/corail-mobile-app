@@ -112,9 +112,9 @@ export const QRCodeScreen: React.FC<QRCodeScreenProps> = ({ onBack, userData }) 
         <View style={styles.infoBox}>
           <Ionicons name="information-circle" size={24} color="#0ea5e9" />
           <View style={{ flex: 1, marginLeft: 12 }}>
-            <Text style={styles.infoTitle}>Partagez vos coordonnées facilement</Text>
+            <Text style={styles.infoTitle}>Partagez vos coordonnées professionnelles</Text>
             <Text style={styles.infoText}>
-              Vos clients peuvent scanner ce QR code pour vous ajouter directement à leurs contacts.
+              Vos clients peuvent scanner ce QR code pour vous contacter directement.
             </Text>
           </View>
         </View>
@@ -187,7 +187,7 @@ export const QRCodeScreen: React.FC<QRCodeScreenProps> = ({ onBack, userData }) 
               <Text style={styles.tipNumberText}>3</Text>
             </View>
             <Text style={styles.tipText}>
-              Affichez-le dans votre véhicule pour faciliter les réservations
+              Affichez-le dans votre véhicule pour que vos clients vous contactent facilement
             </Text>
           </View>
         </View>

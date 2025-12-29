@@ -19,14 +19,15 @@ interface QRCodeCardProps {
 
 export const QRCodeCard: React.FC<QRCodeCardProps> = ({ userData, size = 250 }) => {
   // Données à encoder dans le QR code (format vCard pour ajout automatique aux contacts)
+  // ⚠️ Important : Contact direct chauffeur (B2B), Corail n'est pas intermédiaire
   const vCardData = `BEGIN:VCARD
 VERSION:3.0
 FN:${userData.name}
-TEL:${userData.phone || ''}
+TEL;TYPE=CELL:${userData.phone || ''}
 EMAIL:${userData.email}
-ORG:${userData.company || 'Corail VTC'}
-NOTE:SIREN: ${userData.siren || 'N/A'} - Carte Pro: ${userData.professionalCardNumber || 'N/A'}
-URL:https://corail-vtc.fr
+${userData.company ? `ORG:${userData.company}` : ''}
+${userData.siren ? `NOTE:SIREN ${userData.siren}` : ''}
+${userData.professionalCardNumber ? `NOTE:Carte professionnelle ${userData.professionalCardNumber}` : ''}
 END:VCARD`;
 
   return (
@@ -38,7 +39,7 @@ END:VCARD`;
         {/* Header avec logo */}
         <View style={styles.header}>
           <CoralLogo size={40} />
-          <Text style={styles.headerTitle}>Corail VTC</Text>
+          <Text style={styles.headerTitle}>Carte Professionnelle</Text>
         </View>
 
         {/* QR Code avec fond blanc */}
