@@ -179,10 +179,11 @@ export default function App() {
   const currentUserId = user?.uid || '';
 
   // ✅ Statut de vérification et infos utilisateur
-  const [verificationStatus, setVerificationStatus] = useState<string>('VERIFIED');
+  const [verificationStatus, setVerificationStatus] = useState<string | null>(null);
   const [userFullName, setUserFullName] = useState<string>('');
   const [verificationSubmittedAt, setVerificationSubmittedAt] = useState<string | undefined>();
   const [isAdmin, setIsAdmin] = useState<boolean>(false);
+  const [verificationLoading, setVerificationLoading] = useState<boolean>(true);
 
   // Écouter les changements d'état d'authentification
   useEffect(() => {
@@ -312,6 +313,7 @@ export default function App() {
   // ✅ Charger le statut de vérification
   const loadVerificationStatus = async () => {
     try {
+      setVerificationLoading(true);
       const response = await apiClient.getVerificationStatus();
       
       setVerificationStatus(response.verification_status || 'UNVERIFIED');
@@ -323,6 +325,8 @@ export default function App() {
       // Par défaut, si l'utilisateur n'existe pas, on considère qu'il n'est pas vérifié
       setVerificationStatus('UNVERIFIED');
       setIsAdmin(false);
+    } finally {
+      setVerificationLoading(false);
     }
   };
 
@@ -354,6 +358,21 @@ export default function App() {
   // 🔐 Afficher écran de connexion si pas authentifié
   if (!user) {
     return <LoginScreen onLoginSuccess={() => {}} />;
+  }
+
+  // 🔄 Afficher écran de chargement pendant la vérification du statut
+  if (verificationLoading || verificationStatus === null) {
+    return (
+      <View style={styles.loadingContainer}>
+        <LinearGradient colors={['#0f172a', '#1e293b']} style={StyleSheet.absoluteFill}>
+          <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+            <CoralLogo size={100} />
+            <ActivityIndicator size="large" color="#ff6b47" style={{ marginTop: 24 }} />
+            <Text style={{ color: '#94a3b8', marginTop: 16, fontSize: 16 }}>Vérification du profil...</Text>
+          </View>
+        </LinearGradient>
+      </View>
+    );
   }
 
   // ✅ Afficher écran de vérification si pas vérifié
