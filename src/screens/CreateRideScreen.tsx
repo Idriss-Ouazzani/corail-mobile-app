@@ -188,7 +188,9 @@ export const CreateRideScreen: React.FC<CreateRideScreenProps> = ({ onBack, onCr
         <TouchableOpacity onPress={onBack} style={styles.backButton}>
           <Ionicons name="arrow-back" size={24} color="#f1f5f9" />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Créer une course</Text>
+        <Text style={styles.headerTitle}>
+          {mode === 'create' ? 'Créer une course' : 'Publier une course'}
+        </Text>
         <View style={{ width: 40 }} />
       </LinearGradient>
 
@@ -519,7 +521,9 @@ export const CreateRideScreen: React.FC<CreateRideScreenProps> = ({ onBack, onCr
             style={styles.actionButtonGradient}
           >
             <Ionicons name="checkmark-circle" size={24} color="#fff" />
-            <Text style={styles.actionButtonText}>Créer la course (+1 🪸)</Text>
+            <Text style={styles.actionButtonText}>
+              {mode === 'create' ? 'Créer la course' : 'Publier la course'}
+            </Text>
           </LinearGradient>
         </TouchableOpacity>
       </View>
