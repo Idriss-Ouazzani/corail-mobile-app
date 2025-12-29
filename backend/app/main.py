@@ -894,6 +894,30 @@ async def create_user(user_data: CreateUserRequest):
         
         print(f"✅ Utilisateur créé: {user_data.email} ({user_data.id}) - Status: {user_data.verification_status}")
         
+        # 🏆 Attribuer automatiquement le badge "Early Adopter" 
+        # (condition : inscrit avant le 31 janvier 2025)
+        from datetime import datetime
+        if datetime.now().date() <= datetime(2025, 1, 31).date():
+            try:
+                # Vérifier que le badge existe
+                badge_check = db.execute_query(
+                    "SELECT id FROM badges WHERE id = 'badge-early-adopter'"
+                )
+                
+                if badge_check:
+                    # Attribuer le badge
+                    award_badge_query = """
+                    INSERT INTO user_badges (user_id, badge_id, earned_at)
+                    VALUES (:user_id, 'badge-early-adopter', CURRENT_TIMESTAMP())
+                    """
+                    db.execute_non_query(award_badge_query, {"user_id": user_data.id})
+                    print(f"🏆 Badge 'Early Adopter' attribué à {user_data.email}")
+                else:
+                    print("⚠️ Badge 'Early Adopter' n'existe pas dans la table badges")
+            except Exception as badge_error:
+                print(f"⚠️ Erreur attribution badge Early Adopter: {str(badge_error)}")
+                # Ne pas bloquer la création de l'utilisateur si le badge échoue
+        
         return {
             "success": True,
             "message": "User created successfully",
