@@ -99,6 +99,60 @@ class Ride(BaseModel):
     picker: Optional[User] = None
 
 
+class PersonalRide(BaseModel):
+    """Course personnelle d'un chauffeur (Uber, Bolt, Direct, etc.)"""
+    id: str
+    driver_id: str
+    source: str  # UBER, BOLT, DIRECT_CLIENT, MARKETPLACE, OTHER
+    pickup_address: str
+    dropoff_address: str
+    scheduled_at: Optional[str] = None
+    started_at: Optional[str] = None
+    completed_at: Optional[str] = None
+    price_cents: Optional[int] = None
+    currency: str = "EUR"
+    distance_km: Optional[float] = None
+    duration_minutes: Optional[int] = None
+    client_name: Optional[str] = None
+    client_phone: Optional[str] = None
+    notes: Optional[str] = None
+    status: str  # SCHEDULED, IN_PROGRESS, COMPLETED, CANCELLED
+    created_at: Optional[str] = None
+    updated_at: Optional[str] = None
+
+
+class CreatePersonalRideRequest(BaseModel):
+    """Requête pour créer une course personnelle"""
+    source: str
+    pickup_address: str
+    dropoff_address: str
+    scheduled_at: Optional[str] = None
+    price_cents: Optional[int] = None
+    distance_km: Optional[float] = None
+    duration_minutes: Optional[int] = None
+    client_name: Optional[str] = None
+    client_phone: Optional[str] = None
+    notes: Optional[str] = None
+    status: str = "SCHEDULED"
+
+
+class UpdatePersonalRideRequest(BaseModel):
+    """Requête pour mettre à jour une course personnelle"""
+    source: Optional[str] = None
+    pickup_address: Optional[str] = None
+    dropoff_address: Optional[str] = None
+    scheduled_at: Optional[str] = None
+    started_at: Optional[str] = None
+    completed_at: Optional[str] = None
+    price_cents: Optional[int] = None
+    distance_km: Optional[float] = None
+    duration_minutes: Optional[int] = None
+    client_name: Optional[str] = None
+    client_phone: Optional[str] = None
+    notes: Optional[str] = None
+    status: Optional[str] = None
+
+
 class Badge(BaseModel):
     id: str
     name: str
@@ -1320,6 +1374,332 @@ def check_and_award_badges(user_id: str):
     
     except Exception as e:
         print(f"⚠️ Error checking badges for user {user_id}: {str(e)}")
+
+
+# ============================================================================
+# PERSONAL RIDES ROUTES (Enregistrement courses externes)
+# ============================================================================
+
+@app.post("/api/v1/personal-rides")
+async def create_personal_ride(
+    ride_data: CreatePersonalRideRequest,
+    current_user_id: str = CurrentUser
+):
+    """
+    Créer une nouvelle course personnelle (Uber, Bolt, Direct Client, etc.)
+    """
+    try:
+        import uuid
+        ride_id = f"pr-{uuid.uuid4()}"
+        
+        # Valider le source
+        valid_sources = ["UBER", "BOLT", "DIRECT_CLIENT", "MARKETPLACE", "OTHER"]
+        if ride_data.source not in valid_sources:
+            raise HTTPException(
+                status_code=400, 
+                detail=f"Source must be one of: {', '.join(valid_sources)}"
+            )
+        
+        # Valider le status
+        valid_statuses = ["SCHEDULED", "IN_PROGRESS", "COMPLETED", "CANCELLED"]
+        if ride_data.status not in valid_statuses:
+            raise HTTPException(
+                status_code=400, 
+                detail=f"Status must be one of: {', '.join(valid_statuses)}"
+            )
+        
+        query = """
+        INSERT INTO personal_rides (
+            id, driver_id, source,
+            pickup_address, dropoff_address,
+            scheduled_at, price_cents, distance_km, duration_minutes,
+            client_name, client_phone, notes,
+            status, created_at, updated_at
+        ) VALUES (
+            :id, :driver_id, :source,
+            :pickup_address, :dropoff_address,
+            :scheduled_at, :price_cents, :distance_km, :duration_minutes,
+            :client_name, :client_phone, :notes,
+            :status, CURRENT_TIMESTAMP(), CURRENT_TIMESTAMP()
+        )
+        """
+        
+        db.execute_non_query(query, {
+            "id": ride_id,
+            "driver_id": current_user_id,
+            "source": ride_data.source,
+            "pickup_address": ride_data.pickup_address,
+            "dropoff_address": ride_data.dropoff_address,
+            "scheduled_at": ride_data.scheduled_at,
+            "price_cents": ride_data.price_cents,
+            "distance_km": ride_data.distance_km,
+            "duration_minutes": ride_data.duration_minutes,
+            "client_name": ride_data.client_name,
+            "client_phone": ride_data.client_phone,
+            "notes": ride_data.notes,
+            "status": ride_data.status,
+        })
+        
+        # Récupérer la course créée
+        get_query = "SELECT * FROM personal_rides WHERE id = :id"
+        result = db.execute_query(get_query, {"id": ride_id})
+        
+        if not result:
+            raise HTTPException(status_code=500, detail="Failed to retrieve created ride")
+        
+        return PersonalRide(**result[0])
+    
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
+
+
+@app.get("/api/v1/personal-rides")
+async def list_personal_rides(
+    current_user_id: str = CurrentUser,
+    status: Optional[str] = Query(None),
+    source: Optional[str] = Query(None),
+    limit: int = Query(100, le=500)
+):
+    """
+    Liste toutes les courses personnelles du chauffeur connecté
+    Filtres optionnels: status, source
+    """
+    try:
+        filters = ["driver_id = :driver_id"]
+        params = {"driver_id": current_user_id}
+        
+        if status:
+            filters.append("status = :status")
+            params["status"] = status
+        
+        if source:
+            filters.append("source = :source")
+            params["source"] = source
+        
+        where_clause = " AND ".join(filters)
+        
+        query = f"""
+        SELECT * FROM personal_rides
+        WHERE {where_clause}
+        ORDER BY 
+            CASE 
+                WHEN scheduled_at IS NOT NULL THEN scheduled_at
+                WHEN completed_at IS NOT NULL THEN completed_at
+                ELSE created_at
+            END DESC
+        LIMIT :limit
+        """
+        
+        params["limit"] = limit
+        results = db.execute_query(query, params)
+        
+        return [PersonalRide(**row) for row in results]
+    
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
+
+
+@app.get("/api/v1/personal-rides/{ride_id}")
+async def get_personal_ride(ride_id: str, current_user_id: str = CurrentUser):
+    """Récupérer les détails d'une course personnelle"""
+    try:
+        query = """
+        SELECT * FROM personal_rides
+        WHERE id = :ride_id AND driver_id = :driver_id
+        """
+        result = db.execute_query(query, {"ride_id": ride_id, "driver_id": current_user_id})
+        
+        if not result:
+            raise HTTPException(status_code=404, detail="Ride not found")
+        
+        return PersonalRide(**result[0])
+    
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
+
+
+@app.put("/api/v1/personal-rides/{ride_id}")
+async def update_personal_ride(
+    ride_id: str,
+    ride_data: UpdatePersonalRideRequest,
+    current_user_id: str = CurrentUser
+):
+    """Mettre à jour une course personnelle"""
+    try:
+        # Vérifier que la course existe et appartient au chauffeur
+        check_query = """
+        SELECT id FROM personal_rides
+        WHERE id = :ride_id AND driver_id = :driver_id
+        """
+        existing = db.execute_query(check_query, {"ride_id": ride_id, "driver_id": current_user_id})
+        
+        if not existing:
+            raise HTTPException(status_code=404, detail="Ride not found")
+        
+        # Construire la requête UPDATE dynamiquement
+        update_fields = []
+        params = {"ride_id": ride_id, "driver_id": current_user_id}
+        
+        if ride_data.source is not None:
+            update_fields.append("source = :source")
+            params["source"] = ride_data.source
+        
+        if ride_data.pickup_address is not None:
+            update_fields.append("pickup_address = :pickup_address")
+            params["pickup_address"] = ride_data.pickup_address
+        
+        if ride_data.dropoff_address is not None:
+            update_fields.append("dropoff_address = :dropoff_address")
+            params["dropoff_address"] = ride_data.dropoff_address
+        
+        if ride_data.scheduled_at is not None:
+            update_fields.append("scheduled_at = :scheduled_at")
+            params["scheduled_at"] = ride_data.scheduled_at
+        
+        if ride_data.started_at is not None:
+            update_fields.append("started_at = :started_at")
+            params["started_at"] = ride_data.started_at
+        
+        if ride_data.completed_at is not None:
+            update_fields.append("completed_at = :completed_at")
+            params["completed_at"] = ride_data.completed_at
+        
+        if ride_data.price_cents is not None:
+            update_fields.append("price_cents = :price_cents")
+            params["price_cents"] = ride_data.price_cents
+        
+        if ride_data.distance_km is not None:
+            update_fields.append("distance_km = :distance_km")
+            params["distance_km"] = ride_data.distance_km
+        
+        if ride_data.duration_minutes is not None:
+            update_fields.append("duration_minutes = :duration_minutes")
+            params["duration_minutes"] = ride_data.duration_minutes
+        
+        if ride_data.client_name is not None:
+            update_fields.append("client_name = :client_name")
+            params["client_name"] = ride_data.client_name
+        
+        if ride_data.client_phone is not None:
+            update_fields.append("client_phone = :client_phone")
+            params["client_phone"] = ride_data.client_phone
+        
+        if ride_data.notes is not None:
+            update_fields.append("notes = :notes")
+            params["notes"] = ride_data.notes
+        
+        if ride_data.status is not None:
+            update_fields.append("status = :status")
+            params["status"] = ride_data.status
+        
+        if not update_fields:
+            raise HTTPException(status_code=400, detail="No fields to update")
+        
+        # Toujours mettre à jour updated_at
+        update_fields.append("updated_at = CURRENT_TIMESTAMP()")
+        
+        query = f"""
+        UPDATE personal_rides
+        SET {', '.join(update_fields)}
+        WHERE id = :ride_id AND driver_id = :driver_id
+        """
+        
+        db.execute_non_query(query, params)
+        
+        # Récupérer la course mise à jour
+        get_query = """
+        SELECT * FROM personal_rides
+        WHERE id = :ride_id AND driver_id = :driver_id
+        """
+        result = db.execute_query(get_query, {"ride_id": ride_id, "driver_id": current_user_id})
+        
+        if not result:
+            raise HTTPException(status_code=500, detail="Failed to retrieve updated ride")
+        
+        return PersonalRide(**result[0])
+    
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
+
+
+@app.delete("/api/v1/personal-rides/{ride_id}")
+async def delete_personal_ride(ride_id: str, current_user_id: str = CurrentUser):
+    """Supprimer une course personnelle"""
+    try:
+        # Vérifier que la course existe et appartient au chauffeur
+        check_query = """
+        SELECT id FROM personal_rides
+        WHERE id = :ride_id AND driver_id = :driver_id
+        """
+        existing = db.execute_query(check_query, {"ride_id": ride_id, "driver_id": current_user_id})
+        
+        if not existing:
+            raise HTTPException(status_code=404, detail="Ride not found")
+        
+        # Supprimer la course
+        delete_query = """
+        DELETE FROM personal_rides
+        WHERE id = :ride_id AND driver_id = :driver_id
+        """
+        db.execute_non_query(delete_query, {"ride_id": ride_id, "driver_id": current_user_id})
+        
+        return {"message": "Ride deleted successfully", "ride_id": ride_id}
+    
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
+
+
+@app.get("/api/v1/personal-rides/stats/summary")
+async def get_personal_rides_stats(current_user_id: str = CurrentUser):
+    """
+    Récupérer les statistiques des courses personnelles du chauffeur
+    (revenus, nombre de courses, distance, par source)
+    """
+    try:
+        query = """
+        SELECT 
+            source,
+            COUNT(*) as total_rides,
+            COUNT(CASE WHEN status = 'COMPLETED' THEN 1 END) as completed_rides,
+            SUM(CASE WHEN status = 'COMPLETED' THEN price_cents ELSE 0 END) / 100.0 as revenue_eur,
+            SUM(CASE WHEN status = 'COMPLETED' THEN distance_km ELSE 0 END) as total_distance_km,
+            AVG(CASE WHEN status = 'COMPLETED' THEN price_cents ELSE NULL END) / 100.0 as avg_price_eur
+        FROM personal_rides
+        WHERE driver_id = :driver_id
+        GROUP BY source
+        ORDER BY revenue_eur DESC
+        """
+        
+        results = db.execute_query(query, {"driver_id": current_user_id})
+        
+        # Calculer les totaux globaux
+        total_query = """
+        SELECT 
+            COUNT(*) as total_rides,
+            COUNT(CASE WHEN status = 'COMPLETED' THEN 1 END) as completed_rides,
+            SUM(CASE WHEN status = 'COMPLETED' THEN price_cents ELSE 0 END) / 100.0 as total_revenue_eur,
+            SUM(CASE WHEN status = 'COMPLETED' THEN distance_km ELSE 0 END) as total_distance_km
+        FROM personal_rides
+        WHERE driver_id = :driver_id
+        """
+        
+        total_results = db.execute_query(total_query, {"driver_id": current_user_id})
+        
+        return {
+            "by_source": results,
+            "totals": total_results[0] if total_results else {}
+        }
+    
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
 
 
 # ============================================================================

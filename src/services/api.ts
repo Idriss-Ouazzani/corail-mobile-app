@@ -269,6 +269,90 @@ class ApiClient {
     const { data } = await this.client.post(`/users/${userId}/badges/${badgeId}`);
     return data;
   }
+
+  // ============================================================================
+  // 🚗 PERSONAL RIDES (Enregistrement courses externes)
+  // ============================================================================
+
+  /**
+   * Créer une nouvelle course personnelle
+   */
+  async createPersonalRide(rideData: {
+    source: 'UBER' | 'BOLT' | 'DIRECT_CLIENT' | 'MARKETPLACE' | 'OTHER';
+    pickup_address: string;
+    dropoff_address: string;
+    scheduled_at?: string;
+    price_cents?: number;
+    distance_km?: number;
+    duration_minutes?: number;
+    client_name?: string;
+    client_phone?: string;
+    notes?: string;
+    status?: 'SCHEDULED' | 'IN_PROGRESS' | 'COMPLETED' | 'CANCELLED';
+  }) {
+    const { data } = await this.client.post('/personal-rides', rideData);
+    return data;
+  }
+
+  /**
+   * Liste toutes les courses personnelles
+   * Filtres optionnels: status, source
+   */
+  async listPersonalRides(filters?: {
+    status?: string;
+    source?: string;
+    limit?: number;
+  }) {
+    const { data } = await this.client.get('/personal-rides', { params: filters });
+    return data;
+  }
+
+  /**
+   * Récupérer les détails d'une course personnelle
+   */
+  async getPersonalRide(rideId: string) {
+    const { data } = await this.client.get(`/personal-rides/${rideId}`);
+    return data;
+  }
+
+  /**
+   * Mettre à jour une course personnelle
+   */
+  async updatePersonalRide(rideId: string, updates: {
+    source?: string;
+    pickup_address?: string;
+    dropoff_address?: string;
+    scheduled_at?: string;
+    started_at?: string;
+    completed_at?: string;
+    price_cents?: number;
+    distance_km?: number;
+    duration_minutes?: number;
+    client_name?: string;
+    client_phone?: string;
+    notes?: string;
+    status?: string;
+  }) {
+    const { data } = await this.client.put(`/personal-rides/${rideId}`, updates);
+    return data;
+  }
+
+  /**
+   * Supprimer une course personnelle
+   */
+  async deletePersonalRide(rideId: string) {
+    const { data } = await this.client.delete(`/personal-rides/${rideId}`);
+    return data;
+  }
+
+  /**
+   * Récupérer les statistiques des courses personnelles
+   * (revenus, nombre de courses, distance, par source)
+   */
+  async getPersonalRidesStats() {
+    const { data } = await this.client.get('/personal-rides/stats/summary');
+    return data;
+  }
 }
 
 const API_BASE_URL = 'https://corail-backend-6e5o.onrender.com/api/v1';

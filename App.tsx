@@ -36,6 +36,7 @@ import VerificationScreen from './src/screens/VerificationScreen';
 import PendingVerificationScreen from './src/screens/PendingVerificationScreen';
 import AdminPanelScreen from './src/screens/AdminPanelScreen';
 import QRCodeScreen from './src/screens/QRCodeScreen';
+import PersonalRidesScreen from './src/screens/PersonalRidesScreen';
 import { firebaseAuth } from './src/services/firebase';
 import { apiClient } from './src/services/api';
 import type { Ride } from './src/types';
@@ -336,6 +337,7 @@ export default function App() {
   const [showFilters, setShowFilters] = useState(false);
   const [showAdminPanel, setShowAdminPanel] = useState(false);
   const [showQRCode, setShowQRCode] = useState(false);
+  const [showPersonalRides, setShowPersonalRides] = useState(false);
   const [filters, setFilters] = useState<FilterOptions>({
     vehicleTypes: [],
     sortBy: null,
@@ -1156,6 +1158,31 @@ export default function App() {
             <Ionicons name="chevron-forward" size={24} color="rgba(255, 255, 255, 0.8)" />
           </LinearGradient>
         </TouchableOpacity>
+
+        {/* Bouton Mes Courses - Enregistrement courses externes */}
+        <TouchableOpacity
+          style={[styles.qrCodeButton, { marginTop: 12 }]}
+          onPress={() => setShowPersonalRides(true)}
+          activeOpacity={0.8}
+        >
+          <LinearGradient
+            colors={['#6366f1', '#8b5cf6']}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={styles.qrCodeButtonGradient}
+          >
+            <View style={styles.qrCodeButtonLeft}>
+              <View style={styles.qrCodeIcon}>
+                <Ionicons name="car" size={28} color="#fff" />
+              </View>
+              <View>
+                <Text style={styles.qrCodeButtonTitle}>Mes Courses</Text>
+                <Text style={styles.qrCodeButtonSubtitle}>Enregistrez Uber, Bolt, Direct...</Text>
+              </View>
+            </View>
+            <Ionicons name="chevron-forward" size={24} color="rgba(255, 255, 255, 0.8)" />
+          </LinearGradient>
+        </TouchableOpacity>
       </View>
 
       {/* Menu */}
@@ -1345,6 +1372,11 @@ export default function App() {
         }}
       />
     );
+  }
+
+  // 🚗 If showing Personal Rides (Enregistrement courses externes)
+  if (showPersonalRides) {
+    return <PersonalRidesScreen onClose={() => setShowPersonalRides(false)} />;
   }
 
   // 👨‍💼 If showing admin panel
