@@ -532,7 +532,7 @@ export default function App() {
 
   // 🔐 Afficher écran de chargement pendant l'initialisation
   if (authLoading) {
-    return <LoadingScreen message="Initialisation..." />;
+    return <LoadingScreen message="Chargement" />;
   }
 
   // 🔐 Afficher écran de connexion si pas authentifié
@@ -542,7 +542,7 @@ export default function App() {
 
   // 🔄 Afficher écran de chargement pendant la vérification du statut
   if (verificationLoading || verificationStatus === null) {
-    return <LoadingScreen message="Vérification du profil..." />;
+    return <LoadingScreen message="Chargement" />;
   }
 
   // ✅ Afficher écran de vérification si pas vérifié
