@@ -2,14 +2,14 @@
 -- ATTRIBUER LE BADGE "EARLY ADOPTER" RÉTROACTIVEMENT
 -- ============================================
 -- Ce script donne le badge à tous les utilisateurs
--- inscrits avant le 31 janvier 2025
+-- inscrits avant le 25 janvier 2026
 
 -- 📋 1️⃣ Vérifier combien d'utilisateurs sont éligibles
 SELECT 
   COUNT(*) as eligible_users,
-  'Inscrits avant le 31 janvier 2025' as description
+  'Inscrits avant le 25 janvier 2026' as description
 FROM io_catalog.corail.users
-WHERE created_at < '2025-01-31 23:59:59';
+WHERE created_at < '2026-01-25 23:59:59';
 
 -- 🔍 2️⃣ Voir qui a déjà le badge
 SELECT 
@@ -19,7 +19,7 @@ SELECT
   ub.earned_at
 FROM io_catalog.corail.users u
 LEFT JOIN io_catalog.corail.user_badges ub ON u.id = ub.user_id AND ub.badge_id = 'badge-early-adopter'
-WHERE u.created_at < '2025-01-31 23:59:59'
+WHERE u.created_at < '2026-01-25 23:59:59'
 ORDER BY u.created_at DESC;
 
 -- 🏆 3️⃣ Attribuer le badge à tous les utilisateurs éligibles qui ne l'ont pas encore
@@ -30,7 +30,7 @@ SELECT
   'badge-early-adopter' as badge_id,
   u.created_at as earned_at
 FROM io_catalog.corail.users u
-WHERE u.created_at < '2025-01-31 23:59:59'
+WHERE u.created_at < '2026-01-25 23:59:59'
   AND NOT EXISTS (
     SELECT 1 
     FROM io_catalog.corail.user_badges ub 
@@ -47,7 +47,7 @@ SELECT
   ub.earned_at as badge_received
 FROM io_catalog.corail.users u
 INNER JOIN io_catalog.corail.user_badges ub ON u.id = ub.user_id AND ub.badge_id = 'badge-early-adopter'
-WHERE u.created_at < '2025-01-31 23:59:59'
+WHERE u.created_at < '2026-01-25 23:59:59'
 ORDER BY u.created_at DESC;
 
 -- 📊 5️⃣ Résumé final
@@ -57,5 +57,5 @@ SELECT
   MAX(u.created_at) as dernier_inscrit
 FROM io_catalog.corail.users u
 INNER JOIN io_catalog.corail.user_badges ub ON u.id = ub.user_id AND ub.badge_id = 'badge-early-adopter'
-WHERE u.created_at < '2025-01-31 23:59:59';
+WHERE u.created_at < '2026-01-25 23:59:59';
 

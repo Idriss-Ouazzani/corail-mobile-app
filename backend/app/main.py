@@ -895,9 +895,9 @@ async def create_user(user_data: CreateUserRequest):
         print(f"✅ Utilisateur créé: {user_data.email} ({user_data.id}) - Status: {user_data.verification_status}")
         
         # 🏆 Attribuer automatiquement le badge "Early Adopter" 
-        # (condition : inscrit avant le 31 janvier 2025)
+        # (condition : inscrit avant le 25 janvier 2026)
         from datetime import datetime
-        if datetime.now().date() <= datetime(2025, 1, 31).date():
+        if datetime.now().date() <= datetime(2026, 1, 25).date():
             try:
                 # Vérifier que le badge existe
                 badge_check = db.execute_query(
