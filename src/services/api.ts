@@ -353,6 +353,108 @@ class ApiClient {
     const { data } = await this.client.get('/personal-rides/stats/summary');
     return data;
   }
+
+  // ============================================================================
+  // PLANNING & NOTIFICATIONS
+  // ============================================================================
+
+  /**
+   * Récupérer les événements du planning
+   */
+  async getPlanningEvents(params?: {
+    start_date?: string; // YYYY-MM-DD
+    end_date?: string;
+    event_type?: 'RIDE' | 'BREAK' | 'MAINTENANCE' | 'PERSONAL';
+  }) {
+    const { data } = await this.client.get('/planning/events', { params });
+    return data;
+  }
+
+  /**
+   * Créer un événement de planning
+   */
+  async createPlanningEvent(event: {
+    event_type: 'RIDE' | 'BREAK' | 'MAINTENANCE' | 'PERSONAL';
+    start_time: string; // ISO format
+    end_time: string;
+    estimated_duration_minutes?: number;
+    start_address?: string;
+    end_address?: string;
+    start_lat?: number;
+    start_lng?: number;
+    end_lat?: number;
+    end_lng?: number;
+    ride_id?: string;
+    ride_source?: string;
+    notes?: string;
+    color?: string;
+  }) {
+    const { data } = await this.client.post('/planning/events', event);
+    return data;
+  }
+
+  /**
+   * Mettre à jour un événement de planning
+   */
+  async updatePlanningEvent(eventId: string, updates: {
+    start_time?: string;
+    end_time?: string;
+    estimated_duration_minutes?: number;
+    start_address?: string;
+    end_address?: string;
+    status?: 'SCHEDULED' | 'IN_PROGRESS' | 'COMPLETED' | 'CANCELLED';
+    notes?: string;
+    color?: string;
+  }) {
+    const { data } = await this.client.put(`/planning/events/${eventId}`, updates);
+    return data;
+  }
+
+  /**
+   * Supprimer un événement de planning
+   */
+  async deletePlanningEvent(eventId: string) {
+    const { data } = await this.client.delete(`/planning/events/${eventId}`);
+    return data;
+  }
+
+  /**
+   * Vérifier les conflits d'horaires
+   */
+  async checkPlanningConflicts(start_time: string, end_time: string) {
+    const { data } = await this.client.get('/planning/conflicts', {
+      params: { start_time, end_time }
+    });
+    return data;
+  }
+
+  /**
+   * Récupérer les préférences de notification
+   */
+  async getNotificationPreferences() {
+    const { data } = await this.client.get('/notifications/preferences');
+    return data;
+  }
+
+  /**
+   * Mettre à jour les préférences de notification
+   */
+  async updateNotificationPreferences(preferences: {
+    reminder_30min?: boolean;
+    reminder_1h?: boolean;
+    reminder_custom_minutes?: number;
+    reminder_custom_enabled?: boolean;
+    notify_ride_start?: boolean;
+    notify_ride_completion?: boolean;
+    notify_conflicts?: boolean;
+    notify_marketplace_opportunities?: boolean;
+    quiet_hours_enabled?: boolean;
+    quiet_hours_start?: string;
+    quiet_hours_end?: string;
+  }) {
+    const { data } = await this.client.put('/notifications/preferences', preferences);
+    return data;
+  }
 }
 
 const API_BASE_URL = 'https://corail-backend-6e5o.onrender.com/api/v1';

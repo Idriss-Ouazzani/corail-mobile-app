@@ -1703,6 +1703,343 @@ async def get_personal_rides_stats(current_user_id: str = CurrentUser):
 
 
 # ============================================================================
+# PLANNING & NOTIFICATIONS
+# ============================================================================
+
+class PlanningEvent(BaseModel):
+    id: Optional[str] = None
+    driver_id: Optional[str] = None
+    event_type: str  # 'RIDE', 'BREAK', 'MAINTENANCE', 'PERSONAL'
+    ride_id: Optional[str] = None
+    ride_source: Optional[str] = None
+    start_time: str  # ISO format
+    end_time: str
+    estimated_duration_minutes: Optional[int] = None
+    start_address: Optional[str] = None
+    end_address: Optional[str] = None
+    start_lat: Optional[float] = None
+    start_lng: Optional[float] = None
+    end_lat: Optional[float] = None
+    end_lng: Optional[float] = None
+    status: Optional[str] = "SCHEDULED"
+    notes: Optional[str] = None
+    color: Optional[str] = "#6366f1"
+
+class NotificationPreferences(BaseModel):
+    reminder_30min: bool = True
+    reminder_1h: bool = False
+    reminder_custom_minutes: int = 15
+    reminder_custom_enabled: bool = False
+    notify_ride_start: bool = True
+    notify_ride_completion: bool = True
+    notify_conflicts: bool = True
+    notify_marketplace_opportunities: bool = True
+    quiet_hours_enabled: bool = False
+    quiet_hours_start: str = "22:00"
+    quiet_hours_end: str = "07:00"
+
+# Get planning events
+@app.get("/api/v1/planning/events")
+async def get_planning_events(
+    start_date: Optional[str] = None,  # YYYY-MM-DD
+    end_date: Optional[str] = None,
+    event_type: Optional[str] = None,
+    current_user_id: str = CurrentUser
+):
+    """Récupérer les événements du planning"""
+    try:
+        query = f"""
+        SELECT 
+          id, driver_id, event_type, ride_id, ride_source,
+          start_time, end_time, estimated_duration_minutes,
+          start_address, end_address,
+          start_lat, start_lng, end_lat, end_lng,
+          status, notes, color
+        FROM io_catalog.corail.planning_events
+        WHERE driver_id = '{current_user_id}'
+        """
+        
+        if start_date:
+            query += f" AND start_time >= '{start_date} 00:00:00'"
+        if end_date:
+            query += f" AND start_time <= '{end_date} 23:59:59'"
+        if event_type:
+            query += f" AND event_type = '{event_type}'"
+        
+        query += " ORDER BY start_time ASC"
+        
+        result = await db.fetch_all(query)
+        return [dict(row) for row in result]
+    
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
+
+# Create planning event
+@app.post("/api/v1/planning/events")
+async def create_planning_event(
+    event: PlanningEvent,
+    current_user_id: str = CurrentUser
+):
+    """Créer un événement de planning"""
+    try:
+        from uuid import uuid4
+        
+        event_id = f"pe-{uuid4()}"
+        
+        # Vérifier les conflits
+        conflicts_query = f"""
+        SELECT id, start_time, end_time, start_address, end_address
+        FROM io_catalog.corail.planning_events
+        WHERE driver_id = '{current_user_id}'
+          AND status IN ('SCHEDULED', 'IN_PROGRESS')
+          AND (
+            (start_time <= '{event.start_time}' AND end_time > '{event.start_time}')
+            OR
+            (start_time < '{event.end_time}' AND end_time >= '{event.end_time}')
+            OR
+            (start_time >= '{event.start_time}' AND end_time <= '{event.end_time}')
+          )
+        """
+        
+        conflicts = await db.fetch_all(conflicts_query)
+        
+        if conflicts:
+            return {
+                "success": False,
+                "conflicts": [dict(row) for row in conflicts],
+                "message": "Conflit détecté avec une autre course"
+            }
+        
+        query = f"""
+        INSERT INTO io_catalog.corail.planning_events
+        (id, driver_id, event_type, ride_id, ride_source,
+         start_time, end_time, estimated_duration_minutes,
+         start_address, end_address,
+         start_lat, start_lng, end_lat, end_lng,
+         status, notification_30min_sent, notification_1h_sent, notification_custom_sent,
+         notes, color, created_at, updated_at)
+        VALUES (
+          '{event_id}',
+          '{current_user_id}',
+          '{event.event_type}',
+          '{event.ride_id or ""}',
+          '{event.ride_source or ""}',
+          '{event.start_time}',
+          '{event.end_time}',
+          {event.estimated_duration_minutes or 0},
+          '{event.start_address or ""}',
+          '{event.end_address or ""}',
+          {event.start_lat or 0.0},
+          {event.start_lng or 0.0},
+          {event.end_lat or 0.0},
+          {event.end_lng or 0.0},
+          'SCHEDULED',
+          FALSE, FALSE, FALSE,
+          '{event.notes or ""}',
+          '{event.color}',
+          current_timestamp(),
+          current_timestamp()
+        )
+        """
+        
+        await db.execute(query)
+        
+        return {"success": True, "event_id": event_id}
+    
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
+
+# Update planning event
+@app.put("/api/v1/planning/events/{event_id}")
+async def update_planning_event(
+    event_id: str,
+    event: PlanningEvent,
+    current_user_id: str = CurrentUser
+):
+    """Mettre à jour un événement"""
+    try:
+        query = f"""
+        UPDATE io_catalog.corail.planning_events
+        SET 
+          start_time = '{event.start_time}',
+          end_time = '{event.end_time}',
+          estimated_duration_minutes = {event.estimated_duration_minutes or 0},
+          start_address = '{event.start_address or ""}',
+          end_address = '{event.end_address or ""}',
+          status = '{event.status}',
+          notes = '{event.notes or ""}',
+          color = '{event.color}',
+          updated_at = current_timestamp()
+        WHERE id = '{event_id}' AND driver_id = '{current_user_id}'
+        """
+        
+        await db.execute(query)
+        return {"success": True}
+    
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
+
+# Delete planning event
+@app.delete("/api/v1/planning/events/{event_id}")
+async def delete_planning_event(
+    event_id: str,
+    current_user_id: str = CurrentUser
+):
+    """Supprimer un événement"""
+    try:
+        query = f"""
+        DELETE FROM io_catalog.corail.planning_events
+        WHERE id = '{event_id}' AND driver_id = '{current_user_id}'
+        """
+        
+        await db.execute(query)
+        return {"success": True}
+    
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
+
+# Check conflicts
+@app.get("/api/v1/planning/conflicts")
+async def check_conflicts(
+    start_time: str,
+    end_time: str,
+    current_user_id: str = CurrentUser
+):
+    """Vérifier les conflits d'horaires"""
+    try:
+        query = f"""
+        SELECT id, start_time, end_time, start_address, end_address, event_type
+        FROM io_catalog.corail.planning_events
+        WHERE driver_id = '{current_user_id}'
+          AND status IN ('SCHEDULED', 'IN_PROGRESS')
+          AND (
+            (start_time <= '{start_time}' AND end_time > '{start_time}')
+            OR
+            (start_time < '{end_time}' AND end_time >= '{end_time}')
+            OR
+            (start_time >= '{start_time}' AND end_time <= '{end_time}')
+          )
+        """
+        
+        conflicts = await db.fetch_all(query)
+        
+        return {
+            "has_conflicts": len(conflicts) > 0,
+            "conflicts": [dict(row) for row in conflicts]
+        }
+    
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
+
+# Get notification preferences
+@app.get("/api/v1/notifications/preferences")
+async def get_notification_preferences(
+    current_user_id: str = CurrentUser
+):
+    """Récupérer les préférences de notification"""
+    try:
+        query = f"""
+        SELECT * FROM io_catalog.corail.notification_preferences
+        WHERE driver_id = '{current_user_id}'
+        """
+        
+        result = await db.fetch_one(query)
+        
+        if not result:
+            # Retourner préférences par défaut
+            return {
+                "reminder_30min": True,
+                "reminder_1h": False,
+                "reminder_custom_minutes": 15,
+                "reminder_custom_enabled": False,
+                "notify_ride_start": True,
+                "notify_ride_completion": True,
+                "notify_conflicts": True,
+                "notify_marketplace_opportunities": True,
+                "quiet_hours_enabled": False,
+                "quiet_hours_start": "22:00",
+                "quiet_hours_end": "07:00"
+            }
+        
+        return dict(result)
+    
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
+
+# Update notification preferences
+@app.put("/api/v1/notifications/preferences")
+async def update_notification_preferences(
+    preferences: NotificationPreferences,
+    current_user_id: str = CurrentUser
+):
+    """Mettre à jour les préférences de notification"""
+    try:
+        from uuid import uuid4
+        
+        # Vérifier si existe déjà
+        check_query = f"""
+        SELECT id FROM io_catalog.corail.notification_preferences
+        WHERE driver_id = '{current_user_id}'
+        """
+        
+        existing = await db.fetch_one(check_query)
+        
+        if existing:
+            # Update
+            query = f"""
+            UPDATE io_catalog.corail.notification_preferences
+            SET 
+              reminder_30min = {preferences.reminder_30min},
+              reminder_1h = {preferences.reminder_1h},
+              reminder_custom_minutes = {preferences.reminder_custom_minutes},
+              reminder_custom_enabled = {preferences.reminder_custom_enabled},
+              notify_ride_start = {preferences.notify_ride_start},
+              notify_ride_completion = {preferences.notify_ride_completion},
+              notify_conflicts = {preferences.notify_conflicts},
+              notify_marketplace_opportunities = {preferences.notify_marketplace_opportunities},
+              quiet_hours_enabled = {preferences.quiet_hours_enabled},
+              quiet_hours_start = '{preferences.quiet_hours_start}',
+              quiet_hours_end = '{preferences.quiet_hours_end}',
+              updated_at = current_timestamp()
+            WHERE driver_id = '{current_user_id}'
+            """
+        else:
+            # Insert
+            pref_id = f"np-{uuid4()}"
+            query = f"""
+            INSERT INTO io_catalog.corail.notification_preferences
+            (id, driver_id,
+             reminder_30min, reminder_1h, reminder_custom_minutes, reminder_custom_enabled,
+             notify_ride_start, notify_ride_completion, notify_conflicts, notify_marketplace_opportunities,
+             quiet_hours_enabled, quiet_hours_start, quiet_hours_end,
+             created_at, updated_at)
+            VALUES (
+              '{pref_id}',
+              '{current_user_id}',
+              {preferences.reminder_30min},
+              {preferences.reminder_1h},
+              {preferences.reminder_custom_minutes},
+              {preferences.reminder_custom_enabled},
+              {preferences.notify_ride_start},
+              {preferences.notify_ride_completion},
+              {preferences.notify_conflicts},
+              {preferences.notify_marketplace_opportunities},
+              {preferences.quiet_hours_enabled},
+              '{preferences.quiet_hours_start}',
+              '{preferences.quiet_hours_end}',
+              current_timestamp(),
+              current_timestamp()
+            )
+            """
+        
+        await db.execute(query)
+        return {"success": True}
+    
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
+
+
+# ============================================================================
 # DEV / DEBUG ROUTES
 # ============================================================================
 
