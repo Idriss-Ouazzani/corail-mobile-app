@@ -402,6 +402,7 @@ export default function App() {
   const [selectedRide, setSelectedRide] = useState<Ride | null>(null);
   const [activeFilter, setActiveFilter] = useState<'all' | 'public' | 'groups'>('all');
   const [showCreateRide, setShowCreateRide] = useState(false);
+  const [createRideMode, setCreateRideMode] = useState<'create' | 'publish'>('publish');
   const [showSubscription, setShowSubscription] = useState(false);
   const [showGroups, setShowGroups] = useState(false);
   const [selectedGroup, setSelectedGroup] = useState<any>(null);
@@ -696,7 +697,10 @@ export default function App() {
             icon: 'add-circle', 
             title: 'Créer une course', 
             subtitle: 'Publier une nouvelle opportunité', 
-            action: () => setShowCreateRide(true)
+            action: () => {
+              setCreateRideMode('publish');
+              setShowCreateRide(true);
+            }
           },
           { 
             icon: 'list', 
@@ -791,7 +795,10 @@ export default function App() {
           {/* Publier button */}
           <TouchableOpacity
             style={styles.createButtonCompact}
-            onPress={() => setShowCreateRide(true)}
+            onPress={() => {
+              setCreateRideMode('publish');
+              setShowCreateRide(true);
+            }}
             activeOpacity={0.8}
           >
             <LinearGradient
@@ -925,7 +932,10 @@ export default function App() {
           {/* Créer une course button */}
           <TouchableOpacity
             style={styles.createButtonCompact}
-            onPress={() => setShowCreateRide(true)}
+            onPress={() => {
+              setCreateRideMode('create');
+              setShowCreateRide(true);
+            }}
             activeOpacity={0.8}
           >
             <LinearGradient
@@ -1433,6 +1443,7 @@ export default function App() {
   if (showCreateRide) {
     return (
       <CreateRideScreen
+        mode={createRideMode}
         onBack={() => setShowCreateRide(false)}
         onCreate={async (ride) => {
           try {
@@ -1624,7 +1635,10 @@ export default function App() {
               {/* Center FAB - Integrated */}
               <TouchableOpacity
                 style={styles.centerFABIntegrated}
-                onPress={() => setShowCreateRide(true)}
+                onPress={() => {
+                  setCreateRideMode('publish');
+                  setShowCreateRide(true);
+                }}
                 activeOpacity={0.85}
               >
                 <LinearGradient

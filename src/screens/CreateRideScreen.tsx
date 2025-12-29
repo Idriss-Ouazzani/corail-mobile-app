@@ -53,6 +53,7 @@ const MOCK_GROUPS: Group[] = [
 interface CreateRideScreenProps {
   onBack: () => void;
   onCreate: (ride: any) => void;
+  mode?: 'create' | 'publish'; // 'create' = depuis Mes Courses, 'publish' = depuis Marketplace
 }
 
 const VEHICLE_TYPES = [
@@ -63,14 +64,15 @@ const VEHICLE_TYPES = [
   { type: 'LUXURY', label: 'Luxe', icon: 'diamond', color: '#fbbf24' },
 ];
 
-export const CreateRideScreen: React.FC<CreateRideScreenProps> = ({ onBack, onCreate }) => {
+export const CreateRideScreen: React.FC<CreateRideScreenProps> = ({ onBack, onCreate, mode = 'publish' }) => {
   const [pickup, setPickup] = useState('');
   const [dropoff, setDropoff] = useState('');
   const [price, setPrice] = useState('');
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [showTimePicker, setShowTimePicker] = useState(false);
-  const [visibility, setVisibility] = useState<'PUBLIC' | 'GROUP' | 'PERSONAL'>('PUBLIC');
+  const [visibility, setVisibility] = useState<'PUBLIC' | 'GROUP' | 'PERSONAL'>(mode === 'create' ? 'PERSONAL' : 'PUBLIC');
+  const [publishToMarketplace, setPublishToMarketplace] = useState(false); // Pour mode 'create'
   const [selectedGroups, setSelectedGroups] = useState<Group[]>([]);
   const [vehicleType, setVehicleType] = useState<string>('STANDARD');
   const [distance, setDistance] = useState('');
@@ -330,48 +332,103 @@ export const CreateRideScreen: React.FC<CreateRideScreenProps> = ({ onBack, onCr
           </View>
         </View>
 
-        {/* Visibility */}
-        <View style={styles.section}>
-          <Text style={styles.label}>Visibilité</Text>
-          <View style={styles.visibilityRow}>
+        {/* Visibility - Mode 'create' : PERSONAL par défaut + option publier */}
+        {mode === 'create' && (
+          <View style={styles.section}>
+            <View style={styles.labelRow}>
+              <Ionicons name="lock-closed" size={18} color="#6366f1" />
+              <Text style={styles.labelBold}>Course personnelle</Text>
+            </View>
+            <Text style={styles.hint}>Cette course sera enregistrée dans votre historique privé</Text>
+            
+            {/* Toggle "Publier sur la marketplace ?" */}
             <TouchableOpacity
-              style={[styles.visibilityButton, visibility === 'PUBLIC' && styles.visibilityButtonActive]}
+              style={styles.publishToggle}
               onPress={() => {
-                setVisibility('PUBLIC');
-                setSelectedGroups([]);
+                setPublishToMarketplace(!publishToMarketplace);
+                if (!publishToMarketplace) {
+                  setVisibility('PUBLIC'); // Par défaut PUBLIC quand on active
+                } else {
+                  setVisibility('PERSONAL');
+                  setSelectedGroups([]);
+                }
               }}
               activeOpacity={0.7}
             >
-              <Ionicons name="globe" size={18} color={visibility === 'PUBLIC' ? '#fff' : '#64748b'} />
-              <Text style={[styles.visibilityText, visibility === 'PUBLIC' && styles.visibilityTextActive]}>
-                Public
-              </Text>
+              <View style={styles.publishToggleLeft}>
+                <Ionicons name="megaphone" size={20} color="#ff6b47" />
+                <Text style={styles.publishToggleText}>Publier sur la marketplace ?</Text>
+              </View>
+              <View style={[styles.toggleSwitch, publishToMarketplace && styles.toggleSwitchActive]}>
+                <View style={[styles.toggleKnob, publishToMarketplace && styles.toggleKnobActive]} />
+              </View>
             </TouchableOpacity>
-            <TouchableOpacity
-              style={[styles.visibilityButton, visibility === 'GROUP' && styles.visibilityButtonActive]}
-              onPress={() => setVisibility('GROUP')}
-              activeOpacity={0.7}
-            >
-              <Ionicons name="people" size={18} color={visibility === 'GROUP' ? '#fff' : '#64748b'} />
-              <Text style={[styles.visibilityText, visibility === 'GROUP' && styles.visibilityTextActive]}>
-                Groupe
-              </Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[styles.visibilityButton, visibility === 'PERSONAL' && styles.visibilityButtonActive]}
-              onPress={() => {
-                setVisibility('PERSONAL');
-                setSelectedGroups([]);
-              }}
-              activeOpacity={0.7}
-            >
-              <Ionicons name="lock-closed" size={18} color={visibility === 'PERSONAL' ? '#fff' : '#64748b'} />
-              <Text style={[styles.visibilityText, visibility === 'PERSONAL' && styles.visibilityTextActive]}>
-                Personnelle
-              </Text>
-            </TouchableOpacity>
+
+            {/* Options PUBLIC/GROUP si toggle activé */}
+            {publishToMarketplace && (
+              <View style={styles.visibilityOptionsContainer}>
+                <Text style={styles.labelSmall}>Visibilité de la publication</Text>
+                <View style={styles.visibilityRow}>
+                  <TouchableOpacity
+                    style={[styles.visibilityButton, visibility === 'PUBLIC' && styles.visibilityButtonActive]}
+                    onPress={() => {
+                      setVisibility('PUBLIC');
+                      setSelectedGroups([]);
+                    }}
+                    activeOpacity={0.7}
+                  >
+                    <Ionicons name="globe" size={18} color={visibility === 'PUBLIC' ? '#fff' : '#64748b'} />
+                    <Text style={[styles.visibilityText, visibility === 'PUBLIC' && styles.visibilityTextActive]}>
+                      Public
+                    </Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[styles.visibilityButton, visibility === 'GROUP' && styles.visibilityButtonActive]}
+                    onPress={() => setVisibility('GROUP')}
+                    activeOpacity={0.7}
+                  >
+                    <Ionicons name="people" size={18} color={visibility === 'GROUP' ? '#fff' : '#64748b'} />
+                    <Text style={[styles.visibilityText, visibility === 'GROUP' && styles.visibilityTextActive]}>
+                      Groupe
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            )}
           </View>
-        </View>
+        )}
+
+        {/* Visibility - Mode 'publish' : PUBLIC/GROUP uniquement */}
+        {mode === 'publish' && (
+          <View style={styles.section}>
+            <Text style={styles.label}>Visibilité</Text>
+            <View style={styles.visibilityRow}>
+              <TouchableOpacity
+                style={[styles.visibilityButton, visibility === 'PUBLIC' && styles.visibilityButtonActive]}
+                onPress={() => {
+                  setVisibility('PUBLIC');
+                  setSelectedGroups([]);
+                }}
+                activeOpacity={0.7}
+              >
+                <Ionicons name="globe" size={18} color={visibility === 'PUBLIC' ? '#fff' : '#64748b'} />
+                <Text style={[styles.visibilityText, visibility === 'PUBLIC' && styles.visibilityTextActive]}>
+                  Public
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.visibilityButton, visibility === 'GROUP' && styles.visibilityButtonActive]}
+                onPress={() => setVisibility('GROUP')}
+                activeOpacity={0.7}
+              >
+                <Ionicons name="people" size={18} color={visibility === 'GROUP' ? '#fff' : '#64748b'} />
+                <Text style={[styles.visibilityText, visibility === 'GROUP' && styles.visibilityTextActive]}>
+                  Groupe
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        )}
 
         {/* Group Selection (only visible when GROUP is selected) */}
         {visibility === 'GROUP' && (
@@ -591,9 +648,75 @@ const styles = StyleSheet.create({
   },
   hint: {
     fontSize: 12,
-    color: '#fbbf24',
+    color: '#94a3b8',
+    marginBottom: 12,
+    lineHeight: 16,
+  },
+  labelRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
     marginBottom: 8,
-    fontStyle: 'italic',
+  },
+  labelBold: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#f1f5f9',
+  },
+  labelSmall: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#cbd5e1',
+    marginBottom: 10,
+  },
+  publishToggle: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: 'rgba(255, 107, 71, 0.1)',
+    borderRadius: 12,
+    padding: 14,
+    marginTop: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 107, 71, 0.3)',
+  },
+  publishToggleLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    flex: 1,
+  },
+  publishToggleText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#e2e8f0',
+  },
+  toggleSwitch: {
+    width: 48,
+    height: 26,
+    borderRadius: 13,
+    backgroundColor: 'rgba(100, 116, 139, 0.3)',
+    padding: 2,
+    justifyContent: 'center',
+  },
+  toggleSwitchActive: {
+    backgroundColor: 'rgba(16, 185, 129, 0.3)',
+  },
+  toggleKnob: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    backgroundColor: '#64748b',
+  },
+  toggleKnobActive: {
+    backgroundColor: '#10b981',
+    alignSelf: 'flex-end',
+  },
+  visibilityOptionsContainer: {
+    marginTop: 16,
+    paddingTop: 16,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(255, 255, 255, 0.1)',
   },
   input: {
     backgroundColor: 'rgba(255, 255, 255, 0.05)',
