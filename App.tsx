@@ -35,6 +35,7 @@ import LoginScreen from './src/screens/LoginScreen';
 import VerificationScreen from './src/screens/VerificationScreen';
 import PendingVerificationScreen from './src/screens/PendingVerificationScreen';
 import AdminPanelScreen from './src/screens/AdminPanelScreen';
+import QRCodeScreen from './src/screens/QRCodeScreen';
 import { firebaseAuth } from './src/services/firebase';
 import { apiClient } from './src/services/api';
 import type { Ride } from './src/types';
@@ -328,6 +329,7 @@ export default function App() {
   const [showBadges, setShowBadges] = useState(false);
   const [showFilters, setShowFilters] = useState(false);
   const [showAdminPanel, setShowAdminPanel] = useState(false);
+  const [showQRCode, setShowQRCode] = useState(false);
   const [filters, setFilters] = useState<FilterOptions>({
     vehicleTypes: [],
     sortBy: null,
@@ -1115,6 +1117,38 @@ export default function App() {
         </View>
       </View>
 
+      {/* 📱 Section Outils Professionnels */}
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>
+          <Ionicons name="briefcase" size={20} color="#ff6b47" /> Outils Professionnels
+        </Text>
+        
+        {/* Bouton QR Code - Mise en avant */}
+        <TouchableOpacity
+          style={styles.qrCodeButton}
+          onPress={() => setShowQRCode(true)}
+          activeOpacity={0.8}
+        >
+          <LinearGradient
+            colors={['#ff6b47', '#ff8a6d']}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={styles.qrCodeButtonGradient}
+          >
+            <View style={styles.qrCodeButtonLeft}>
+              <View style={styles.qrCodeIcon}>
+                <Ionicons name="qr-code" size={28} color="#fff" />
+              </View>
+              <View>
+                <Text style={styles.qrCodeButtonTitle}>Mon QR Code Pro</Text>
+                <Text style={styles.qrCodeButtonSubtitle}>Partagez vos coordonnées facilement</Text>
+              </View>
+            </View>
+            <Ionicons name="chevron-forward" size={24} color="rgba(255, 255, 255, 0.8)" />
+          </LinearGradient>
+        </TouchableOpacity>
+      </View>
+
       {/* Menu */}
       {/* 👨‍💼 Section Admin (visible uniquement pour les admins) */}
       {isAdmin && (
@@ -1285,6 +1319,23 @@ export default function App() {
 
   if (showBadges) {
     return <BadgesScreen onBack={() => setShowBadges(false)} currentUserId={currentUserId} />;
+  }
+
+  // 📱 If showing QR Code
+  if (showQRCode) {
+    return (
+      <QRCodeScreen
+        onBack={() => setShowQRCode(false)}
+        userData={{
+          name: userFullName || user?.displayName || 'Utilisateur',
+          email: user?.email || '',
+          phone: undefined, // TODO: Add phone from user profile
+          company: 'Corail VTC',
+          siren: undefined, // TODO: Add SIREN from user profile
+          professionalCardNumber: undefined, // TODO: Add from user profile
+        }}
+      />
+    );
   }
 
   // 👨‍💼 If showing admin panel
@@ -1813,6 +1864,47 @@ const styles = StyleSheet.create({
     marginLeft: 8,
     flex: 1,
     lineHeight: 18,
+  },
+
+  // QR Code Button
+  qrCodeButton: {
+    borderRadius: 20,
+    overflow: 'hidden',
+    shadowColor: '#ff6b47',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.4,
+    shadowRadius: 12,
+    elevation: 8,
+  },
+  qrCodeButtonGradient: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    padding: 20,
+  },
+  qrCodeButtonLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
+  qrCodeIcon: {
+    width: 56,
+    height: 56,
+    borderRadius: 16,
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 16,
+  },
+  qrCodeButtonTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#fff',
+    marginBottom: 4,
+  },
+  qrCodeButtonSubtitle: {
+    fontSize: 13,
+    color: 'rgba(255, 255, 255, 0.8)',
   },
 
   // Action Cards
