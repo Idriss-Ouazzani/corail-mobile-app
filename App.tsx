@@ -927,7 +927,17 @@ export default function App() {
 
     // Filter rides where current user is the creator (published rides)
     const publishedByMe = rides.filter((ride) => ride.creator_id === currentUserId);
-    const activePublished = publishedByMe.filter((ride) => ride.status === 'PUBLISHED');
+    
+    // Active published: PUBLISHED status + date future (non expirées)
+    const activePublished = publishedByMe.filter((ride) => {
+      if (ride.status !== 'PUBLISHED') return false;
+      if (ride.status === 'EXPIRED') return false;
+      // Vérifier que la date n'est pas passée
+      const scheduledTime = new Date(ride.scheduled_at).getTime();
+      const now = Date.now();
+      return scheduledTime >= now;
+    });
+    
     const claimedPublished = publishedByMe.filter((ride) => ride.status === 'CLAIMED' || ride.status === 'COMPLETED');
 
     const totalCount = myRidesTab === 'claimed' ? claimedByMe.length : publishedByMe.length;
@@ -1084,20 +1094,59 @@ export default function App() {
               </View>
             </View>
 
-            {/* Active Published Rides */}
+            {/* Active Published Rides - Compact View */}
             {activePublished.length > 0 && (
               <View style={styles.section}>
                 <Text style={styles.sectionTitle}>
                   <Ionicons name="radio-button-on" size={20} color="#ff6b47" /> Courses actives
                 </Text>
                 <Text style={styles.sectionSubtitle}>En attente d'être prises</Text>
+                
+                {/* Liste compacte des courses */}
                 {activePublished.map((ride) => (
-                  <RideCard 
-                    key={ride.id} 
-                    ride={ride} 
-                    currentUserId={currentUserId}
+                  <TouchableOpacity
+                    key={ride.id}
+                    style={styles.compactRideRow}
                     onPress={() => setSelectedRide(ride)}
-                  />
+                    activeOpacity={0.7}
+                  >
+                    {/* Icône et horaire */}
+                    <View style={styles.compactRideLeft}>
+                      <View style={styles.compactRideIconWrapper}>
+                        <Ionicons name="time-outline" size={20} color="#ff6b47" />
+                      </View>
+                      <View style={styles.compactRideInfo}>
+                        <Text style={styles.compactRideTime}>
+                          {new Date(ride.scheduled_at).toLocaleDateString('fr-FR', { 
+                            day: 'numeric', 
+                            month: 'short',
+                            hour: '2-digit',
+                            minute: '2-digit'
+                          })}
+                        </Text>
+                        <View style={styles.compactRideRoute}>
+                          <Ionicons name="location" size={12} color="#10b981" />
+                          <Text style={styles.compactRideAddress} numberOfLines={1}>
+                            {ride.pickup_address}
+                          </Text>
+                        </View>
+                        <View style={styles.compactRideRoute}>
+                          <Ionicons name="flag" size={12} color="#ff6b47" />
+                          <Text style={styles.compactRideAddress} numberOfLines={1}>
+                            {ride.dropoff_address}
+                          </Text>
+                        </View>
+                      </View>
+                    </View>
+                    
+                    {/* Prix et chevron */}
+                    <View style={styles.compactRideRight}>
+                      <Text style={styles.compactRidePrice}>
+                        {(ride.price_cents / 100).toFixed(2)}€
+                      </Text>
+                      <Ionicons name="chevron-forward" size={20} color="#64748b" />
+                    </View>
+                  </TouchableOpacity>
                 ))}
               </View>
             )}
@@ -2593,5 +2642,64 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#fff',
     marginLeft: 6,
+  },
+
+  // Compact Ride Row
+  compactRideRow: {
+    backgroundColor: '#1e293b',
+    borderRadius: 12,
+    padding: 14,
+    marginBottom: 10,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    borderWidth: 1,
+    borderColor: '#334155',
+    borderLeftWidth: 3,
+    borderLeftColor: '#ff6b47',
+  },
+  compactRideLeft: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 12,
+  },
+  compactRideIconWrapper: {
+    width: 36,
+    height: 36,
+    borderRadius: 10,
+    backgroundColor: 'rgba(255, 107, 71, 0.15)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  compactRideInfo: {
+    flex: 1,
+    gap: 4,
+  },
+  compactRideTime: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#e2e8f0',
+    marginBottom: 2,
+  },
+  compactRideRoute: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  compactRideAddress: {
+    flex: 1,
+    fontSize: 12,
+    color: '#94a3b8',
+  },
+  compactRideRight: {
+    alignItems: 'flex-end',
+    gap: 4,
+    marginLeft: 12,
+  },
+  compactRidePrice: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#10b981',
   },
 });
