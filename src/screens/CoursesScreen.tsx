@@ -49,7 +49,7 @@ export default function CoursesScreen({
         <Text style={styles.headerTitle}>Courses</Text>
       </View>
 
-      {/* Tabs - Pills Style */}
+      {/* Tabs - Style épuré */}
       <View style={styles.tabsWrapper}>
         <View style={styles.tabs}>
           <TouchableOpacity
@@ -58,11 +58,11 @@ export default function CoursesScreen({
           >
             <Ionicons 
               name="storefront" 
-              size={18} 
+              size={20} 
               color={activeTab === 'marketplace' ? '#fff' : '#94a3b8'} 
             />
             <Text style={[styles.tabText, activeTab === 'marketplace' && styles.tabTextActive]}>
-              Marketplace
+              Market
             </Text>
           </TouchableOpacity>
 
@@ -72,11 +72,11 @@ export default function CoursesScreen({
           >
             <Ionicons 
               name="car" 
-              size={18} 
+              size={20} 
               color={activeTab === 'myrides' ? '#fff' : '#94a3b8'} 
             />
             <Text style={[styles.tabText, activeTab === 'myrides' && styles.tabTextActive]}>
-              Mes Courses
+              Courses
             </Text>
           </TouchableOpacity>
 
@@ -86,14 +86,17 @@ export default function CoursesScreen({
           >
             <Ionicons 
               name="list" 
-              size={18} 
+              size={20} 
               color={activeTab === 'history' ? '#fff' : '#94a3b8'} 
             />
             <Text style={[styles.tabText, activeTab === 'history' && styles.tabTextActive]}>
-              Historique
+              Activité
             </Text>
           </TouchableOpacity>
         </View>
+        
+        {/* Ligne élégante sous les tabs */}
+        <View style={styles.separator} />
       </View>
 
       {/* Content */}
@@ -111,7 +114,7 @@ const styles = StyleSheet.create({
   },
   header: {
     paddingTop: 60,
-    paddingBottom: 20,
+    paddingBottom: 16,
     paddingHorizontal: 20,
   },
   headerTitle: {
@@ -122,23 +125,23 @@ const styles = StyleSheet.create({
   },
   tabsWrapper: {
     paddingHorizontal: 20,
-    marginBottom: 16,
+    marginBottom: 12,
   },
   tabs: {
     flexDirection: 'row',
     backgroundColor: '#1e293b',
-    borderRadius: 14,
-    padding: 8,
-    gap: 8,
+    borderRadius: 16,
+    padding: 6,
+    gap: 6,
   },
   tab: {
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 14,
-    paddingHorizontal: 12,
-    borderRadius: 10,
+    paddingVertical: 12,
+    paddingHorizontal: 8,
+    borderRadius: 12,
     gap: 6,
   },
   tabActive: {
@@ -146,11 +149,16 @@ const styles = StyleSheet.create({
   },
   tabText: {
     fontSize: 13,
-    fontWeight: '600',
+    fontWeight: '700',
     color: '#94a3b8',
   },
   tabTextActive: {
     color: '#fff',
+  },
+  separator: {
+    height: 1,
+    backgroundColor: '#334155',
+    marginTop: 12,
   },
   content: {
     flex: 1,

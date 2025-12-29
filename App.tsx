@@ -778,7 +778,7 @@ export default function App() {
     const activeFiltersCount = filters.vehicleTypes.length + (filters.sortBy ? 1 : 0);
 
     return (
-      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+      <ScrollView contentContainerStyle={styles.scrollContentCourses} showsVerticalScrollIndicator={false}>
         <View style={styles.pageHeaderRow}>
           <View style={{ flex: 1 }}>
             <Text style={styles.pageTitleCompact}>Market</Text>
@@ -897,7 +897,7 @@ export default function App() {
     const totalCount = myRidesTab === 'claimed' ? claimedByMe.length : publishedByMe.length;
 
     return (
-      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+      <ScrollView contentContainerStyle={styles.scrollContentCourses} showsVerticalScrollIndicator={false}>
         <View style={styles.pageHeaderRow}>
           <View style={{ flex: 1 }}>
             <Text style={styles.pageTitleCompact}>Mes Courses</Text>
@@ -1664,6 +1664,7 @@ const styles = StyleSheet.create({
   gradient: { flex: 1 },
   loadingContainer: { flex: 1 },
   scrollContent: { paddingTop: 60, paddingBottom: 120, paddingHorizontal: 20 },
+  scrollContentCourses: { paddingTop: 16, paddingBottom: 120, paddingHorizontal: 20 },
 
   // 🎨 Loading Screen Styles - ULTRA ÉLÉGANT & RAFFINÉ
   logoContainer: {
