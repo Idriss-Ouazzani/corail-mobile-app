@@ -49,13 +49,34 @@ export default function DashboardScreen({
   const loadDashboardData = async () => {
     try {
       setLoading(true);
+      
       // Charger les stats des courses personnelles
-      const statsData = await apiClient.getPersonalRidesStats();
-      setStats(statsData);
+      let statsData = null;
+      try {
+        statsData = await apiClient.getPersonalRidesStats();
+        setStats(statsData);
+      } catch (error: any) {
+        console.warn('No personal rides stats yet (empty data)');
+        // Initialiser avec des stats vides
+        setStats({
+          totals: {
+            total_rides: 0,
+            completed_rides: 0,
+            total_revenue_eur: 0,
+            total_distance_km: 0,
+          },
+          by_source: {},
+        });
+      }
 
       // Charger les courses à venir (SCHEDULED)
-      const ridesData = await apiClient.listPersonalRides({ status: 'SCHEDULED', limit: 5 });
-      setUpcomingRides(ridesData);
+      try {
+        const ridesData = await apiClient.listPersonalRides({ status: 'SCHEDULED', limit: 5 });
+        setUpcomingRides(ridesData || []);
+      } catch (error: any) {
+        console.warn('No upcoming rides found');
+        setUpcomingRides([]);
+      }
 
       // Calculer revenus du jour et de la semaine
       // TODO: Améliorer avec des filtres backend par date

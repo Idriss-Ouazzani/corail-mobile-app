@@ -32,7 +32,11 @@ interface PlanningEvent {
   color?: string;
 }
 
-export default function PlanningScreen() {
+interface PlanningScreenProps {
+  onBack: () => void;
+}
+
+export default function PlanningScreen({ onBack }: PlanningScreenProps) {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [events, setEvents] = useState<PlanningEvent[]>([]);
@@ -54,12 +58,56 @@ export default function PlanningScreen() {
       endOfMonth.setMonth(endOfMonth.getMonth() + 1);
       endOfMonth.setDate(0);
       
-      const data = await apiClient.getPlanningEvents({
-        start_date: startOfMonth.toISOString().split('T')[0],
-        end_date: endOfMonth.toISOString().split('T')[0],
-      });
+      // Charger événements de planning existants
+      let planningEvents: PlanningEvent[] = [];
+      try {
+        planningEvents = await apiClient.getPlanningEvents({
+          start_date: startOfMonth.toISOString().split('T')[0],
+          end_date: endOfMonth.toISOString().split('T')[0],
+        });
+      } catch (error) {
+        console.warn('No planning events found, will sync rides only');
+        planningEvents = [];
+      }
       
-      setEvents(data);
+      // Charger les courses de la marketplace et les convertir en événements
+      let ridesAsEvents: PlanningEvent[] = [];
+      try {
+        const rides = await apiClient.getRides();
+        if (Array.isArray(rides)) {
+          ridesAsEvents = rides
+            .filter(ride => 
+              ride.scheduled_at && 
+              ride.status !== 'CANCELLED' &&
+              new Date(ride.scheduled_at) >= startOfMonth &&
+              new Date(ride.scheduled_at) <= endOfMonth
+            )
+            .map(ride => {
+              const startTime = new Date(ride.scheduled_at);
+              const durationMinutes = ride.duration_minutes || 60; // 1 heure par défaut
+              const endTime = new Date(startTime.getTime() + durationMinutes * 60000);
+              
+              return {
+                id: `ride-${ride.id}`,
+                event_type: 'RIDE' as const,
+                start_time: startTime.toISOString().replace('T', ' ').substring(0, 19),
+                end_time: endTime.toISOString().replace('T', ' ').substring(0, 19),
+                start_address: ride.pickup_address,
+                end_address: ride.dropoff_address,
+                ride_source: 'MARKETPLACE',
+                status: ride.status,
+                notes: `Course ${ride.status === 'PUBLISHED' ? 'publiée' : ride.status === 'CLAIMED' ? 'réclamée' : 'terminée'}`,
+                color: '#ff6b47', // Corail color
+              };
+            });
+        }
+      } catch (error) {
+        console.warn('Error loading rides for planning:', error);
+      }
+      
+      // Fusionner événements de planning et courses marketplace
+      const allEvents = [...planningEvents, ...ridesAsEvents];
+      setEvents(allEvents);
     } catch (error) {
       console.error('Error loading planning events:', error);
       Alert.alert('Erreur', 'Impossible de charger le planning');
@@ -166,7 +214,11 @@ export default function PlanningScreen() {
         <View style={styles.emptyState}>
           <Ionicons name="calendar-outline" size={64} color="#64748b" />
           <Text style={styles.emptyText}>Aucun événement ce jour</Text>
-          <TouchableOpacity style={styles.addButton}>
+          <TouchableOpacity 
+            style={styles.addButton}
+            onPress={() => Alert.alert('Créer un événement', 'Fonctionnalité à venir')}
+            activeOpacity={0.8}
+          >
             <Text style={styles.addButtonText}>+ Ajouter un événement</Text>
           </TouchableOpacity>
         </View>
@@ -258,8 +310,21 @@ export default function PlanningScreen() {
         colors={['#1e293b', '#0f172a']}
         style={styles.header}
       >
-        <Text style={styles.headerTitle}>Planning</Text>
-        <TouchableOpacity style={styles.settingsButton}>
+        <View style={styles.headerLeft}>
+          <TouchableOpacity 
+            style={styles.backButton}
+            onPress={onBack}
+            activeOpacity={0.7}
+          >
+            <Ionicons name="arrow-back" size={24} color="#f1f5f9" />
+          </TouchableOpacity>
+          <Text style={styles.headerTitle}>Planning</Text>
+        </View>
+        <TouchableOpacity 
+          style={styles.settingsButton}
+          onPress={() => Alert.alert('Réglages', 'Préférences de notifications à venir')}
+          activeOpacity={0.7}
+        >
           <Ionicons name="settings-outline" size={24} color="#f1f5f9" />
         </TouchableOpacity>
       </LinearGradient>
@@ -329,7 +394,11 @@ export default function PlanningScreen() {
       {viewMode === 'day' && renderDayView()}
 
       {/* FAB pour ajouter événement */}
-      <TouchableOpacity style={styles.fab} activeOpacity={0.9}>
+      <TouchableOpacity 
+        style={styles.fab} 
+        activeOpacity={0.9}
+        onPress={() => Alert.alert('Créer un événement', 'Fonctionnalité à venir')}
+      >
         <LinearGradient
           colors={['#ff6b47', '#ff8a6d']}
           style={styles.fabGradient}
@@ -352,6 +421,19 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     flexDirection: 'row',
     justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  headerLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  backButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    justifyContent: 'center',
     alignItems: 'center',
   },
   headerTitle: {
