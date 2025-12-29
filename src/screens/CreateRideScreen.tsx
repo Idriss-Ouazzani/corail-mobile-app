@@ -70,7 +70,7 @@ export const CreateRideScreen: React.FC<CreateRideScreenProps> = ({ onBack, onCr
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [showTimePicker, setShowTimePicker] = useState(false);
-  const [visibility, setVisibility] = useState<'PUBLIC' | 'GROUP'>('PUBLIC');
+  const [visibility, setVisibility] = useState<'PUBLIC' | 'GROUP' | 'PERSONAL'>('PUBLIC');
   const [selectedGroups, setSelectedGroups] = useState<Group[]>([]);
   const [vehicleType, setVehicleType] = useState<string>('STANDARD');
   const [distance, setDistance] = useState('');
@@ -342,7 +342,7 @@ export const CreateRideScreen: React.FC<CreateRideScreenProps> = ({ onBack, onCr
               }}
               activeOpacity={0.7}
             >
-              <Ionicons name="globe" size={20} color={visibility === 'PUBLIC' ? '#fff' : '#64748b'} />
+              <Ionicons name="globe" size={18} color={visibility === 'PUBLIC' ? '#fff' : '#64748b'} />
               <Text style={[styles.visibilityText, visibility === 'PUBLIC' && styles.visibilityTextActive]}>
                 Public
               </Text>
@@ -352,9 +352,22 @@ export const CreateRideScreen: React.FC<CreateRideScreenProps> = ({ onBack, onCr
               onPress={() => setVisibility('GROUP')}
               activeOpacity={0.7}
             >
-              <Ionicons name="people" size={20} color={visibility === 'GROUP' ? '#fff' : '#64748b'} />
+              <Ionicons name="people" size={18} color={visibility === 'GROUP' ? '#fff' : '#64748b'} />
               <Text style={[styles.visibilityText, visibility === 'GROUP' && styles.visibilityTextActive]}>
                 Groupe
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.visibilityButton, visibility === 'PERSONAL' && styles.visibilityButtonActive]}
+              onPress={() => {
+                setVisibility('PERSONAL');
+                setSelectedGroups([]);
+              }}
+              activeOpacity={0.7}
+            >
+              <Ionicons name="lock-closed" size={18} color={visibility === 'PERSONAL' ? '#fff' : '#64748b'} />
+              <Text style={[styles.visibilityText, visibility === 'PERSONAL' && styles.visibilityTextActive]}>
+                Personnelle
               </Text>
             </TouchableOpacity>
           </View>
@@ -593,7 +606,7 @@ const styles = StyleSheet.create({
   },
   visibilityRow: {
     flexDirection: 'row',
-    gap: 12,
+    gap: 8,
   },
   visibilityButton: {
     flex: 1,
@@ -601,8 +614,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: 'rgba(255, 255, 255, 0.05)',
-    borderRadius: 16,
-    padding: 16,
+    borderRadius: 12,
+    paddingVertical: 12,
+    paddingHorizontal: 8,
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.1)',
   },
@@ -611,10 +625,10 @@ const styles = StyleSheet.create({
     borderColor: '#ff6b47',
   },
   visibilityText: {
-    fontSize: 15,
+    fontSize: 13,
     fontWeight: '600',
     color: '#64748b',
-    marginLeft: 8,
+    marginLeft: 6,
   },
   visibilityTextActive: {
     color: '#fff',
