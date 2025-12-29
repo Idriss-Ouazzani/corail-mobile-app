@@ -41,17 +41,7 @@ CREATE TABLE IF NOT EXISTS io_catalog.corail.personal_rides (
 ) USING DELTA
 COMMENT 'Courses personnelles des chauffeurs VTC (toutes sources)';
 
--- 2️⃣ Index pour performance
-CREATE INDEX IF NOT EXISTS idx_personal_rides_driver 
-ON io_catalog.corail.personal_rides (driver_id);
-
-CREATE INDEX IF NOT EXISTS idx_personal_rides_date 
-ON io_catalog.corail.personal_rides (completed_at);
-
-CREATE INDEX IF NOT EXISTS idx_personal_rides_source 
-ON io_catalog.corail.personal_rides (source);
-
--- 3️⃣ Vue pour stats rapides par chauffeur
+-- 2️⃣ Vue pour stats rapides par chauffeur
 CREATE OR REPLACE VIEW io_catalog.corail.v_driver_stats AS
 SELECT 
   driver_id,
@@ -67,7 +57,7 @@ FROM io_catalog.corail.personal_rides
 WHERE status = 'COMPLETED'
 GROUP BY driver_id, source, DATE(completed_at);
 
--- 4️⃣ Données de test pour développement
+-- 3️⃣ Données de test pour développement
 INSERT INTO io_catalog.corail.personal_rides (
   id, driver_id, source, 
   pickup_address, dropoff_address, 
@@ -109,12 +99,12 @@ INSERT INTO io_catalog.corail.personal_rides (
    4000, 'EUR', NULL, NULL,
    'SCHEDULED', CURRENT_TIMESTAMP(), CURRENT_TIMESTAMP());
 
--- 5️⃣ Vérifier la création
+-- 4️⃣ Vérifier la création
 SELECT COUNT(*) as total_rides, source
 FROM io_catalog.corail.personal_rides
 GROUP BY source;
 
--- 6️⃣ Tester la vue stats
+-- 5️⃣ Tester la vue stats
 SELECT * FROM io_catalog.corail.v_driver_stats
 WHERE driver_id = 'demo-driver-001'
 LIMIT 10;
