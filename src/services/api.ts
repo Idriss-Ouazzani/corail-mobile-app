@@ -91,19 +91,19 @@ class ApiClient {
     filterType?: 'all' | 'public' | 'groups' | 'my_published';
   } = {}): Promise<RideListResponse> {
     const { skip = 0, limit = 20, filterType = 'all' } = params;
-    const response = await this.client.get('/rides/marketplace', {
+    const response = await this.client.get('/api/v1/rides/marketplace', {
       params: { skip, limit, filter: filterType },
     });
     return response.data;
   }
 
   async getRide(rideId: string): Promise<Ride> {
-    const response = await this.client.get(`/rides/${rideId}`);
+    const response = await this.client.get(`/api/v1/rides/${rideId}`);
     return response.data;
   }
 
   async listMyRides(): Promise<RideListResponse> {
-    const response = await this.client.get('/rides/my-rides');
+    const response = await this.client.get('/api/v1/rides/my-rides');
     return response.data;
   }
 
@@ -114,7 +114,7 @@ class ApiClient {
     skip?: number;
     limit?: number;
   }): Promise<Ride[]> {
-    const response = await this.client.get('/rides', { params });
+    const response = await this.client.get('/api/v1/rides', { params });
     return response.data;
   }
 
@@ -129,44 +129,44 @@ class ApiClient {
     duration_minutes?: number;
     group_id?: string;
   }): Promise<Ride> {
-    const response = await this.client.post('/rides', rideData);
+    const response = await this.client.post('/api/v1/rides', rideData);
     return response.data;
   }
 
   async claimRide(rideId: string): Promise<Ride> {
-    const response = await this.client.post(`/rides/${rideId}/claim`);
+    const response = await this.client.post(`/api/v1/rides/${rideId}/claim`);
     return response.data;
   }
 
   async completeRide(rideId: string): Promise<Ride> {
-    const response = await this.client.post(`/rides/${rideId}/complete`);
+    const response = await this.client.post(`/api/v1/rides/${rideId}/complete`);
     return response.data;
   }
 
   async cancelRide(rideId: string): Promise<Ride> {
-    const response = await this.client.post(`/rides/${rideId}/cancel`);
+    const response = await this.client.post(`/api/v1/rides/${rideId}/cancel`);
     return response.data;
   }
 
   async deleteRide(rideId: string): Promise<{ success: boolean; message: string }> {
-    const response = await this.client.delete(`/rides/${rideId}`);
+    const response = await this.client.delete(`/api/v1/rides/${rideId}`);
     return response.data;
   }
 
   // Groups
   async listMyGroups(): Promise<{ data: Group[] }> {
-    const response = await this.client.get('/groups/my-groups');
+    const response = await this.client.get('/api/v1/groups/my-groups');
     return response.data;
   }
 
   async getGroup(groupId: string): Promise<Group> {
-    const response = await this.client.get(`/groups/${groupId}`);
+    const response = await this.client.get(`/api/v1/groups/${groupId}`);
     return response.data;
   }
 
   // User
   async getUser(userId: string): Promise<User> {
-    const response = await this.client.get(`/users/${userId}`);
+    const response = await this.client.get(`/api/v1/users/${userId}`);
     return response.data;
   }
 
@@ -177,7 +177,7 @@ class ApiClient {
 
   // Credits Corail 🪸
   async getCredits(): Promise<{ credits: number }> {
-    const response = await this.client.get('/credits');
+    const response = await this.client.get('/api/v1/credits');
     return response.data;
   }
 
@@ -194,7 +194,7 @@ class ApiClient {
     full_name: string;
     verification_status?: string;
   }) {
-    const { data } = await this.client.post('/users', userData);
+    const { data } = await this.client.post('/api/v1/users', userData);
     return data;
   }
 
@@ -206,7 +206,7 @@ class ApiClient {
    * Récupérer le statut de vérification
    */
   async getVerificationStatus() {
-    const { data } = await this.client.get('/verification/status');
+    const { data } = await this.client.get('/api/v1/verification/status');
     return data;
   }
 
@@ -219,7 +219,7 @@ class ApiClient {
     professional_card_number: string;
     siren: string;
   }) {
-    const { data } = await this.client.post('/verification/submit', verification);
+    const { data } = await this.client.post('/api/v1/verification/submit', verification);
     return data;
   }
 
@@ -227,7 +227,7 @@ class ApiClient {
    * [ADMIN] Récupérer toutes les vérifications en attente
    */
   async getPendingVerifications() {
-    const { data } = await this.client.get('/admin/verification/pending');
+    const { data } = await this.client.get('/api/v1/admin/verification/pending');
     return data;
   }
 
@@ -238,7 +238,7 @@ class ApiClient {
     status: 'VERIFIED' | 'REJECTED';
     rejection_reason?: string;
   }) {
-    const { data } = await this.client.post(`/admin/verification/${userId}/review`, review);
+    const { data } = await this.client.post(`/api/v1/admin/verification/${userId}/review`, review);
     return data;
   }
 
@@ -250,7 +250,7 @@ class ApiClient {
    * Récupérer tous les badges disponibles
    */
   async getAllBadges() {
-    const { data } = await this.client.get('/badges');
+    const { data } = await this.client.get('/api/v1/badges');
     return data;
   }
 
@@ -258,7 +258,7 @@ class ApiClient {
    * Récupérer les badges d'un utilisateur
    */
   async getUserBadges(userId: string) {
-    const { data } = await this.client.get(`/users/${userId}/badges`);
+    const { data } = await this.client.get(`/api/v1/users/${userId}/badges`);
     return data;
   }
 
@@ -266,7 +266,7 @@ class ApiClient {
    * Attribuer un badge à un utilisateur (manuel, pour tests)
    */
   async awardBadge(userId: string, badgeId: string) {
-    const { data } = await this.client.post(`/users/${userId}/badges/${badgeId}`);
+    const { data } = await this.client.post(`/api/v1/users/${userId}/badges/${badgeId}`);
     return data;
   }
 
@@ -290,7 +290,7 @@ class ApiClient {
     notes?: string;
     status?: 'SCHEDULED' | 'IN_PROGRESS' | 'COMPLETED' | 'CANCELLED';
   }) {
-    const { data } = await this.client.post('/personal-rides', rideData);
+    const { data } = await this.client.post('/api/v1/personal-rides', rideData);
     return data;
   }
 
@@ -303,7 +303,7 @@ class ApiClient {
     source?: string;
     limit?: number;
   }) {
-    const { data } = await this.client.get('/personal-rides', { params: filters });
+    const { data } = await this.client.get('/api/v1/personal-rides', { params: filters });
     return data;
   }
 
@@ -311,7 +311,7 @@ class ApiClient {
    * Récupérer les détails d'une course personnelle
    */
   async getPersonalRide(rideId: string) {
-    const { data } = await this.client.get(`/personal-rides/${rideId}`);
+    const { data } = await this.client.get(`/api/v1/personal-rides/${rideId}`);
     return data;
   }
 
@@ -333,7 +333,7 @@ class ApiClient {
     notes?: string;
     status?: string;
   }) {
-    const { data } = await this.client.put(`/personal-rides/${rideId}`, updates);
+    const { data } = await this.client.put(`/api/v1/personal-rides/${rideId}`, updates);
     return data;
   }
 
@@ -341,7 +341,7 @@ class ApiClient {
    * Supprimer une course personnelle
    */
   async deletePersonalRide(rideId: string) {
-    const { data } = await this.client.delete(`/personal-rides/${rideId}`);
+    const { data } = await this.client.delete(`/api/v1/personal-rides/${rideId}`);
     return data;
   }
 
@@ -350,7 +350,7 @@ class ApiClient {
    * (revenus, nombre de courses, distance, par source)
    */
   async getPersonalRidesStats() {
-    const { data } = await this.client.get('/personal-rides/stats/summary');
+    const { data } = await this.client.get('/api/v1/personal-rides/stats/summary');
     return data;
   }
 
@@ -366,7 +366,7 @@ class ApiClient {
     end_date?: string;
     event_type?: 'RIDE' | 'BREAK' | 'MAINTENANCE' | 'PERSONAL';
   }) {
-    const { data } = await this.client.get('/planning/events', { params });
+    const { data } = await this.client.get('/api/v1/planning/events', { params });
     return data;
   }
 
@@ -389,7 +389,7 @@ class ApiClient {
     notes?: string;
     color?: string;
   }) {
-    const { data } = await this.client.post('/planning/events', event);
+    const { data } = await this.client.post('/api/v1/planning/events', event);
     return data;
   }
 
@@ -406,7 +406,7 @@ class ApiClient {
     notes?: string;
     color?: string;
   }) {
-    const { data } = await this.client.put(`/planning/events/${eventId}`, updates);
+    const { data } = await this.client.put(`/api/v1/planning/events/${eventId}`, updates);
     return data;
   }
 
@@ -414,7 +414,7 @@ class ApiClient {
    * Supprimer un événement de planning
    */
   async deletePlanningEvent(eventId: string) {
-    const { data } = await this.client.delete(`/planning/events/${eventId}`);
+    const { data } = await this.client.delete(`/api/v1/planning/events/${eventId}`);
     return data;
   }
 
@@ -422,7 +422,7 @@ class ApiClient {
    * Vérifier les conflits d'horaires
    */
   async checkPlanningConflicts(start_time: string, end_time: string) {
-    const { data } = await this.client.get('/planning/conflicts', {
+    const { data } = await this.client.get('/api/v1/planning/conflicts', {
       params: { start_time, end_time }
     });
     return data;
@@ -432,7 +432,7 @@ class ApiClient {
    * Récupérer les préférences de notification
    */
   async getNotificationPreferences() {
-    const { data } = await this.client.get('/notifications/preferences');
+    const { data } = await this.client.get('/api/v1/notifications/preferences');
     return data;
   }
 
@@ -452,15 +452,15 @@ class ApiClient {
     quiet_hours_start?: string;
     quiet_hours_end?: string;
   }) {
-    const { data } = await this.client.put('/notifications/preferences', preferences);
+    const { data } = await this.client.put('/api/v1/notifications/preferences', preferences);
     return data;
   }
 }
 
-const API_BASE_URL = 'https://corail-backend-6e5o.onrender.com/api/v1';
+const API_BASE_URL = 'https://corail-backend-6e5o.onrender.com';
 
 // Pour dev local, utiliser :
-// const API_BASE_URL = 'http://localhost:8000/api/v1';
+// const API_BASE_URL = 'http://localhost:8000';
 
 export const apiClient = new ApiClient(API_BASE_URL);
 export default apiClient;
