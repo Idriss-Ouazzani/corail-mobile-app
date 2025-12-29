@@ -19,7 +19,7 @@ CREATE TABLE IF NOT EXISTS io_catalog.corail.personal_rides (
   
   -- Infos financières
   price_cents INT COMMENT 'Prix en centimes (ex: 2800 = 28€)',
-  currency STRING DEFAULT 'EUR' COMMENT 'Devise',
+  currency STRING COMMENT 'Devise (EUR par défaut)',
   
   -- Infos trajet
   distance_km FLOAT COMMENT 'Distance en kilomètres',
@@ -72,41 +72,41 @@ INSERT INTO io_catalog.corail.personal_rides (
   id, driver_id, source, 
   pickup_address, dropoff_address, 
   scheduled_at, completed_at,
-  price_cents, distance_km, duration_minutes,
+  price_cents, currency, distance_km, duration_minutes,
   status, created_at, updated_at
 ) VALUES
   -- Courses Uber
   ('ride-test-001', 'demo-driver-001', 'UBER',
    'Gare Toulouse-Matabiau', 'Aéroport Toulouse-Blagnac',
    TIMESTAMP('2025-12-28 08:30:00'), TIMESTAMP('2025-12-28 08:55:00'),
-   2800, 12.5, 25,
+   2800, 'EUR', 12.5, 25,
    'COMPLETED', CURRENT_TIMESTAMP(), CURRENT_TIMESTAMP()),
   
   ('ride-test-002', 'demo-driver-001', 'UBER',
    'Place du Capitole', 'CHU Purpan',
    TIMESTAMP('2025-12-28 10:15:00'), TIMESTAMP('2025-12-28 10:35:00'),
-   1500, 6.2, 20,
+   1500, 'EUR', 6.2, 20,
    'COMPLETED', CURRENT_TIMESTAMP(), CURRENT_TIMESTAMP()),
   
   -- Courses Bolt
   ('ride-test-003', 'demo-driver-001', 'BOLT',
    'Airbus Toulouse', 'Centre-ville',
    TIMESTAMP('2025-12-28 14:00:00'), TIMESTAMP('2025-12-28 14:30:00'),
-   2200, 10.8, 30,
+   2200, 'EUR', 10.8, 30,
    'COMPLETED', CURRENT_TIMESTAMP(), CURRENT_TIMESTAMP()),
   
   -- Course directe client
   ('ride-test-004', 'demo-driver-001', 'DIRECT_CLIENT',
    'Domicile client', 'Restaurant Toulouse',
    TIMESTAMP('2025-12-28 19:00:00'), TIMESTAMP('2025-12-28 19:25:00'),
-   3500, 15.0, 25,
+   3500, 'EUR', 15.0, 25,
    'COMPLETED', CURRENT_TIMESTAMP(), CURRENT_TIMESTAMP()),
   
   -- Course planifiée (demain)
   ('ride-test-005', 'demo-driver-001', 'DIRECT_CLIENT',
    'Hôtel Toulouse', 'Aéroport',
    TIMESTAMP('2025-12-30 06:00:00'), NULL,
-   4000, NULL, NULL,
+   4000, 'EUR', NULL, NULL,
    'SCHEDULED', CURRENT_TIMESTAMP(), CURRENT_TIMESTAMP());
 
 -- 5️⃣ Vérifier la création
