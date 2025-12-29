@@ -41,6 +41,7 @@ import PersonalRidesScreen from './src/screens/PersonalRidesScreen';
 import DashboardScreen from './src/screens/DashboardScreen';
 import CoursesScreen from './src/screens/CoursesScreen';
 import ToolsScreen from './src/screens/ToolsScreen';
+import GlobalCreditsBadge from './src/components/GlobalCreditsBadge';
 import { firebaseAuth } from './src/services/firebase';
 import { apiClient } from './src/services/api';
 import type { Ride } from './src/types';
@@ -1172,91 +1173,28 @@ export default function App() {
         </View>
       </View>
 
-      {/* 🏆 Badges Section */}
-      <View style={styles.section}>
-        <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>
-            <Ionicons name="trophy" size={20} color="#fbbf24" /> Badges ({userBadges.length})
-          </Text>
-          <TouchableOpacity activeOpacity={0.7} onPress={() => setShowBadges(true)}>
-            <Text style={styles.seeAllText}>Tout voir</Text>
-          </TouchableOpacity>
-        </View>
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.badgesScroll}
-        >
-          {userBadges.map((badge) => (
-            <BadgeCard key={badge.id} badge={badge} size="medium" />
-          ))}
-        </ScrollView>
-        
-        {/* Info text */}
-        <View style={styles.badgesInfo}>
-          <Ionicons name="information-circle" size={16} color="#64748b" />
-          <Text style={styles.badgesInfoText}>
-            Gagnez des badges en accomplissant des défis et objectifs
-          </Text>
-        </View>
-      </View>
-
-      {/* 📱 Section Outils Professionnels */}
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>
-          <Ionicons name="briefcase" size={20} color="#ff6b47" /> Outils Professionnels
-        </Text>
-        
-        {/* Bouton QR Code - Mise en avant */}
-        <TouchableOpacity
-          style={styles.qrCodeButton}
-          onPress={() => setShowQRCode(true)}
-          activeOpacity={0.8}
-        >
-          <LinearGradient
-            colors={['#ff6b47', '#ff8a6d']}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-            style={styles.qrCodeButtonGradient}
+      {/* 🏆 Badges Section - Réduite */}
+      {userBadges.length > 0 && (
+        <View style={styles.section}>
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionTitle}>
+              <Ionicons name="trophy" size={18} color="#fbbf24" /> Badges
+            </Text>
+            <TouchableOpacity activeOpacity={0.7} onPress={() => setShowBadges(true)}>
+              <Text style={styles.seeAllText}>Tout voir ({userBadges.length})</Text>
+            </TouchableOpacity>
+          </View>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.badgesScroll}
           >
-            <View style={styles.qrCodeButtonLeft}>
-              <View style={styles.qrCodeIcon}>
-                <Ionicons name="qr-code" size={28} color="#fff" />
-              </View>
-              <View>
-                <Text style={styles.qrCodeButtonTitle}>Mon QR Code Pro</Text>
-                <Text style={styles.qrCodeButtonSubtitle}>Partagez vos coordonnées facilement</Text>
-              </View>
-            </View>
-            <Ionicons name="chevron-forward" size={24} color="rgba(255, 255, 255, 0.8)" />
-          </LinearGradient>
-        </TouchableOpacity>
-
-        {/* Bouton Mes Courses - Enregistrement courses externes */}
-        <TouchableOpacity
-          style={[styles.qrCodeButton, { marginTop: 12 }]}
-          onPress={() => setShowPersonalRides(true)}
-          activeOpacity={0.8}
-        >
-          <LinearGradient
-            colors={['#6366f1', '#8b5cf6']}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-            style={styles.qrCodeButtonGradient}
-          >
-            <View style={styles.qrCodeButtonLeft}>
-              <View style={styles.qrCodeIcon}>
-                <Ionicons name="car" size={28} color="#fff" />
-              </View>
-              <View>
-                <Text style={styles.qrCodeButtonTitle}>Mes Courses</Text>
-                <Text style={styles.qrCodeButtonSubtitle}>Enregistrez Uber, Bolt, Direct...</Text>
-              </View>
-            </View>
-            <Ionicons name="chevron-forward" size={24} color="rgba(255, 255, 255, 0.8)" />
-          </LinearGradient>
-        </TouchableOpacity>
-      </View>
+            {userBadges.slice(0, 3).map((badge) => (
+              <BadgeCard key={badge.id} badge={badge} size="small" />
+            ))}
+          </ScrollView>
+        </View>
+      )}
 
       {/* Menu */}
       {/* 👨‍💼 Section Admin (visible uniquement pour les admins) */}
@@ -1591,6 +1529,9 @@ export default function App() {
   return (
     <View style={styles.container}>
       <LinearGradient colors={['#0f172a', '#1e293b', '#334155']} style={styles.gradient}>
+        {/* Global Credits Badge - Affiché partout */}
+        <GlobalCreditsBadge credits={userCredits} />
+        
         {currentScreen === 'dashboard' && (
           <DashboardScreen
             userFullName={userFullName}

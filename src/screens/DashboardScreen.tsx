@@ -117,12 +117,6 @@ export default function DashboardScreen({
             <Text style={styles.greeting}>Bonjour,</Text>
             <Text style={styles.userName}>{userFullName}</Text>
           </View>
-          <View style={styles.creditsContainer}>
-            <View style={styles.creditsBadge}>
-              <Text style={styles.creditsLabel}>Crédits</Text>
-              <Text style={styles.creditsValue}>{userCredits}</Text>
-            </View>
-          </View>
         </View>
 
         {/* Revenus Cards */}
@@ -196,6 +190,35 @@ export default function DashboardScreen({
             ))}
           </View>
         )}
+
+        {/* Activité récente */}
+        <View style={styles.activitySection}>
+          <Text style={styles.sectionTitle}>Activité récente</Text>
+          <View style={styles.activityCard}>
+            <View style={styles.activityItem}>
+              <View style={styles.activityIconContainer}>
+                <Ionicons name="checkmark-circle" size={20} color="#10b981" />
+              </View>
+              <View style={styles.activityContent}>
+                <Text style={styles.activityTitle}>Dernière course complétée</Text>
+                <Text style={styles.activitySubtext}>
+                  {stats?.totals?.completed_rides > 0 ? 'Il y a 2 heures' : 'Aucune course complétée'}
+                </Text>
+              </View>
+            </View>
+            <View style={styles.activityItem}>
+              <View style={styles.activityIconContainer}>
+                <Ionicons name="calendar" size={20} color="#6366f1" />
+              </View>
+              <View style={styles.activityContent}>
+                <Text style={styles.activityTitle}>Courses cette semaine</Text>
+                <Text style={styles.activitySubtext}>
+                  {stats?.totals?.completed_rides || 0} courses complétées
+                </Text>
+              </View>
+            </View>
+          </View>
+        </View>
 
         {/* Prochaines courses */}
         {upcomingRides.length > 0 && (
@@ -282,9 +305,6 @@ const styles = StyleSheet.create({
     backgroundColor: '#0f172a',
   },
   header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
     paddingHorizontal: 20,
     paddingTop: 60,
     paddingBottom: 20,
@@ -299,30 +319,6 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#e2e8f0',
     letterSpacing: 0.5,
-  },
-  creditsContainer: {
-    alignItems: 'flex-end',
-  },
-  creditsBadge: {
-    backgroundColor: '#1e293b',
-    borderRadius: 12,
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    borderWidth: 1,
-    borderColor: '#334155',
-    alignItems: 'center',
-  },
-  creditsLabel: {
-    fontSize: 11,
-    color: '#94a3b8',
-    marginBottom: 2,
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-  },
-  creditsValue: {
-    fontSize: 24,
-    fontWeight: '700',
-    color: '#6366f1',
   },
   revenueSection: {
     flexDirection: 'row',
@@ -437,6 +433,44 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: '700',
     color: '#6366f1',
+  },
+  activitySection: {
+    paddingHorizontal: 20,
+    marginBottom: 24,
+  },
+  activityCard: {
+    backgroundColor: '#1e293b',
+    borderRadius: 16,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: '#334155',
+  },
+  activityItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  activityIconContainer: {
+    width: 40,
+    height: 40,
+    borderRadius: 10,
+    backgroundColor: 'rgba(99, 102, 241, 0.1)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 12,
+  },
+  activityContent: {
+    flex: 1,
+  },
+  activityTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#e2e8f0',
+    marginBottom: 2,
+  },
+  activitySubtext: {
+    fontSize: 12,
+    color: '#64748b',
   },
   upcomingSection: {
     paddingHorizontal: 20,
