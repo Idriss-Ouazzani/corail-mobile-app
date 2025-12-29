@@ -238,21 +238,41 @@ export default function DashboardScreen({
               </View>
               <View style={styles.creditItem}>
                 <View style={styles.creditDot} />
-                <Text style={styles.creditText}>
-                  <Text style={styles.creditBold}>+1 C</Text> à chaque course publiée sur la Marketplace
-                </Text>
+                <View style={styles.creditItemContent}>
+                  <View style={styles.creditBadgeInline}>
+                    <Text style={styles.creditBadgeText}>+1</Text>
+                    <View style={styles.creditIconSmall}>
+                      <Text style={styles.creditIconSmallText}>C</Text>
+                    </View>
+                  </View>
+                  <Text style={styles.creditText}>à chaque course publiée sur la Marketplace</Text>
+                </View>
               </View>
               <View style={styles.creditItem}>
                 <View style={styles.creditDot} />
-                <Text style={styles.creditText}>
-                  <Text style={styles.creditBold}>+1 C bonus</Text> quand votre course est prise et terminée
-                </Text>
+                <View style={styles.creditItemContent}>
+                  <View style={styles.creditBadgeInline}>
+                    <Text style={styles.creditBadgeText}>+1</Text>
+                    <View style={styles.creditIconSmall}>
+                      <Text style={styles.creditIconSmallText}>C</Text>
+                    </View>
+                    <Text style={styles.creditBadgeText}>bonus</Text>
+                  </View>
+                  <Text style={styles.creditText}>quand votre course est prise et terminée</Text>
+                </View>
               </View>
               <View style={styles.creditItem}>
                 <View style={styles.creditDot} />
-                <Text style={styles.creditText}>
-                  <Text style={styles.creditBold}>5 ou 10 C/mois</Text> avec un abonnement Premium/Platinum
-                </Text>
+                <View style={styles.creditItemContent}>
+                  <View style={styles.creditBadgeInline}>
+                    <Text style={styles.creditBadgeText}>5 ou 10</Text>
+                    <View style={styles.creditIconSmall}>
+                      <Text style={styles.creditIconSmallText}>C</Text>
+                    </View>
+                    <Text style={styles.creditBadgeText}>/mois</Text>
+                  </View>
+                  <Text style={styles.creditText}>avec un abonnement Premium/Platinum</Text>
+                </View>
               </View>
             </View>
 
@@ -264,9 +284,15 @@ export default function DashboardScreen({
               </View>
               <View style={styles.creditItem}>
                 <View style={styles.creditDot} />
-                <Text style={styles.creditText}>
-                  <Text style={styles.creditBold}>-1 C</Text> pour prendre une course sur la Marketplace
-                </Text>
+                <View style={styles.creditItemContent}>
+                  <View style={styles.creditBadgeInline}>
+                    <Text style={styles.creditBadgeText}>-1</Text>
+                    <View style={styles.creditIconSmall}>
+                      <Text style={styles.creditIconSmallText}>C</Text>
+                    </View>
+                  </View>
+                  <Text style={styles.creditText}>pour prendre une course sur la Marketplace</Text>
+                </View>
               </View>
             </View>
           </View>
@@ -591,6 +617,7 @@ const styles = StyleSheet.create({
   creditsExplanationHeader: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
     marginBottom: 16,
     gap: 12,
   },
@@ -646,18 +673,43 @@ const styles = StyleSheet.create({
     height: 4,
     borderRadius: 2,
     backgroundColor: '#64748b',
-    marginTop: 7,
+    marginTop: 9,
     marginRight: 10,
   },
-  creditText: {
+  creditItemContent: {
     flex: 1,
+    flexDirection: 'column',
+    gap: 4,
+  },
+  creditBadgeInline: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  creditBadgeText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#ff6b47',
+  },
+  creditIconSmall: {
+    width: 18,
+    height: 18,
+    borderRadius: 9,
+    backgroundColor: 'rgba(255, 107, 71, 0.2)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 107, 71, 0.4)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  creditIconSmallText: {
+    fontSize: 10,
+    fontWeight: '800',
+    color: '#ff6b47',
+  },
+  creditText: {
     fontSize: 14,
     color: '#cbd5e1',
     lineHeight: 20,
-  },
-  creditBold: {
-    fontWeight: '700',
-    color: '#ff6b47',
   },
 });
 
