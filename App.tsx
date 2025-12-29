@@ -13,6 +13,7 @@ import {
   Alert,
   ActivityIndicator,
   Animated,
+  Easing,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons, MaterialIcons, FontAwesome5 } from '@expo/vector-icons';
@@ -174,54 +175,107 @@ const formatName = (name: string): string => {
 };
 
 /**
- * Composant d'écran de chargement avec animation élégante
+ * Composant d'écran de chargement ULTRA ÉLÉGANT
+ * Design minimaliste et raffiné
  */
-const LoadingScreen: React.FC<{ message?: string }> = ({ message = 'Chargement...' }) => {
+const LoadingScreen: React.FC<{ message?: string }> = ({ message = 'Chargement' }) => {
   const breatheAnim = useRef(new Animated.Value(1)).current;
   const fadeAnim = useRef(new Animated.Value(0)).current;
-  const dot1 = useRef(new Animated.Value(0)).current;
-  const dot2 = useRef(new Animated.Value(0)).current;
-  const dot3 = useRef(new Animated.Value(0)).current;
+  const glowAnim = useRef(new Animated.Value(0.6)).current;
+  const dot1 = useRef(new Animated.Value(0.3)).current;
+  const dot2 = useRef(new Animated.Value(0.3)).current;
+  const dot3 = useRef(new Animated.Value(0.3)).current;
 
   useEffect(() => {
-    // Animation de "respiration" subtile du logo (très léger)
+    // Animation de respiration fluide et ample (inspirée Apple)
     Animated.loop(
       Animated.sequence([
         Animated.timing(breatheAnim, {
-          toValue: 1.05,
-          duration: 2000,
+          toValue: 1.08,
+          duration: 1800,
+          easing: Easing.inOut(Easing.ease),
           useNativeDriver: true,
         }),
         Animated.timing(breatheAnim, {
           toValue: 1,
-          duration: 2000,
+          duration: 1800,
+          easing: Easing.inOut(Easing.ease),
           useNativeDriver: true,
         }),
       ])
     ).start();
 
-    // Fade in général
+    // Glow pulsation autour du logo
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(glowAnim, {
+          toValue: 1,
+          duration: 1800,
+          easing: Easing.inOut(Easing.ease),
+          useNativeDriver: true,
+        }),
+        Animated.timing(glowAnim, {
+          toValue: 0.6,
+          duration: 1800,
+          easing: Easing.inOut(Easing.ease),
+          useNativeDriver: true,
+        }),
+      ])
+    ).start();
+
+    // Fade in élégant
     Animated.timing(fadeAnim, {
       toValue: 1,
-      duration: 600,
+      duration: 800,
+      easing: Easing.out(Easing.cubic),
       useNativeDriver: true,
     }).start();
 
-    // Animation des points élégants (séquentielle)
+    // Animation des points - séquentielle et élégante
     const animateDots = () => {
       Animated.loop(
-        Animated.stagger(200, [
+        Animated.stagger(350, [
           Animated.sequence([
-            Animated.timing(dot1, { toValue: 1, duration: 400, useNativeDriver: true }),
-            Animated.timing(dot1, { toValue: 0.3, duration: 400, useNativeDriver: true }),
+            Animated.timing(dot1, { 
+              toValue: 1, 
+              duration: 500, 
+              easing: Easing.inOut(Easing.ease),
+              useNativeDriver: true 
+            }),
+            Animated.timing(dot1, { 
+              toValue: 0.3, 
+              duration: 500, 
+              easing: Easing.inOut(Easing.ease),
+              useNativeDriver: true 
+            }),
           ]),
           Animated.sequence([
-            Animated.timing(dot2, { toValue: 1, duration: 400, useNativeDriver: true }),
-            Animated.timing(dot2, { toValue: 0.3, duration: 400, useNativeDriver: true }),
+            Animated.timing(dot2, { 
+              toValue: 1, 
+              duration: 500, 
+              easing: Easing.inOut(Easing.ease),
+              useNativeDriver: true 
+            }),
+            Animated.timing(dot2, { 
+              toValue: 0.3, 
+              duration: 500, 
+              easing: Easing.inOut(Easing.ease),
+              useNativeDriver: true 
+            }),
           ]),
           Animated.sequence([
-            Animated.timing(dot3, { toValue: 1, duration: 400, useNativeDriver: true }),
-            Animated.timing(dot3, { toValue: 0.3, duration: 400, useNativeDriver: true }),
+            Animated.timing(dot3, { 
+              toValue: 1, 
+              duration: 500, 
+              easing: Easing.inOut(Easing.ease),
+              useNativeDriver: true 
+            }),
+            Animated.timing(dot3, { 
+              toValue: 0.3, 
+              duration: 500, 
+              easing: Easing.inOut(Easing.ease),
+              useNativeDriver: true 
+            }),
           ]),
         ])
       ).start();
@@ -232,7 +286,7 @@ const LoadingScreen: React.FC<{ message?: string }> = ({ message = 'Chargement..
   return (
     <View style={styles.loadingContainer}>
       <LinearGradient 
-        colors={['#0f172a', '#1e293b', '#0f172a']} 
+        colors={['#0a0f1a', '#151b2e', '#0a0f1a']} 
         style={StyleSheet.absoluteFill}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
@@ -243,26 +297,42 @@ const LoadingScreen: React.FC<{ message?: string }> = ({ message = 'Chargement..
           alignItems: 'center',
           opacity: fadeAnim 
         }}>
-          {/* Logo avec animation de respiration subtile */}
+          {/* Logo HD avec animation de respiration ample */}
           <Animated.View
             style={{
               transform: [{ scale: breatheAnim }],
-              marginBottom: 60,
+              marginBottom: 80,
             }}
           >
-            <View style={styles.logoContainer}>
-              <CoralLogo size={90} />
+            {/* Glow effet autour du logo */}
+            <Animated.View
+              style={{
+                position: 'absolute',
+                top: -20,
+                left: -20,
+                right: -20,
+                bottom: -20,
+                borderRadius: 100,
+                backgroundColor: 'rgba(255, 107, 107, 0.15)',
+                opacity: glowAnim,
+                transform: [{ scale: 1.1 }],
+              }}
+            />
+            
+            {/* Logo container HD */}
+            <View style={styles.logoContainerHD}>
+              <CoralLogo size={140} />
             </View>
           </Animated.View>
 
-          {/* Message élégant */}
-          <Text style={styles.loadingText}>{message}</Text>
+          {/* Message élégant avec typographie raffinée */}
+          <Text style={styles.loadingTextRefined}>{message}</Text>
 
-          {/* Points de chargement minimalistes */}
-          <View style={styles.dotsContainer}>
-            <Animated.View style={[styles.dot, { opacity: dot1 }]} />
-            <Animated.View style={[styles.dot, { opacity: dot2 }]} />
-            <Animated.View style={[styles.dot, { opacity: dot3 }]} />
+          {/* Points de chargement espacés et élégants */}
+          <View style={styles.dotsContainerRefined}>
+            <Animated.View style={[styles.dotRefined, { opacity: dot1 }]} />
+            <Animated.View style={[styles.dotRefined, { opacity: dot2 }]} />
+            <Animated.View style={[styles.dotRefined, { opacity: dot3 }]} />
           </View>
         </Animated.View>
       </LinearGradient>
@@ -1637,13 +1707,20 @@ const styles = StyleSheet.create({
   loadingContainer: { flex: 1 },
   scrollContent: { paddingTop: 60, paddingBottom: 120, paddingHorizontal: 20 },
 
-  // 🎨 Loading Screen Styles - Élégant & Minimaliste
+  // 🎨 Loading Screen Styles - ULTRA ÉLÉGANT & RAFFINÉ
   logoContainer: {
     shadowColor: '#ff6b47',
     shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 0.15,
     shadowRadius: 20,
     elevation: 10,
+  },
+  logoContainerHD: {
+    shadowColor: '#ff6b47',
+    shadowOffset: { width: 0, height: 12 },
+    shadowOpacity: 0.25,
+    shadowRadius: 30,
+    elevation: 15,
   },
   loadingText: {
     fontSize: 15,
@@ -1653,17 +1730,43 @@ const styles = StyleSheet.create({
     textTransform: 'uppercase',
     marginBottom: 24,
   },
+  loadingTextRefined: {
+    fontSize: 17,
+    fontWeight: '300',
+    color: '#e2e8f0',
+    letterSpacing: 3,
+    textTransform: 'uppercase',
+    marginBottom: 36,
+    opacity: 0.9,
+  },
   dotsContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 12,
   },
+  dotsContainerRefined: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 16,
+  },
   dot: {
     width: 6,
     height: 6,
     borderRadius: 3,
     backgroundColor: '#ff6b47',
+  },
+  dotRefined: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: '#ff8b6d',
+    shadowColor: '#ff6b47',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.6,
+    shadowRadius: 4,
+    elevation: 5,
   },
 
   // Hero
