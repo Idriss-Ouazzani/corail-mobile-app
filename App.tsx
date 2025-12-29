@@ -1564,6 +1564,10 @@ export default function App() {
             onNavigateToCourses={() => setCurrentScreen('courses')}
             onNavigateToTools={() => setCurrentScreen('tools')}
             onOpenQRCode={() => setShowQRCode(true)}
+            onCreateRide={() => {
+              setCreateRideMode('create');
+              setShowCreateRide(true);
+            }}
           />
         )}
         {currentScreen === 'courses' && (

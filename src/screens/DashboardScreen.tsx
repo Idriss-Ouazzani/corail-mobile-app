@@ -23,6 +23,7 @@ interface DashboardProps {
   onNavigateToCourses: () => void;
   onNavigateToTools: () => void;
   onOpenQRCode: () => void;
+  onCreateRide: () => void; // Ouvrir formulaire création en mode 'create'
 }
 
 export default function DashboardScreen({
@@ -31,6 +32,7 @@ export default function DashboardScreen({
   onNavigateToCourses,
   onNavigateToTools,
   onOpenQRCode,
+  onCreateRide,
 }: DashboardProps) {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -217,7 +219,7 @@ export default function DashboardScreen({
 
           <TouchableOpacity
             style={styles.quickAccessButton}
-            onPress={onNavigateToTools}
+            onPress={onCreateRide}
             activeOpacity={0.8}
           >
             <LinearGradient
