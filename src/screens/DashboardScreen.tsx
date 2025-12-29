@@ -191,6 +191,49 @@ export default function DashboardScreen({
           </View>
         )}
 
+        {/* Accès rapides */}
+        <View style={styles.quickAccessSection}>
+          <Text style={styles.sectionTitle}>Accès rapides</Text>
+
+          <TouchableOpacity
+            style={styles.quickAccessButton}
+            onPress={onOpenQRCode}
+            activeOpacity={0.8}
+          >
+            <LinearGradient
+              colors={['#ff6b47', '#ff8a6d']}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 0 }}
+              style={styles.quickAccessGradient}
+            >
+              <View style={styles.quickAccessLeft}>
+                <Ionicons name="qr-code" size={24} color="#fff" />
+                <Text style={styles.quickAccessText}>QR Code Pro</Text>
+              </View>
+              <Ionicons name="chevron-forward" size={20} color="rgba(255,255,255,0.8)" />
+            </LinearGradient>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.quickAccessButton}
+            onPress={onNavigateToTools}
+            activeOpacity={0.8}
+          >
+            <LinearGradient
+              colors={['#6366f1', '#8b5cf6']}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 0 }}
+              style={styles.quickAccessGradient}
+            >
+              <View style={styles.quickAccessLeft}>
+                <Ionicons name="add-circle" size={24} color="#fff" />
+                <Text style={styles.quickAccessText}>Enregistrer une course</Text>
+              </View>
+              <Ionicons name="chevron-forward" size={20} color="rgba(255,255,255,0.8)" />
+            </LinearGradient>
+          </TouchableOpacity>
+        </View>
+
         {/* Activité récente */}
         <View style={styles.activitySection}>
           <Text style={styles.sectionTitle}>Activité récente</Text>
@@ -238,40 +281,34 @@ export default function DashboardScreen({
               </View>
               <View style={styles.creditItem}>
                 <View style={styles.creditDot} />
-                <View style={styles.creditItemContent}>
-                  <View style={styles.creditBadgeInline}>
-                    <Text style={styles.creditBadgeText}>+1</Text>
-                    <View style={styles.creditIconSmall}>
-                      <Text style={styles.creditIconSmallText}>C</Text>
-                    </View>
+                <View style={styles.creditBadgeInline}>
+                  <Text style={styles.creditBadgeText}>+1</Text>
+                  <View style={styles.creditIconSmall}>
+                    <Text style={styles.creditIconSmallText}>C</Text>
                   </View>
-                  <Text style={styles.creditText}>à chaque course publiée sur la Marketplace</Text>
+                  <Text style={styles.creditText}>à chaque course publiée</Text>
                 </View>
               </View>
               <View style={styles.creditItem}>
                 <View style={styles.creditDot} />
-                <View style={styles.creditItemContent}>
-                  <View style={styles.creditBadgeInline}>
-                    <Text style={styles.creditBadgeText}>+1</Text>
-                    <View style={styles.creditIconSmall}>
-                      <Text style={styles.creditIconSmallText}>C</Text>
-                    </View>
-                    <Text style={styles.creditBadgeText}>bonus</Text>
+                <View style={styles.creditBadgeInline}>
+                  <Text style={styles.creditBadgeText}>+1</Text>
+                  <View style={styles.creditIconSmall}>
+                    <Text style={styles.creditIconSmallText}>C</Text>
                   </View>
-                  <Text style={styles.creditText}>quand votre course est prise et terminée</Text>
+                  <Text style={styles.creditBadgeText}>bonus</Text>
+                  <Text style={styles.creditText}>si course terminée</Text>
                 </View>
               </View>
               <View style={styles.creditItem}>
                 <View style={styles.creditDot} />
-                <View style={styles.creditItemContent}>
-                  <View style={styles.creditBadgeInline}>
-                    <Text style={styles.creditBadgeText}>5 ou 10</Text>
-                    <View style={styles.creditIconSmall}>
-                      <Text style={styles.creditIconSmallText}>C</Text>
-                    </View>
-                    <Text style={styles.creditBadgeText}>/mois</Text>
+                <View style={styles.creditBadgeInline}>
+                  <Text style={styles.creditBadgeText}>5-10</Text>
+                  <View style={styles.creditIconSmall}>
+                    <Text style={styles.creditIconSmallText}>C</Text>
                   </View>
-                  <Text style={styles.creditText}>avec un abonnement Premium/Platinum</Text>
+                  <Text style={styles.creditBadgeText}>/mois</Text>
+                  <Text style={styles.creditText}>avec Premium/Platinum</Text>
                 </View>
               </View>
             </View>
@@ -284,14 +321,12 @@ export default function DashboardScreen({
               </View>
               <View style={styles.creditItem}>
                 <View style={styles.creditDot} />
-                <View style={styles.creditItemContent}>
-                  <View style={styles.creditBadgeInline}>
-                    <Text style={styles.creditBadgeText}>-1</Text>
-                    <View style={styles.creditIconSmall}>
-                      <Text style={styles.creditIconSmallText}>C</Text>
-                    </View>
+                <View style={styles.creditBadgeInline}>
+                  <Text style={styles.creditBadgeText}>-1</Text>
+                  <View style={styles.creditIconSmall}>
+                    <Text style={styles.creditIconSmallText}>C</Text>
                   </View>
-                  <Text style={styles.creditText}>pour prendre une course sur la Marketplace</Text>
+                  <Text style={styles.creditText}>pour prendre une course</Text>
                 </View>
               </View>
             </View>
@@ -327,49 +362,6 @@ export default function DashboardScreen({
             ))}
           </View>
         )}
-
-        {/* Accès rapides */}
-        <View style={styles.quickAccessSection}>
-          <Text style={styles.sectionTitle}>Accès rapides</Text>
-
-          <TouchableOpacity
-            style={styles.quickAccessButton}
-            onPress={onOpenQRCode}
-            activeOpacity={0.8}
-          >
-            <LinearGradient
-              colors={['#ff6b47', '#ff8a6d']}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 0 }}
-              style={styles.quickAccessGradient}
-            >
-              <View style={styles.quickAccessLeft}>
-                <Ionicons name="qr-code" size={24} color="#fff" />
-                <Text style={styles.quickAccessText}>QR Code Pro</Text>
-              </View>
-              <Ionicons name="chevron-forward" size={20} color="rgba(255,255,255,0.8)" />
-            </LinearGradient>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={styles.quickAccessButton}
-            onPress={onNavigateToTools}
-            activeOpacity={0.8}
-          >
-            <LinearGradient
-              colors={['#6366f1', '#8b5cf6']}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 0 }}
-              style={styles.quickAccessGradient}
-            >
-              <View style={styles.quickAccessLeft}>
-                <Ionicons name="add-circle" size={24} color="#fff" />
-                <Text style={styles.quickAccessText}>Enregistrer une course</Text>
-              </View>
-              <Ionicons name="chevron-forward" size={20} color="rgba(255,255,255,0.8)" />
-            </LinearGradient>
-          </TouchableOpacity>
-        </View>
 
         <View style={{ height: 40 }} />
       </ScrollView>
@@ -612,89 +604,84 @@ const styles = StyleSheet.create({
   },
   creditsExplanationSection: {
     paddingHorizontal: 20,
-    marginBottom: 24,
+    marginBottom: 20,
   },
   creditsExplanationHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 16,
-    gap: 12,
+    marginBottom: 12,
+    gap: 8,
   },
   creditsIconLarge: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+    width: 28,
+    height: 28,
+    borderRadius: 14,
     backgroundColor: 'rgba(255, 107, 71, 0.2)',
-    borderWidth: 2,
+    borderWidth: 1.5,
     borderColor: 'rgba(255, 107, 71, 0.4)',
     alignItems: 'center',
     justifyContent: 'center',
   },
   creditsIconText: {
-    fontSize: 18,
+    fontSize: 14,
     fontWeight: '800',
     color: '#ff6b47',
   },
   creditsExplanationTitle: {
-    fontSize: 18,
+    fontSize: 15,
     fontWeight: '700',
     color: '#e2e8f0',
   },
   creditsExplanationContent: {
     backgroundColor: '#1e293b',
-    borderRadius: 16,
-    padding: 20,
+    borderRadius: 12,
+    padding: 14,
     borderWidth: 1,
     borderColor: '#334155',
   },
   creditsSection: {
-    marginBottom: 20,
+    marginBottom: 14,
   },
   creditsSectionHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 12,
-    gap: 8,
+    marginBottom: 8,
+    gap: 6,
   },
   creditsSectionTitle: {
-    fontSize: 15,
+    fontSize: 13,
     fontWeight: '700',
     color: '#e2e8f0',
   },
   creditItem: {
     flexDirection: 'row',
-    alignItems: 'flex-start',
-    marginBottom: 8,
-    paddingLeft: 8,
+    alignItems: 'center',
+    marginBottom: 6,
+    paddingLeft: 6,
   },
   creditDot: {
-    width: 4,
-    height: 4,
-    borderRadius: 2,
+    width: 3,
+    height: 3,
+    borderRadius: 1.5,
     backgroundColor: '#64748b',
-    marginTop: 9,
-    marginRight: 10,
-  },
-  creditItemContent: {
-    flex: 1,
-    flexDirection: 'column',
-    gap: 4,
+    marginRight: 8,
   },
   creditBadgeInline: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
+    gap: 3,
+    flex: 1,
   },
   creditBadgeText: {
-    fontSize: 14,
+    fontSize: 12,
     fontWeight: '700',
     color: '#ff6b47',
   },
   creditIconSmall: {
-    width: 18,
-    height: 18,
-    borderRadius: 9,
+    width: 15,
+    height: 15,
+    borderRadius: 7.5,
     backgroundColor: 'rgba(255, 107, 71, 0.2)',
     borderWidth: 1,
     borderColor: 'rgba(255, 107, 71, 0.4)',
@@ -702,14 +689,13 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   creditIconSmallText: {
-    fontSize: 10,
+    fontSize: 8,
     fontWeight: '800',
     color: '#ff6b47',
   },
   creditText: {
-    fontSize: 14,
+    fontSize: 12,
     color: '#cbd5e1',
-    lineHeight: 20,
   },
 });
 

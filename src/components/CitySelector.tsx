@@ -41,13 +41,13 @@ export const CitySelector: React.FC<CitySelectorProps> = ({ selectedCity, onCity
           style={styles.triggerGradient}
         >
           <View style={[styles.triggerIcon, { backgroundColor: selected.color + '30' }]}>
-            <Ionicons name={selected.icon as any} size={24} color={selected.color} />
+            <Ionicons name={selected.icon as any} size={18} color={selected.color} />
           </View>
           <View style={styles.triggerContent}>
             <Text style={styles.triggerLabel}>📍 Votre région</Text>
             <Text style={styles.triggerCity}>{selected.name}</Text>
           </View>
-          <Ionicons name="chevron-down" size={24} color={selected.color} />
+          <Ionicons name="chevron-down" size={18} color={selected.color} />
         </LinearGradient>
       </TouchableOpacity>
 
@@ -115,41 +115,42 @@ export const CitySelector: React.FC<CitySelectorProps> = ({ selectedCity, onCity
 
 const styles = StyleSheet.create({
   trigger: {
-    borderRadius: 18,
+    borderRadius: 12,
     overflow: 'hidden',
-    marginBottom: 24,
-    borderWidth: 2,
+    marginBottom: 0,
+    borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.1)',
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 6,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 3,
   },
   triggerGradient: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: 18,
+    paddingVertical: 10,
+    paddingHorizontal: 14,
   },
   triggerIcon: {
-    width: 52,
-    height: 52,
-    borderRadius: 26,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 14,
+    marginRight: 10,
   },
   triggerContent: {
     flex: 1,
   },
   triggerLabel: {
-    fontSize: 13,
+    fontSize: 11,
     color: '#f1f5f9',
-    marginBottom: 4,
+    marginBottom: 2,
     fontWeight: '600',
   },
   triggerCity: {
-    fontSize: 20,
+    fontSize: 16,
     fontWeight: '700',
     color: '#f1f5f9',
   },

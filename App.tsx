@@ -807,20 +807,15 @@ export default function App() {
         {/* Credits Info Banner - Collapsible */}
         {showCreditsInfo && (
           <View style={styles.creditsInfoBanner}>
-            <View style={styles.creditsInfoHeader}>
-              <View style={styles.creditsInfoLeft}>
-                <View style={styles.creditsInfoIcon}>
-                  <Text style={styles.creditsInfoIconText}>C</Text>
-                </View>
-                <Text style={styles.creditsInfoTitle}>Prendre une course = -1 crédit</Text>
+            <View style={styles.creditsInfoLeft}>
+              <View style={styles.creditsInfoIcon}>
+                <Text style={styles.creditsInfoIconText}>C</Text>
               </View>
-              <TouchableOpacity onPress={() => setShowCreditsInfo(false)} style={styles.creditsInfoClose}>
-                <Ionicons name="close" size={18} color="#64748b" />
-              </TouchableOpacity>
+              <Text style={styles.creditsInfoTitle}>Prendre une course = -1 crédit</Text>
             </View>
-            <Text style={styles.creditsInfoText}>
-              💡 Publiez des courses pour gagner des crédits et accéder à la Marketplace !
-            </Text>
+            <TouchableOpacity onPress={() => setShowCreditsInfo(false)} style={styles.creditsInfoClose}>
+              <Ionicons name="close" size={16} color="#94a3b8" />
+            </TouchableOpacity>
           </View>
         )}
 
@@ -2105,58 +2100,51 @@ const styles = StyleSheet.create({
     marginHorizontal: 8,
   },
   creditsInfoBanner: {
-    backgroundColor: 'rgba(255, 107, 71, 0.1)',
-    borderRadius: 12,
-    padding: 14,
-    marginBottom: 16,
+    backgroundColor: 'rgba(99, 102, 241, 0.15)',
+    borderRadius: 10,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    marginBottom: 12,
     borderWidth: 1,
-    borderColor: 'rgba(255, 107, 71, 0.3)',
-  },
-  creditsInfoHeader: {
+    borderColor: 'rgba(99, 102, 241, 0.3)',
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: 8,
   },
   creditsInfoLeft: {
     flexDirection: 'row',
     alignItems: 'center',
     flex: 1,
-    gap: 10,
+    gap: 8,
   },
   creditsInfoIcon: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    backgroundColor: 'rgba(255, 107, 71, 0.25)',
-    borderWidth: 1.5,
-    borderColor: 'rgba(255, 107, 71, 0.5)',
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    backgroundColor: 'rgba(99, 102, 241, 0.25)',
+    borderWidth: 1,
+    borderColor: 'rgba(99, 102, 241, 0.5)',
     alignItems: 'center',
     justifyContent: 'center',
   },
   creditsInfoIconText: {
-    fontSize: 12,
+    fontSize: 10,
     fontWeight: '800',
-    color: '#ff6b47',
+    color: '#6366f1',
   },
   creditsInfoTitle: {
-    fontSize: 14,
-    fontWeight: '700',
+    fontSize: 13,
+    fontWeight: '600',
     color: '#e2e8f0',
     flex: 1,
   },
   creditsInfoClose: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    backgroundColor: 'rgba(100, 116, 139, 0.1)',
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: 'rgba(148, 163, 184, 0.1)',
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  creditsInfoText: {
-    fontSize: 13,
-    color: '#cbd5e1',
-    lineHeight: 18,
   },
   filtersRow: { 
     flexDirection: 'row', 
