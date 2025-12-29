@@ -21,7 +21,9 @@ export default function GlobalCreditsBadge({ credits, onPress }: GlobalCreditsBa
         end={{ x: 1, y: 0 }}
         style={styles.gradient}
       >
-        <Text style={styles.label}>C</Text>
+        <View style={styles.cContainer}>
+          <Text style={styles.label}>C</Text>
+        </View>
         <Text style={styles.value}>{credits}</Text>
         <View style={styles.plusButton}>
           <Ionicons name="add" size={14} color="#fff" />
@@ -52,9 +54,17 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     gap: 6,
   },
+  cContainer: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    backgroundColor: 'rgba(0, 0, 0, 0.25)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   label: {
-    fontSize: 16,
-    fontWeight: '700',
+    fontSize: 13,
+    fontWeight: '800',
     color: '#fff',
   },
   value: {
