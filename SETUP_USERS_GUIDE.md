@@ -243,3 +243,4 @@ CREATE TABLE rides (
 
 🎊 **Une fois tout ça fait, l'app sera complète !**
 
+

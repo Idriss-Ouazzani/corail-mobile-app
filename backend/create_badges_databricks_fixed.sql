@@ -92,3 +92,4 @@ SELECT COUNT(*) as total_badges FROM io_catalog.vtcmarket.badges;
 SELECT * FROM io_catalog.vtcmarket.badges ORDER BY rarity DESC;
 SELECT * FROM io_catalog.vtcmarket.user_badges;
 
+

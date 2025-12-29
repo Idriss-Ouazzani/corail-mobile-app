@@ -205,3 +205,4 @@ ADD COLUMN IF NOT EXISTS icon STRING DEFAULT '👥';
 
 🎉 **Une fois tout fait, les groupes seront 100% fonctionnels !**
 
+

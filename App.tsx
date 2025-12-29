@@ -33,6 +33,7 @@ import BadgesScreen from './src/screens/BadgesScreen';
 import LoginScreen from './src/screens/LoginScreen';
 import VerificationScreen from './src/screens/VerificationScreen';
 import PendingVerificationScreen from './src/screens/PendingVerificationScreen';
+import AdminPanelScreen from './src/screens/AdminPanelScreen';
 import { firebaseAuth } from './src/services/firebase';
 import { apiClient } from './src/services/api';
 import type { Ride } from './src/types';
@@ -157,6 +158,18 @@ const MOCK_RIDES: Ride[] = [
   },
 ];
 
+/**
+ * Formatte un nom en capitalisant la première lettre de chaque mot
+ * Ex: "jean dupont" → "Jean Dupont"
+ */
+const formatName = (name: string): string => {
+  if (!name) return '';
+  return name
+    .split(' ')
+    .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+    .join(' ');
+};
+
 export default function App() {
   // 🔐 Gestion de l'authentification Firebase
   const [user, setUser] = useState<FirebaseUser | null>(null);
@@ -169,6 +182,7 @@ export default function App() {
   const [verificationStatus, setVerificationStatus] = useState<string>('VERIFIED');
   const [userFullName, setUserFullName] = useState<string>('');
   const [verificationSubmittedAt, setVerificationSubmittedAt] = useState<string | undefined>();
+  const [isAdmin, setIsAdmin] = useState<boolean>(false);
 
   // Écouter les changements d'état d'authentification
   useEffect(() => {
@@ -205,6 +219,7 @@ export default function App() {
   const [showHelpSupport, setShowHelpSupport] = useState(false);
   const [showBadges, setShowBadges] = useState(false);
   const [showFilters, setShowFilters] = useState(false);
+  const [showAdminPanel, setShowAdminPanel] = useState(false);
   const [filters, setFilters] = useState<FilterOptions>({
     vehicleTypes: [],
     sortBy: null,
@@ -297,16 +312,34 @@ export default function App() {
   // ✅ Charger le statut de vérification
   const loadVerificationStatus = async () => {
     try {
+      console.log('🔄 Chargement statut de vérification...');
       const response = await apiClient.getVerificationStatus();
+      console.log('📦 Réponse complète:', JSON.stringify(response, null, 2));
+      
       setVerificationStatus(response.verification_status || 'UNVERIFIED');
       setUserFullName(response.full_name || '');
       setVerificationSubmittedAt(response.verification_submitted_at);
+      
+      // 🚨 DEBUG: Log détaillé pour is_admin
+      console.log('🔍 response.is_admin RAW:', response.is_admin);
+      console.log('🔍 Type de response.is_admin:', typeof response.is_admin);
+      console.log('🔍 response.is_admin === true:', response.is_admin === true);
+      console.log('🔍 response.is_admin === "true":', response.is_admin === 'true');
+      
+      const adminValue = response.is_admin === true || response.is_admin === 'true';
+      setIsAdmin(adminValue);
+      
       console.log('✅ Statut de vérification:', response.verification_status);
       console.log('👤 Nom complet:', response.full_name);
+      console.log('📧 Email:', response.email);
+      console.log('👨‍💼 is_admin depuis API:', response.is_admin);
+      console.log('👨‍💼 isAdmin state FINAL:', adminValue);
     } catch (error: any) {
       console.error('❌ Erreur chargement statut vérification:', error);
+      console.error('❌ Détails:', error.response?.data || error.message);
       // Par défaut, si l'utilisateur n'existe pas, on considère qu'il n'est pas vérifié
       setVerificationStatus('UNVERIFIED');
+      setIsAdmin(false);
     }
   };
 
@@ -386,7 +419,7 @@ export default function App() {
               <CoralLogo size={60} />
             </View>
             <Text style={styles.greeting}>Bonjour</Text>
-            <Text style={styles.userName}>{userFullName || user?.email?.split('@')[0] || 'Utilisateur'}</Text>
+            <Text style={styles.userName}>{formatName(userFullName) || user?.email?.split('@')[0] || 'Utilisateur'}</Text>
             <View style={styles.premiumBadge}>
               <Ionicons name="star" size={12} color="#000" style={{ marginRight: 4 }} />
               <Text style={styles.premiumText}>Premium Member</Text>
@@ -913,18 +946,33 @@ export default function App() {
     );
   };
 
-  const renderProfile = () => (
-    <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-      <View style={styles.profileHeader}>
-        <LinearGradient colors={['#ff6b47', '#ff8a6d']} style={styles.profileAvatar}>
-          <Text style={styles.profileAvatarText}>HA</Text>
-        </LinearGradient>
-        <View style={styles.profileBadge}>
-          <Ionicons name="star" size={10} color="#000" style={{ marginRight: 4 }} />
-          <Text style={styles.profileBadgeText}>Premium</Text>
-        </View>
-        <Text style={styles.profileName}>Hassan Al Masri</Text>
-        <Text style={styles.profileEmail}>hassan.almasri@vtcpro.fr</Text>
+  const renderProfile = () => {
+    // 🚨 DEBUG: Log l'état isAdmin au moment du rendu
+    console.log('🎨 renderProfile() - isAdmin:', isAdmin);
+    console.log('🎨 renderProfile() - Type:', typeof isAdmin);
+    
+    // Générer les initiales depuis le nom réel
+    const getInitials = (name: string) => {
+      if (!name) return '??';
+      return name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
+    };
+
+    const displayName = formatName(userFullName) || user?.email?.split('@')[0] || 'Utilisateur';
+    const displayEmail = user?.email || 'email@example.com';
+    const initials = getInitials(userFullName || displayName);
+
+    return (
+      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+        <View style={styles.profileHeader}>
+          <LinearGradient colors={['#ff6b47', '#ff8a6d']} style={styles.profileAvatar}>
+            <Text style={styles.profileAvatarText}>{initials}</Text>
+          </LinearGradient>
+          <View style={styles.profileBadge}>
+            <Ionicons name="star" size={10} color="#000" style={{ marginRight: 4 }} />
+            <Text style={styles.profileBadgeText}>Premium</Text>
+          </View>
+          <Text style={styles.profileName}>{displayName}</Text>
+          <Text style={styles.profileEmail}>{displayEmail}</Text>
 
         {/* Stats */}
         <View style={styles.profileStats}>
@@ -982,7 +1030,55 @@ export default function App() {
         </View>
       </View>
 
+      {/* 🚨 DEBUG INFO - À SUPPRIMER APRÈS TEST */}
+      <View style={[styles.section, { backgroundColor: 'rgba(239, 68, 68, 0.1)', borderWidth: 1, borderColor: 'rgba(239, 68, 68, 0.3)', padding: 16, borderRadius: 12 }]}>
+        <Text style={{ color: '#ef4444', fontWeight: '700', fontSize: 14, marginBottom: 8 }}>🔍 DEBUG INFO</Text>
+        <Text style={{ color: '#94a3b8', fontSize: 12 }}>isAdmin state: {String(isAdmin)}</Text>
+        <Text style={{ color: '#94a3b8', fontSize: 12 }}>Type: {typeof isAdmin}</Text>
+        <Text style={{ color: '#94a3b8', fontSize: 12 }}>Email: {user?.email}</Text>
+        <TouchableOpacity 
+          onPress={() => loadVerificationStatus()}
+          style={{ marginTop: 8, backgroundColor: '#ef4444', padding: 8, borderRadius: 8 }}
+        >
+          <Text style={{ color: '#fff', textAlign: 'center', fontWeight: '600' }}>🔄 Recharger statut</Text>
+        </TouchableOpacity>
+      </View>
+
       {/* Menu */}
+      {/* 👨‍💼 Section Admin (visible uniquement pour les admins) */}
+      {isAdmin && (
+        <View style={styles.section}>
+          <View style={[styles.sectionHeader, { marginBottom: 12 }]}>
+            <Text style={styles.sectionTitle}>
+              <Ionicons name="shield-checkmark" size={20} color="#fbbf24" /> Administration
+            </Text>
+            <View style={{
+              backgroundColor: 'rgba(251, 191, 36, 0.15)',
+              paddingHorizontal: 8,
+              paddingVertical: 2,
+              borderRadius: 6,
+            }}>
+              <Text style={{ fontSize: 10, fontWeight: '700', color: '#fbbf24' }}>ADMIN</Text>
+            </View>
+          </View>
+          <TouchableOpacity
+            style={[styles.menuItem, {
+              backgroundColor: 'rgba(251, 191, 36, 0.08)',
+              borderWidth: 1,
+              borderColor: 'rgba(251, 191, 36, 0.2)',
+            }]}
+            onPress={() => setShowAdminPanel(true)}
+            activeOpacity={0.7}
+          >
+            <View style={[styles.menuIconWrapper, { backgroundColor: 'rgba(251, 191, 36, 0.2)' }]}>
+              <Ionicons name="shield-checkmark" size={20} color="#fbbf24" />
+            </View>
+            <Text style={styles.menuTitle}>Panel Admin</Text>
+            <Ionicons name="chevron-forward" size={20} color="rgba(251, 191, 36, 0.5)" />
+          </TouchableOpacity>
+        </View>
+      )}
+
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Compte</Text>
         <TouchableOpacity
@@ -1094,6 +1190,7 @@ export default function App() {
       </View>
     </ScrollView>
   );
+};
 
   // If showing subscription screen
   if (showSubscription) {
@@ -1117,6 +1214,11 @@ export default function App() {
 
   if (showBadges) {
     return <BadgesScreen onBack={() => setShowBadges(false)} currentUserId={currentUserId} />;
+  }
+
+  // 👨‍💼 If showing admin panel
+  if (showAdminPanel) {
+    return <AdminPanelScreen onBack={() => setShowAdminPanel(false)} />;
   }
 
   // If showing group detail screen

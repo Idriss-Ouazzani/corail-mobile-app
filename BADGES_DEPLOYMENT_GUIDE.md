@@ -278,3 +278,4 @@ WHERE creator_id = :user_id
 
 **🎉 Le système de badges est maintenant complet et prêt pour la production ! 🏆**
 
+

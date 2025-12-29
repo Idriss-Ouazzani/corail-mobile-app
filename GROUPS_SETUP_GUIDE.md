@@ -401,3 +401,4 @@ SELECT * FROM group_members WHERE group_id = 'GROUP_ID' AND user_id = 'TON_USER_
 
 **Pour les emails/notifications, voir** `INVITATIONS_SYSTEM.md`
 
+

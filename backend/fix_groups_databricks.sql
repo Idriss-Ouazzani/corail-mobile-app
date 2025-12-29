@@ -134,3 +134,4 @@ JOIN groups g ON gm.group_id = g.id
 LEFT JOIN users inviter ON gm.invited_by = inviter.id
 WHERE gm.status = 'PENDING';
 
+

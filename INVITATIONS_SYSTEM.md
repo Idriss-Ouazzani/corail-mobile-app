@@ -287,3 +287,4 @@ Bottom Navigation:
 
 🎊 **Pour l'instant, concentrons-nous sur Phase 2 : faire fonctionner les invitations dans l'app, puis on ajoutera les emails !**
 
+

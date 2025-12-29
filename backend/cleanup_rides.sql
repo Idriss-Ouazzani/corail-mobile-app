@@ -63,3 +63,4 @@ SELECT
   COUNT(CASE WHEN status = 'COMPLETED' THEN 1 END) as completed
 FROM rides;
 
+

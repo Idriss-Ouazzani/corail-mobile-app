@@ -58,3 +58,4 @@ DESCRIBE io_catalog.corail.users;
 -- Voir les vérifications en attente :
 SELECT * FROM io_catalog.corail.v_pending_verifications;
 
+

@@ -46,6 +46,7 @@ class User(BaseModel):
     professional_card_number: Optional[str] = None
     siren: Optional[str] = None
     phone: Optional[str] = None
+    is_admin: Optional[bool] = False
 
 
 class GroupMember(BaseModel):
@@ -922,7 +923,8 @@ async def get_verification_status(user_id: str = CurrentUser):
             professional_card_number,
             siren,
             verification_submitted_at,
-            verification_rejection_reason
+            verification_rejection_reason,
+            is_admin
         FROM users
         WHERE id = :user_id
         """
@@ -1006,9 +1008,17 @@ async def review_verification(
 ):
     """
     [ADMIN] Valider ou rejeter une vérification
-    TODO: Ajouter vérification des droits admin
     """
     try:
+        # Vérifier que l'utilisateur qui fait la requête est admin
+        admin_check = db.execute_query(
+            "SELECT is_admin FROM users WHERE id = :admin_id",
+            {"admin_id": admin_id}
+        )
+        
+        if not admin_check or not admin_check[0].get('is_admin'):
+            raise HTTPException(status_code=403, detail="Admin privileges required")
+        
         if review.status not in ["VERIFIED", "REJECTED"]:
             raise HTTPException(status_code=400, detail="Status must be VERIFIED or REJECTED")
         

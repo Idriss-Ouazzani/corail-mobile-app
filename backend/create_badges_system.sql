@@ -90,3 +90,4 @@ ORDER BY ub.earned_at DESC;
 -- Pour voir les badges d'un utilisateur :
 -- SELECT * FROM io_catalog.vtcmarket.v_user_badges_with_details WHERE user_id = 'ton-user-id';
 
+

@@ -57,3 +57,4 @@ INSERT INTO rides (id, creator_id, pickup_address, dropoff_address, scheduled_at
 
 SELECT 'Script terminé ! ' || COUNT(*) || ' courses ajoutées.' AS result FROM rides WHERE created_at >= CURRENT_TIMESTAMP() - INTERVAL 1 MINUTE;
 
+

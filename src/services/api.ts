@@ -223,6 +223,25 @@ class ApiClient {
     return data;
   }
 
+  /**
+   * [ADMIN] Récupérer toutes les vérifications en attente
+   */
+  async getPendingVerifications() {
+    const { data } = await this.client.get('/admin/verification/pending');
+    return data;
+  }
+
+  /**
+   * [ADMIN] Valider ou rejeter une vérification
+   */
+  async reviewVerification(userId: string, review: {
+    status: 'VERIFIED' | 'REJECTED';
+    rejection_reason?: string;
+  }) {
+    const { data } = await this.client.post(`/admin/verification/${userId}/review`, review);
+    return data;
+  }
+
   // ============================================================================
   // 🏆 BADGES
   // ============================================================================

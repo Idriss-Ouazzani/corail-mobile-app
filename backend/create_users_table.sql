@@ -60,3 +60,4 @@ FROM rides r
 LEFT JOIN users u ON r.creator_id = u.id
 LIMIT 10;
 
+

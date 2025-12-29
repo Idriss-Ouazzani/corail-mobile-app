@@ -384,3 +384,4 @@ Si `loadVerificationStatus()` échoue (utilisateur pas dans Databricks), le stat
 
 **Sécurité** : Seuls les VTC professionnels vérifiés peuvent utiliser la plateforme ! 🔒✅
 
+

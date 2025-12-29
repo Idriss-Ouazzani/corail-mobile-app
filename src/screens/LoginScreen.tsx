@@ -79,16 +79,22 @@ export default function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
         console.log('📝 Création compte Firebase...');
         const user = await firebaseAuth.signUp(email.trim(), password);
         
-        // 2. Créer l'utilisateur dans Databricks avec status UNVERIFIED
+        // 2. Formater le nom (capitaliser première lettre de chaque mot)
+        const formattedName = fullName.trim()
+          .split(' ')
+          .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+          .join(' ');
+        
+        // 3. Créer l'utilisateur dans Databricks avec status UNVERIFIED
         console.log('💾 Création utilisateur Databricks...');
         try {
           await apiClient.createUser({
             id: user.uid,
             email: email.trim(),
-            full_name: fullName.trim(),
+            full_name: formattedName,
             verification_status: 'UNVERIFIED',
           });
-          console.log('✅ Utilisateur créé dans Databricks');
+          console.log('✅ Utilisateur créé dans Databricks avec nom formaté:', formattedName);
         } catch (dbError: any) {
           console.error('❌ Erreur création utilisateur Databricks:', dbError);
           // Continue quand même, l'utilisateur sera créé au premier login

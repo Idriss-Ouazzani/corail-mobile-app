@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -10,18 +10,52 @@ import {
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
+import { firebaseAuth } from '../services/firebase';
+import { apiClient } from '../services/api';
 
 interface PersonalInfoScreenProps {
   onBack: () => void;
 }
 
-export const PersonalInfoScreen: React.FC<PersonalInfoScreenProps> = ({ onBack }) => {
-  const [fullName, setFullName] = useState('Hassan Al Masri');
-  const [email, setEmail] = useState('hassan.almasri@vtcpro.fr');
-  const [phone, setPhone] = useState('+33 6 12 34 56 78');
-  const [address, setAddress] = useState('15 Rue de la République, 31000 Toulouse');
-  const [siret, setSiret] = useState('123 456 789 00012');
+const PersonalInfoScreen: React.FC<PersonalInfoScreenProps> = ({ onBack }) => {
+  const [fullName, setFullName] = useState('');
+  const [email, setEmail] = useState('');
+  const [phone, setPhone] = useState('');
+  const [address, setAddress] = useState('');
+  const [siret, setSiret] = useState('');
   const [isEditing, setIsEditing] = useState(false);
+  const [loading, setLoading] = useState(true);
+
+  // Charger les données utilisateur au montage
+  useEffect(() => {
+    loadUserData();
+  }, []);
+
+  const loadUserData = async () => {
+    try {
+      setLoading(true);
+      const currentUser = firebaseAuth.currentUser;
+      if (!currentUser) return;
+
+      // Charger les données depuis l'API
+      const response = await apiClient.getVerificationStatus();
+      
+      setFullName(response.full_name || '');
+      setEmail(response.email || currentUser.email || '');
+      setPhone(response.phone || '');
+      setSiret(response.siren || '');
+      // address n'est pas encore dans le backend, on garde vide pour l'instant
+    } catch (error) {
+      console.error('Erreur chargement données:', error);
+      // Fallback sur Firebase email
+      const currentUser = firebaseAuth.currentUser;
+      if (currentUser?.email) {
+        setEmail(currentUser.email);
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleSave = () => {
     Alert.alert('Succès', 'Informations mises à jour avec succès !');
@@ -329,4 +363,3 @@ const styles = StyleSheet.create({
 });
 
 export default PersonalInfoScreen;
-

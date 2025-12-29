@@ -108,3 +108,4 @@ App Mobile → Render.com (FastAPI) → Databricks (Data)
 
 Pour éviter le "sleep" : upgrade vers plan payant ($7/mois) ou utilise un service de ping.
 
+

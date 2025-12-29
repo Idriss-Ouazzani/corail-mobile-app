@@ -26,3 +26,4 @@ ALLOWED_ORIGINS = [
     "*"  # Pour dev - à restreindre en prod
 ]
 
+
