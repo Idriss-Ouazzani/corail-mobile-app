@@ -1,6 +1,6 @@
 /**
  * PersonalRidesScreen - Enregistrement et historique des courses externes
- * (Uber, Bolt, Direct Client, etc.)
+ * Design cohérent avec le reste de l'app, élégant et raffiné
  */
 
 import React, { useState, useEffect } from 'react';
@@ -16,8 +16,10 @@ import {
   KeyboardAvoidingView,
   RefreshControl,
   ActivityIndicator,
+  StatusBar,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
+import { Ionicons } from '@expo/vector-icons';
 import { apiClient } from '../services/api';
 
 interface PersonalRide {
@@ -141,7 +143,7 @@ export default function PersonalRidesScreen({ onClose }: { onClose: () => void }
 
       await apiClient.createPersonalRide(rideData);
 
-      Alert.alert('✅ Course enregistrée', 'La course a été ajoutée à votre historique');
+      Alert.alert('Succès', 'Course enregistrée avec succès');
 
       // Reset form
       setPickupAddress('');
@@ -166,6 +168,28 @@ export default function PersonalRidesScreen({ onClose }: { onClose: () => void }
     }
   };
 
+  const getSourceLabel = (src: string) => {
+    switch (src) {
+      case 'UBER': return 'Uber';
+      case 'BOLT': return 'Bolt';
+      case 'DIRECT_CLIENT': return 'Client Direct';
+      case 'MARKETPLACE': return 'Marketplace';
+      case 'OTHER': return 'Autre';
+      default: return src;
+    }
+  };
+
+  const getSourceIcon = (src: string) => {
+    switch (src) {
+      case 'UBER': return 'car';
+      case 'BOLT': return 'flash';
+      case 'DIRECT_CLIENT': return 'person';
+      case 'MARKETPLACE': return 'storefront';
+      case 'OTHER': return 'document-text';
+      default: return 'help-circle';
+    }
+  };
+
   const renderAddForm = () => (
     <KeyboardAvoidingView
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
@@ -173,7 +197,7 @@ export default function PersonalRidesScreen({ onClose }: { onClose: () => void }
     >
       <ScrollView style={styles.formContainer} showsVerticalScrollIndicator={false}>
         {/* Source */}
-        <Text style={styles.label}>Plateforme / Source *</Text>
+        <Text style={styles.label}>Plateforme</Text>
         <View style={styles.sourceButtons}>
           {(['UBER', 'BOLT', 'DIRECT_CLIENT', 'OTHER'] as const).map((src) => (
             <TouchableOpacity
@@ -181,35 +205,38 @@ export default function PersonalRidesScreen({ onClose }: { onClose: () => void }
               style={[styles.sourceButton, source === src && styles.sourceButtonActive]}
               onPress={() => setSource(src)}
             >
+              <Ionicons 
+                name={getSourceIcon(src) as any} 
+                size={16} 
+                color={source === src ? '#6366f1' : '#64748b'} 
+                style={{ marginRight: 6 }}
+              />
               <Text
                 style={[styles.sourceButtonText, source === src && styles.sourceButtonTextActive]}
               >
-                {src === 'UBER' && '🚗 Uber'}
-                {src === 'BOLT' && '⚡ Bolt'}
-                {src === 'DIRECT_CLIENT' && '👤 Client Direct'}
-                {src === 'OTHER' && '📋 Autre'}
+                {getSourceLabel(src)}
               </Text>
             </TouchableOpacity>
           ))}
         </View>
 
         {/* Adresses */}
-        <Text style={styles.label}>Adresse de départ *</Text>
+        <Text style={styles.label}>Adresse de départ</Text>
         <TextInput
           style={styles.input}
           value={pickupAddress}
           onChangeText={setPickupAddress}
           placeholder="Ex: Gare Toulouse-Matabiau"
-          placeholderTextColor="#999"
+          placeholderTextColor="#64748b"
         />
 
-        <Text style={styles.label}>Adresse d'arrivée *</Text>
+        <Text style={styles.label}>Adresse d'arrivée</Text>
         <TextInput
           style={styles.input}
           value={dropoffAddress}
           onChangeText={setDropoffAddress}
           placeholder="Ex: Aéroport Toulouse-Blagnac"
-          placeholderTextColor="#999"
+          placeholderTextColor="#64748b"
         />
 
         {/* Informations financières et trajet */}
@@ -222,7 +249,7 @@ export default function PersonalRidesScreen({ onClose }: { onClose: () => void }
               onChangeText={setPrice}
               placeholder="28.00"
               keyboardType="decimal-pad"
-              placeholderTextColor="#999"
+              placeholderTextColor="#64748b"
             />
           </View>
 
@@ -234,7 +261,7 @@ export default function PersonalRidesScreen({ onClose }: { onClose: () => void }
               onChangeText={setDistance}
               placeholder="12.5"
               keyboardType="decimal-pad"
-              placeholderTextColor="#999"
+              placeholderTextColor="#64748b"
             />
           </View>
         </View>
@@ -248,7 +275,7 @@ export default function PersonalRidesScreen({ onClose }: { onClose: () => void }
               onChangeText={setDuration}
               placeholder="25"
               keyboardType="number-pad"
-              placeholderTextColor="#999"
+              placeholderTextColor="#64748b"
             />
           </View>
         </View>
@@ -262,7 +289,7 @@ export default function PersonalRidesScreen({ onClose }: { onClose: () => void }
               value={clientName}
               onChangeText={setClientName}
               placeholder="Jean Dupont"
-              placeholderTextColor="#999"
+              placeholderTextColor="#64748b"
             />
 
             <Text style={styles.label}>Téléphone du client</Text>
@@ -272,7 +299,7 @@ export default function PersonalRidesScreen({ onClose }: { onClose: () => void }
               onChangeText={setClientPhone}
               placeholder="+33 6 12 34 56 78"
               keyboardType="phone-pad"
-              placeholderTextColor="#999"
+              placeholderTextColor="#64748b"
             />
           </>
         )}
@@ -284,7 +311,7 @@ export default function PersonalRidesScreen({ onClose }: { onClose: () => void }
           value={notes}
           onChangeText={setNotes}
           placeholder="Notes personnelles..."
-          placeholderTextColor="#999"
+          placeholderTextColor="#64748b"
           multiline
           numberOfLines={3}
         />
@@ -295,11 +322,21 @@ export default function PersonalRidesScreen({ onClose }: { onClose: () => void }
           onPress={handleSubmit}
           disabled={loading}
         >
-          {loading ? (
-            <ActivityIndicator color="#fff" />
-          ) : (
-            <Text style={styles.submitButtonText}>✅ Enregistrer la course</Text>
-          )}
+          <LinearGradient
+            colors={['#6366f1', '#8b5cf6']}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 0 }}
+            style={styles.submitButtonGradient}
+          >
+            {loading ? (
+              <ActivityIndicator color="#fff" />
+            ) : (
+              <>
+                <Ionicons name="checkmark-circle" size={20} color="#fff" style={{ marginRight: 8 }} />
+                <Text style={styles.submitButtonText}>Enregistrer la course</Text>
+              </>
+            )}
+          </LinearGradient>
         </TouchableOpacity>
 
         <View style={{ height: 40 }} />
@@ -314,10 +351,10 @@ export default function PersonalRidesScreen({ onClose }: { onClose: () => void }
       showsVerticalScrollIndicator={false}
     >
       {loading && !refreshing ? (
-        <ActivityIndicator size="large" color="#FF6B6B" style={{ marginTop: 40 }} />
+        <ActivityIndicator size="large" color="#6366f1" style={{ marginTop: 40 }} />
       ) : rides.length === 0 ? (
         <View style={styles.emptyState}>
-          <Text style={styles.emptyStateIcon}>🚗</Text>
+          <Ionicons name="car-outline" size={64} color="#475569" />
           <Text style={styles.emptyStateText}>Aucune course enregistrée</Text>
           <Text style={styles.emptyStateSubtext}>Enregistrez votre première course !</Text>
         </View>
@@ -325,41 +362,51 @@ export default function PersonalRidesScreen({ onClose }: { onClose: () => void }
         rides.map((ride) => (
           <View key={ride.id} style={styles.rideCard}>
             <View style={styles.rideHeader}>
-              <Text style={styles.rideSource}>
-                {ride.source === 'UBER' && '🚗 Uber'}
-                {ride.source === 'BOLT' && '⚡ Bolt'}
-                {ride.source === 'DIRECT_CLIENT' && '👤 Client Direct'}
-                {ride.source === 'MARKETPLACE' && '🏪 Marketplace'}
-                {ride.source === 'OTHER' && '📋 Autre'}
-              </Text>
+              <View style={styles.rideSourceBadge}>
+                <Ionicons name={getSourceIcon(ride.source) as any} size={14} color="#6366f1" />
+                <Text style={styles.rideSource}>{getSourceLabel(ride.source)}</Text>
+              </View>
               <Text style={styles.ridePrice}>
                 {ride.price_cents ? `${(ride.price_cents / 100).toFixed(2)} €` : '—'}
               </Text>
             </View>
 
-            <Text style={styles.rideRoute}>
-              📍 {ride.pickup_address}
-            </Text>
-            <Text style={styles.rideRoute}>
-              🎯 {ride.dropoff_address}
-            </Text>
+            <View style={styles.rideRouteContainer}>
+              <Ionicons name="location" size={16} color="#64748b" />
+              <Text style={styles.rideRoute}>{ride.pickup_address}</Text>
+            </View>
+            <View style={styles.rideRouteContainer}>
+              <Ionicons name="flag" size={16} color="#64748b" />
+              <Text style={styles.rideRoute}>{ride.dropoff_address}</Text>
+            </View>
 
             {(ride.distance_km || ride.duration_minutes) && (
               <View style={styles.rideDetails}>
                 {ride.distance_km && (
-                  <Text style={styles.rideDetailText}>📏 {ride.distance_km} km</Text>
+                  <View style={styles.rideDetailItem}>
+                    <Ionicons name="resize" size={14} color="#94a3b8" />
+                    <Text style={styles.rideDetailText}>{ride.distance_km} km</Text>
+                  </View>
                 )}
                 {ride.duration_minutes && (
-                  <Text style={styles.rideDetailText}>⏱️ {ride.duration_minutes} min</Text>
+                  <View style={styles.rideDetailItem}>
+                    <Ionicons name="time" size={14} color="#94a3b8" />
+                    <Text style={styles.rideDetailText}>{ride.duration_minutes} min</Text>
+                  </View>
                 )}
               </View>
             )}
 
             {ride.client_name && (
-              <Text style={styles.rideClientName}>👤 {ride.client_name}</Text>
+              <View style={styles.rideClientContainer}>
+                <Ionicons name="person" size={14} color="#94a3b8" />
+                <Text style={styles.rideClientName}>{ride.client_name}</Text>
+              </View>
             )}
 
-            {ride.notes && <Text style={styles.rideNotes}>💭 {ride.notes}</Text>}
+            {ride.notes && (
+              <Text style={styles.rideNotes}>{ride.notes}</Text>
+            )}
 
             <Text style={styles.rideDate}>
               {new Date(ride.completed_at || ride.created_at).toLocaleDateString('fr-FR', {
@@ -385,12 +432,15 @@ export default function PersonalRidesScreen({ onClose }: { onClose: () => void }
       showsVerticalScrollIndicator={false}
     >
       {loading && !refreshing ? (
-        <ActivityIndicator size="large" color="#FF6B6B" style={{ marginTop: 40 }} />
+        <ActivityIndicator size="large" color="#6366f1" style={{ marginTop: 40 }} />
       ) : stats ? (
         <>
           {/* Totaux globaux */}
           <View style={styles.statsCard}>
-            <Text style={styles.statsCardTitle}>📊 Vue d'ensemble</Text>
+            <View style={styles.statsCardHeader}>
+              <Ionicons name="analytics" size={20} color="#6366f1" />
+              <Text style={styles.statsCardTitle}>Vue d'ensemble</Text>
+            </View>
             <View style={styles.statRow}>
               <Text style={styles.statLabel}>Total courses</Text>
               <Text style={styles.statValue}>{stats.totals.total_rides || 0}</Text>
@@ -416,13 +466,10 @@ export default function PersonalRidesScreen({ onClose }: { onClose: () => void }
           {/* Par source */}
           {stats.by_source.map((sourceStats) => (
             <View key={sourceStats.source} style={styles.statsCard}>
-              <Text style={styles.statsCardTitle}>
-                {sourceStats.source === 'UBER' && '🚗 Uber'}
-                {sourceStats.source === 'BOLT' && '⚡ Bolt'}
-                {sourceStats.source === 'DIRECT_CLIENT' && '👤 Client Direct'}
-                {sourceStats.source === 'MARKETPLACE' && '🏪 Marketplace'}
-                {sourceStats.source === 'OTHER' && '📋 Autre'}
-              </Text>
+              <View style={styles.statsCardHeader}>
+                <Ionicons name={getSourceIcon(sourceStats.source) as any} size={20} color="#6366f1" />
+                <Text style={styles.statsCardTitle}>{getSourceLabel(sourceStats.source)}</Text>
+              </View>
               <View style={styles.statRow}>
                 <Text style={styles.statLabel}>Courses complétées</Text>
                 <Text style={styles.statValue}>{sourceStats.completed_rides}</Text>
@@ -448,7 +495,7 @@ export default function PersonalRidesScreen({ onClose }: { onClose: () => void }
         </>
       ) : (
         <View style={styles.emptyState}>
-          <Text style={styles.emptyStateIcon}>📊</Text>
+          <Ionicons name="stats-chart-outline" size={64} color="#475569" />
           <Text style={styles.emptyStateText}>Aucune statistique disponible</Text>
         </View>
       )}
@@ -459,25 +506,39 @@ export default function PersonalRidesScreen({ onClose }: { onClose: () => void }
 
   return (
     <View style={styles.container}>
-      {/* Header */}
-      <LinearGradient colors={['#FF6B6B', '#FFA07A']} style={styles.header}>
-        <TouchableOpacity onPress={onClose} style={styles.closeButton}>
-          <Text style={styles.closeButtonText}>✕</Text>
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>📝 Mes Courses</Text>
-        <Text style={styles.headerSubtitle}>
-          Enregistrez toutes vos courses (Uber, Bolt, Direct...)
-        </Text>
+      <StatusBar barStyle="light-content" />
+      
+      {/* Header - Style cohérent avec le reste de l'app */}
+      <LinearGradient 
+        colors={['#0f172a', '#1e293b']} 
+        style={styles.header}
+      >
+        <View style={styles.headerContent}>
+          <View style={styles.headerLeft}>
+            <TouchableOpacity 
+              onPress={onClose} 
+              style={styles.backButton}
+              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+            >
+              <Ionicons name="arrow-back" size={24} color="#e2e8f0" />
+            </TouchableOpacity>
+            <View>
+              <Text style={styles.headerTitle}>Mes Courses</Text>
+              <Text style={styles.headerSubtitle}>Enregistrez toutes vos courses</Text>
+            </View>
+          </View>
+        </View>
       </LinearGradient>
 
-      {/* Tabs */}
+      {/* Tabs - Style cohérent */}
       <View style={styles.tabs}>
         <TouchableOpacity
           style={[styles.tab, tab === 'add' && styles.tabActive]}
           onPress={() => setTab('add')}
         >
+          <Ionicons name="add-circle-outline" size={18} color={tab === 'add' ? '#fff' : '#64748b'} />
           <Text style={[styles.tabText, tab === 'add' && styles.tabTextActive]}>
-            ➕ Ajouter
+            Ajouter
           </Text>
         </TouchableOpacity>
 
@@ -485,8 +546,9 @@ export default function PersonalRidesScreen({ onClose }: { onClose: () => void }
           style={[styles.tab, tab === 'history' && styles.tabActive]}
           onPress={() => setTab('history')}
         >
+          <Ionicons name="list" size={18} color={tab === 'history' ? '#fff' : '#64748b'} />
           <Text style={[styles.tabText, tab === 'history' && styles.tabTextActive]}>
-            📚 Historique
+            Historique
           </Text>
         </TouchableOpacity>
 
@@ -494,8 +556,9 @@ export default function PersonalRidesScreen({ onClose }: { onClose: () => void }
           style={[styles.tab, tab === 'stats' && styles.tabActive]}
           onPress={() => setTab('stats')}
         >
+          <Ionicons name="bar-chart" size={18} color={tab === 'stats' ? '#fff' : '#64748b'} />
           <Text style={[styles.tabText, tab === 'stats' && styles.tabTextActive]}>
-            📊 Stats
+            Statistiques
           </Text>
         </TouchableOpacity>
       </View>
@@ -511,68 +574,62 @@ export default function PersonalRidesScreen({ onClose }: { onClose: () => void }
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F8F9FA',
+    backgroundColor: '#0f172a',
   },
   header: {
     paddingTop: 60,
-    paddingBottom: 30,
+    paddingBottom: 20,
     paddingHorizontal: 20,
-    borderBottomLeftRadius: 30,
-    borderBottomRightRadius: 30,
-    position: 'relative',
   },
-  closeButton: {
-    position: 'absolute',
-    top: 55,
-    right: 20,
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: 'rgba(255,255,255,0.3)',
+  headerContent: {
+    flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
+    justifyContent: 'space-between',
   },
-  closeButtonText: {
-    fontSize: 20,
-    color: '#fff',
-    fontWeight: '600',
+  headerLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  backButton: {
+    marginRight: 16,
+    padding: 4,
   },
   headerTitle: {
-    fontSize: 28,
+    fontSize: 24,
     fontWeight: '700',
-    color: '#fff',
-    marginBottom: 8,
+    color: '#e2e8f0',
+    letterSpacing: 0.5,
   },
   headerSubtitle: {
-    fontSize: 15,
-    color: 'rgba(255,255,255,0.9)',
+    fontSize: 14,
+    color: '#94a3b8',
+    marginTop: 2,
   },
   tabs: {
     flexDirection: 'row',
-    backgroundColor: '#fff',
+    backgroundColor: '#1e293b',
     marginHorizontal: 20,
-    marginTop: 20,
+    marginTop: 16,
+    marginBottom: 16,
     borderRadius: 12,
     padding: 4,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
   },
   tab: {
     flex: 1,
-    paddingVertical: 12,
+    flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 10,
     borderRadius: 8,
+    gap: 6,
   },
   tabActive: {
-    backgroundColor: '#FF6B6B',
+    backgroundColor: '#6366f1',
   },
   tabText: {
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: '600',
-    color: '#666',
+    color: '#64748b',
   },
   tabTextActive: {
     color: '#fff',
@@ -580,24 +637,23 @@ const styles = StyleSheet.create({
   formContainer: {
     flex: 1,
     paddingHorizontal: 20,
-    paddingTop: 20,
   },
   label: {
-    fontSize: 15,
+    fontSize: 14,
     fontWeight: '600',
-    color: '#333',
+    color: '#cbd5e1',
     marginBottom: 8,
     marginTop: 16,
   },
   input: {
-    backgroundColor: '#fff',
+    backgroundColor: '#1e293b',
     borderRadius: 12,
     paddingHorizontal: 16,
     paddingVertical: 14,
-    fontSize: 16,
-    color: '#333',
+    fontSize: 15,
+    color: '#e2e8f0',
     borderWidth: 1,
-    borderColor: '#E0E0E0',
+    borderColor: '#334155',
   },
   textArea: {
     minHeight: 80,
@@ -606,73 +662,69 @@ const styles = StyleSheet.create({
   row: {
     flexDirection: 'row',
     justifyContent: 'space-between',
+    gap: 12,
   },
   halfInput: {
     flex: 1,
-    marginRight: 10,
   },
   sourceButtons: {
     flexDirection: 'row',
     flexWrap: 'wrap',
+    gap: 10,
     marginBottom: 8,
   },
   sourceButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
     paddingVertical: 10,
     paddingHorizontal: 16,
-    borderRadius: 20,
-    backgroundColor: '#fff',
-    borderWidth: 2,
-    borderColor: '#E0E0E0',
-    marginRight: 10,
-    marginBottom: 10,
+    borderRadius: 10,
+    backgroundColor: '#1e293b',
+    borderWidth: 1,
+    borderColor: '#334155',
   },
   sourceButtonActive: {
-    borderColor: '#FF6B6B',
-    backgroundColor: '#FFF5F5',
+    borderColor: '#6366f1',
+    backgroundColor: 'rgba(99, 102, 241, 0.1)',
   },
   sourceButtonText: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#666',
+    color: '#64748b',
   },
   sourceButtonTextActive: {
-    color: '#FF6B6B',
+    color: '#6366f1',
   },
   submitButton: {
-    backgroundColor: '#FF6B6B',
-    borderRadius: 12,
-    paddingVertical: 16,
-    alignItems: 'center',
     marginTop: 24,
-    shadowColor: '#FF6B6B',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 5,
+    borderRadius: 12,
+    overflow: 'hidden',
+  },
+  submitButtonGradient: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 16,
   },
   submitButtonDisabled: {
     opacity: 0.6,
   },
   submitButtonText: {
-    fontSize: 17,
+    fontSize: 16,
     fontWeight: '700',
     color: '#fff',
   },
   historyContainer: {
     flex: 1,
     paddingHorizontal: 20,
-    paddingTop: 20,
   },
   rideCard: {
-    backgroundColor: '#fff',
+    backgroundColor: '#1e293b',
     borderRadius: 16,
     padding: 16,
-    marginBottom: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
-    shadowRadius: 8,
-    elevation: 3,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: '#334155',
   },
   rideHeader: {
     flexDirection: 'row',
@@ -680,71 +732,96 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 12,
   },
+  rideSourceBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(99, 102, 241, 0.1)',
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 8,
+    gap: 6,
+  },
   rideSource: {
-    fontSize: 16,
+    fontSize: 13,
     fontWeight: '700',
-    color: '#FF6B6B',
+    color: '#6366f1',
   },
   ridePrice: {
-    fontSize: 18,
+    fontSize: 17,
     fontWeight: '700',
-    color: '#333',
+    color: '#e2e8f0',
+  },
+  rideRouteContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 6,
+    gap: 8,
   },
   rideRoute: {
     fontSize: 14,
-    color: '#555',
-    marginBottom: 4,
+    color: '#cbd5e1',
+    flex: 1,
   },
   rideDetails: {
     flexDirection: 'row',
     marginTop: 8,
-    marginBottom: 8,
+    gap: 16,
+  },
+  rideDetailItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
   },
   rideDetailText: {
     fontSize: 13,
-    color: '#888',
-    marginRight: 16,
+    color: '#94a3b8',
+  },
+  rideClientContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 8,
+    gap: 6,
   },
   rideClientName: {
-    fontSize: 14,
-    color: '#666',
-    marginTop: 4,
+    fontSize: 13,
+    color: '#94a3b8',
   },
   rideNotes: {
     fontSize: 13,
-    color: '#777',
+    color: '#94a3b8',
     fontStyle: 'italic',
     marginTop: 8,
     paddingTop: 8,
     borderTopWidth: 1,
-    borderTopColor: '#F0F0F0',
+    borderTopColor: '#334155',
   },
   rideDate: {
     fontSize: 12,
-    color: '#999',
+    color: '#64748b',
     marginTop: 8,
   },
   statsContainer: {
     flex: 1,
     paddingHorizontal: 20,
-    paddingTop: 20,
   },
   statsCard: {
-    backgroundColor: '#fff',
+    backgroundColor: '#1e293b',
     borderRadius: 16,
     padding: 20,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: '#334155',
+  },
+  statsCardHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
     marginBottom: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
-    shadowRadius: 8,
-    elevation: 3,
+    gap: 10,
   },
   statsCardTitle: {
-    fontSize: 18,
+    fontSize: 17,
     fontWeight: '700',
-    color: '#333',
-    marginBottom: 16,
+    color: '#e2e8f0',
   },
   statRow: {
     flexDirection: 'row',
@@ -753,17 +830,17 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   statLabel: {
-    fontSize: 15,
-    color: '#666',
+    fontSize: 14,
+    color: '#94a3b8',
   },
   statValue: {
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: '600',
-    color: '#333',
+    color: '#cbd5e1',
   },
   statValueHighlight: {
-    color: '#FF6B6B',
-    fontSize: 18,
+    color: '#6366f1',
+    fontSize: 17,
     fontWeight: '700',
   },
   emptyState: {
@@ -771,19 +848,15 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     paddingVertical: 60,
   },
-  emptyStateIcon: {
-    fontSize: 64,
-    marginBottom: 16,
-  },
   emptyStateText: {
-    fontSize: 18,
+    fontSize: 17,
     fontWeight: '600',
-    color: '#666',
+    color: '#cbd5e1',
+    marginTop: 16,
     marginBottom: 8,
   },
   emptyStateSubtext: {
     fontSize: 14,
-    color: '#999',
+    color: '#64748b',
   },
 });
-
