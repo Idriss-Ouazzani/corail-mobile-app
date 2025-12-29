@@ -172,87 +172,97 @@ const formatName = (name: string): string => {
 };
 
 /**
- * Composant d'écran de chargement avec animation
+ * Composant d'écran de chargement avec animation élégante
  */
 const LoadingScreen: React.FC<{ message?: string }> = ({ message = 'Chargement...' }) => {
-  const pulseAnim = useRef(new Animated.Value(1)).current;
-  const rotateAnim = useRef(new Animated.Value(0)).current;
+  const breatheAnim = useRef(new Animated.Value(1)).current;
   const fadeAnim = useRef(new Animated.Value(0)).current;
+  const dot1 = useRef(new Animated.Value(0)).current;
+  const dot2 = useRef(new Animated.Value(0)).current;
+  const dot3 = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
-    // Animation de pulsation du logo
+    // Animation de "respiration" subtile du logo (très léger)
     Animated.loop(
       Animated.sequence([
-        Animated.timing(pulseAnim, {
-          toValue: 1.15,
-          duration: 1000,
+        Animated.timing(breatheAnim, {
+          toValue: 1.05,
+          duration: 2000,
           useNativeDriver: true,
         }),
-        Animated.timing(pulseAnim, {
+        Animated.timing(breatheAnim, {
           toValue: 1,
-          duration: 1000,
+          duration: 2000,
           useNativeDriver: true,
         }),
       ])
     ).start();
 
-    // Animation de rotation subtile
-    Animated.loop(
-      Animated.timing(rotateAnim, {
-        toValue: 1,
-        duration: 3000,
-        useNativeDriver: true,
-      })
-    ).start();
-
-    // Fade in du texte
+    // Fade in général
     Animated.timing(fadeAnim, {
       toValue: 1,
-      duration: 800,
+      duration: 600,
       useNativeDriver: true,
     }).start();
-  }, []);
 
-  const rotate = rotateAnim.interpolate({
-    inputRange: [0, 1],
-    outputRange: ['0deg', '360deg'],
-  });
+    // Animation des points élégants (séquentielle)
+    const animateDots = () => {
+      Animated.loop(
+        Animated.stagger(200, [
+          Animated.sequence([
+            Animated.timing(dot1, { toValue: 1, duration: 400, useNativeDriver: true }),
+            Animated.timing(dot1, { toValue: 0.3, duration: 400, useNativeDriver: true }),
+          ]),
+          Animated.sequence([
+            Animated.timing(dot2, { toValue: 1, duration: 400, useNativeDriver: true }),
+            Animated.timing(dot2, { toValue: 0.3, duration: 400, useNativeDriver: true }),
+          ]),
+          Animated.sequence([
+            Animated.timing(dot3, { toValue: 1, duration: 400, useNativeDriver: true }),
+            Animated.timing(dot3, { toValue: 0.3, duration: 400, useNativeDriver: true }),
+          ]),
+        ])
+      ).start();
+    };
+    animateDots();
+  }, []);
 
   return (
     <View style={styles.loadingContainer}>
-      <LinearGradient colors={['#0f172a', '#1e293b']} style={StyleSheet.absoluteFill}>
-        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
-          {/* Logo avec animations */}
+      <LinearGradient 
+        colors={['#0f172a', '#1e293b', '#0f172a']} 
+        style={StyleSheet.absoluteFill}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+      >
+        <Animated.View style={{ 
+          flex: 1, 
+          justifyContent: 'center', 
+          alignItems: 'center',
+          opacity: fadeAnim 
+        }}>
+          {/* Logo avec animation de respiration subtile */}
           <Animated.View
             style={{
-              transform: [{ scale: pulseAnim }, { rotate }],
+              transform: [{ scale: breatheAnim }],
+              marginBottom: 60,
             }}
           >
-            <View style={styles.logoGlow}>
-              <CoralLogo size={100} />
+            <View style={styles.logoContainer}>
+              <CoralLogo size={90} />
             </View>
           </Animated.View>
 
-          {/* Cercles de chargement décoratifs */}
-          <View style={styles.loadingRings}>
-            <View style={[styles.loadingRing, styles.loadingRing1]} />
-            <View style={[styles.loadingRing, styles.loadingRing2]} />
-            <View style={[styles.loadingRing, styles.loadingRing3]} />
+          {/* Message élégant */}
+          <Text style={styles.loadingText}>{message}</Text>
+
+          {/* Points de chargement minimalistes */}
+          <View style={styles.dotsContainer}>
+            <Animated.View style={[styles.dot, { opacity: dot1 }]} />
+            <Animated.View style={[styles.dot, { opacity: dot2 }]} />
+            <Animated.View style={[styles.dot, { opacity: dot3 }]} />
           </View>
-
-          {/* Spinner */}
-          <ActivityIndicator size="large" color="#ff6b47" style={{ marginTop: 40 }} />
-
-          {/* Message avec fade-in */}
-          <Animated.View style={{ opacity: fadeAnim, marginTop: 24, alignItems: 'center' }}>
-            <Text style={styles.loadingText}>{message}</Text>
-            <View style={styles.loadingDots}>
-              <View style={[styles.loadingDot, { animationDelay: '0s' }]} />
-              <View style={[styles.loadingDot, { animationDelay: '0.2s' }]} />
-              <View style={[styles.loadingDot, { animationDelay: '0.4s' }]} />
-            </View>
-          </Animated.View>
-        </View>
+        </Animated.View>
       </LinearGradient>
     </View>
   );
@@ -1535,56 +1545,33 @@ const styles = StyleSheet.create({
   loadingContainer: { flex: 1 },
   scrollContent: { paddingTop: 60, paddingBottom: 120, paddingHorizontal: 20 },
 
-  // 🎨 Loading Screen Styles
-  logoGlow: {
+  // 🎨 Loading Screen Styles - Élégant & Minimaliste
+  logoContainer: {
     shadowColor: '#ff6b47',
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.6,
-    shadowRadius: 30,
-    elevation: 20,
-  },
-  loadingRings: {
-    position: 'absolute',
-    width: 200,
-    height: 200,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  loadingRing: {
-    position: 'absolute',
-    borderRadius: 100,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 107, 71, 0.2)',
-  },
-  loadingRing1: {
-    width: 150,
-    height: 150,
-  },
-  loadingRing2: {
-    width: 180,
-    height: 180,
-  },
-  loadingRing3: {
-    width: 210,
-    height: 210,
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.15,
+    shadowRadius: 20,
+    elevation: 10,
   },
   loadingText: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#f1f5f9',
-    letterSpacing: 0.5,
+    fontSize: 15,
+    fontWeight: '400',
+    color: '#cbd5e1',
+    letterSpacing: 1.2,
+    textTransform: 'uppercase',
+    marginBottom: 24,
   },
-  loadingDots: {
+  dotsContainer: {
     flexDirection: 'row',
-    marginTop: 12,
-    gap: 6,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 12,
   },
-  loadingDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
+  dot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
     backgroundColor: '#ff6b47',
-    opacity: 0.6,
   },
 
   // Hero
