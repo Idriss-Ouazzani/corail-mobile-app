@@ -312,31 +312,14 @@ export default function App() {
   // ✅ Charger le statut de vérification
   const loadVerificationStatus = async () => {
     try {
-      console.log('🔄 Chargement statut de vérification...');
       const response = await apiClient.getVerificationStatus();
-      console.log('📦 Réponse complète:', JSON.stringify(response, null, 2));
       
       setVerificationStatus(response.verification_status || 'UNVERIFIED');
       setUserFullName(response.full_name || '');
       setVerificationSubmittedAt(response.verification_submitted_at);
-      
-      // 🚨 DEBUG: Log détaillé pour is_admin
-      console.log('🔍 response.is_admin RAW:', response.is_admin);
-      console.log('🔍 Type de response.is_admin:', typeof response.is_admin);
-      console.log('🔍 response.is_admin === true:', response.is_admin === true);
-      console.log('🔍 response.is_admin === "true":', response.is_admin === 'true');
-      
-      const adminValue = response.is_admin === true || response.is_admin === 'true';
-      setIsAdmin(adminValue);
-      
-      console.log('✅ Statut de vérification:', response.verification_status);
-      console.log('👤 Nom complet:', response.full_name);
-      console.log('📧 Email:', response.email);
-      console.log('👨‍💼 is_admin depuis API:', response.is_admin);
-      console.log('👨‍💼 isAdmin state FINAL:', adminValue);
+      setIsAdmin(response.is_admin === true || response.is_admin === 'true');
     } catch (error: any) {
       console.error('❌ Erreur chargement statut vérification:', error);
-      console.error('❌ Détails:', error.response?.data || error.message);
       // Par défaut, si l'utilisateur n'existe pas, on considère qu'il n'est pas vérifié
       setVerificationStatus('UNVERIFIED');
       setIsAdmin(false);
@@ -947,10 +930,6 @@ export default function App() {
   };
 
   const renderProfile = () => {
-    // 🚨 DEBUG: Log l'état isAdmin au moment du rendu
-    console.log('🎨 renderProfile() - isAdmin:', isAdmin);
-    console.log('🎨 renderProfile() - Type:', typeof isAdmin);
-    
     // Générer les initiales depuis le nom réel
     const getInitials = (name: string) => {
       if (!name) return '??';
@@ -1028,20 +1007,6 @@ export default function App() {
             Gagnez des badges en accomplissant des défis et objectifs
           </Text>
         </View>
-      </View>
-
-      {/* 🚨 DEBUG INFO - À SUPPRIMER APRÈS TEST */}
-      <View style={[styles.section, { backgroundColor: 'rgba(239, 68, 68, 0.1)', borderWidth: 1, borderColor: 'rgba(239, 68, 68, 0.3)', padding: 16, borderRadius: 12 }]}>
-        <Text style={{ color: '#ef4444', fontWeight: '700', fontSize: 14, marginBottom: 8 }}>🔍 DEBUG INFO</Text>
-        <Text style={{ color: '#94a3b8', fontSize: 12 }}>isAdmin state: {String(isAdmin)}</Text>
-        <Text style={{ color: '#94a3b8', fontSize: 12 }}>Type: {typeof isAdmin}</Text>
-        <Text style={{ color: '#94a3b8', fontSize: 12 }}>Email: {user?.email}</Text>
-        <TouchableOpacity 
-          onPress={() => loadVerificationStatus()}
-          style={{ marginTop: 8, backgroundColor: '#ef4444', padding: 8, borderRadius: 8 }}
-        >
-          <Text style={{ color: '#fff', textAlign: 'center', fontWeight: '600' }}>🔄 Recharger statut</Text>
-        </TouchableOpacity>
       </View>
 
       {/* Menu */}
