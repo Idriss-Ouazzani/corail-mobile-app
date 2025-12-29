@@ -220,6 +220,58 @@ export default function DashboardScreen({
           </View>
         </View>
 
+        {/* Comment fonctionnent les crédits ? */}
+        <View style={styles.creditsExplanationSection}>
+          <View style={styles.creditsExplanationHeader}>
+            <View style={styles.creditsIconLarge}>
+              <Text style={styles.creditsIconText}>C</Text>
+            </View>
+            <Text style={styles.creditsExplanationTitle}>Comment fonctionnent les crédits ?</Text>
+          </View>
+
+          <View style={styles.creditsExplanationContent}>
+            {/* Gagner des crédits */}
+            <View style={styles.creditsSection}>
+              <View style={styles.creditsSectionHeader}>
+                <Ionicons name="add-circle" size={18} color="#10b981" />
+                <Text style={styles.creditsSectionTitle}>Gagner des crédits</Text>
+              </View>
+              <View style={styles.creditItem}>
+                <View style={styles.creditDot} />
+                <Text style={styles.creditText}>
+                  <Text style={styles.creditBold}>+1 C</Text> à chaque course publiée sur la Marketplace
+                </Text>
+              </View>
+              <View style={styles.creditItem}>
+                <View style={styles.creditDot} />
+                <Text style={styles.creditText}>
+                  <Text style={styles.creditBold}>+1 C bonus</Text> quand votre course est prise et terminée
+                </Text>
+              </View>
+              <View style={styles.creditItem}>
+                <View style={styles.creditDot} />
+                <Text style={styles.creditText}>
+                  <Text style={styles.creditBold}>5 ou 10 C/mois</Text> avec un abonnement Premium/Platinum
+                </Text>
+              </View>
+            </View>
+
+            {/* Dépenser des crédits */}
+            <View style={styles.creditsSection}>
+              <View style={styles.creditsSectionHeader}>
+                <Ionicons name="remove-circle" size={18} color="#ff6b47" />
+                <Text style={styles.creditsSectionTitle}>Utiliser des crédits</Text>
+              </View>
+              <View style={styles.creditItem}>
+                <View style={styles.creditDot} />
+                <Text style={styles.creditText}>
+                  <Text style={styles.creditBold}>-1 C</Text> pour prendre une course sur la Marketplace
+                </Text>
+              </View>
+            </View>
+          </View>
+        </View>
+
         {/* Prochaines courses */}
         {upcomingRides.length > 0 && (
           <View style={styles.upcomingSection}>
@@ -531,6 +583,81 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
     color: '#fff',
+  },
+  creditsExplanationSection: {
+    paddingHorizontal: 20,
+    marginBottom: 24,
+  },
+  creditsExplanationHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 16,
+    gap: 12,
+  },
+  creditsIconLarge: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: 'rgba(255, 107, 71, 0.2)',
+    borderWidth: 2,
+    borderColor: 'rgba(255, 107, 71, 0.4)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  creditsIconText: {
+    fontSize: 18,
+    fontWeight: '800',
+    color: '#ff6b47',
+  },
+  creditsExplanationTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#e2e8f0',
+  },
+  creditsExplanationContent: {
+    backgroundColor: '#1e293b',
+    borderRadius: 16,
+    padding: 20,
+    borderWidth: 1,
+    borderColor: '#334155',
+  },
+  creditsSection: {
+    marginBottom: 20,
+  },
+  creditsSectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 12,
+    gap: 8,
+  },
+  creditsSectionTitle: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#e2e8f0',
+  },
+  creditItem: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    marginBottom: 8,
+    paddingLeft: 8,
+  },
+  creditDot: {
+    width: 4,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: '#64748b',
+    marginTop: 7,
+    marginRight: 10,
+  },
+  creditText: {
+    flex: 1,
+    fontSize: 14,
+    color: '#cbd5e1',
+    lineHeight: 20,
+  },
+  creditBold: {
+    fontWeight: '700',
+    color: '#ff6b47',
   },
 });
 
