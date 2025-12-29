@@ -905,12 +905,16 @@ async def create_user(user_data: CreateUserRequest):
                 )
                 
                 if badge_check:
-                    # Attribuer le badge
+                    # Attribuer le badge avec un ID unique
+                    badge_id_unique = f"ub-{user_data.id}-early-adopter"
                     award_badge_query = """
-                    INSERT INTO user_badges (user_id, badge_id, earned_at)
-                    VALUES (:user_id, 'badge-early-adopter', CURRENT_TIMESTAMP())
+                    INSERT INTO user_badges (id, user_id, badge_id, earned_at)
+                    VALUES (:id, :user_id, 'badge-early-adopter', CURRENT_TIMESTAMP())
                     """
-                    db.execute_non_query(award_badge_query, {"user_id": user_data.id})
+                    db.execute_non_query(award_badge_query, {
+                        "id": badge_id_unique,
+                        "user_id": user_data.id
+                    })
                     print(f"🏆 Badge 'Early Adopter' attribué à {user_data.email}")
                 else:
                     print("⚠️ Badge 'Early Adopter' n'existe pas dans la table badges")

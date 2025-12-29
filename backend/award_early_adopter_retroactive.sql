@@ -23,9 +23,10 @@ WHERE u.created_at < '2025-01-31 23:59:59'
 ORDER BY u.created_at DESC;
 
 -- 🏆 3️⃣ Attribuer le badge à tous les utilisateurs éligibles qui ne l'ont pas encore
-INSERT INTO io_catalog.corail.user_badges (user_id, badge_id, earned_at)
+INSERT INTO io_catalog.corail.user_badges (id, user_id, badge_id, earned_at)
 SELECT 
-  u.id,
+  CONCAT('ub-', u.id, '-early-adopter') as id,
+  u.id as user_id,
   'badge-early-adopter' as badge_id,
   u.created_at as earned_at
 FROM io_catalog.corail.users u
