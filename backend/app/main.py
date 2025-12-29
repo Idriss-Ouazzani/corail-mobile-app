@@ -249,8 +249,22 @@ async def get_rides(
     - Filtre par statut (PUBLISHED, CLAIMED, COMPLETED)
     - Filtre par visibilité (PUBLIC, GROUP)
     - Pagination
+    - Expire automatiquement les courses PUBLISHED dont la date est passée
     """
     try:
+        # 🔄 Auto-expiration : Mettre à jour les courses PUBLISHED dont scheduled_at est dans le passé
+        expire_query = """
+        UPDATE rides
+        SET status = 'EXPIRED', updated_at = CURRENT_TIMESTAMP()
+        WHERE status = 'PUBLISHED' 
+        AND scheduled_at < CURRENT_TIMESTAMP()
+        """
+        try:
+            db.execute_query(expire_query)
+        except Exception as e:
+            # Log mais ne pas bloquer si l'expiration échoue
+            print(f"⚠️ Warning: Failed to expire rides: {e}")
+        
         # Construire la requête SQL avec jointure users
         query = """
         SELECT 
@@ -278,7 +292,7 @@ async def get_rides(
             u.credits as creator_credits
         FROM rides r
         LEFT JOIN users u ON r.creator_id = u.id
-        WHERE 1=1
+        WHERE r.status != 'EXPIRED'
         """
         
         params = {}

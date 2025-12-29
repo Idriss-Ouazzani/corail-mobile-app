@@ -755,7 +755,16 @@ export default function App() {
       }
       
       // Only show published rides in marketplace
-      return ride.status === 'PUBLISHED';
+      // Exclure les courses EXPIRED et celles dont la date est passée
+      if (ride.status === 'EXPIRED') return false;
+      if (ride.status !== 'PUBLISHED') return false;
+      
+      // Filtrer les courses dont la date scheduled_at est dans le passé
+      const scheduledTime = new Date(ride.scheduled_at).getTime();
+      const now = Date.now();
+      if (scheduledTime < now) return false;
+      
+      return true;
     });
 
     // Sort rides

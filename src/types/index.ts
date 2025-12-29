@@ -3,7 +3,7 @@
  * Réutilisés et adaptés de VTC Market
  */
 
-export type RideStatus = 'PUBLISHED' | 'CLAIMED' | 'COMPLETED' | 'CANCELLED'
+export type RideStatus = 'PUBLISHED' | 'CLAIMED' | 'COMPLETED' | 'CANCELLED' | 'EXPIRED'
 export type RideVisibility = 'PUBLIC' | 'GROUP'
 export type SubscriptionPlan = 'FREE' | 'PREMIUM' | 'PLATINUM'
 export type VehicleType = 'STANDARD' | 'PREMIUM' | 'ELECTRIC' | 'VAN' | 'LUXURY'
