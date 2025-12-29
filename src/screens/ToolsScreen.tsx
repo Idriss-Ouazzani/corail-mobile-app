@@ -25,7 +25,7 @@ export default function ToolsScreen({ onOpenQRCode, onOpenPersonalRides }: Tools
     <View style={styles.container}>
       <StatusBar barStyle="light-content" />
       
-      <ScrollView showsVerticalScrollIndicator={false}>
+      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
         {/* Header */}
         <View style={styles.header}>
           <Text style={styles.headerTitle}>Outils</Text>
@@ -155,8 +155,6 @@ export default function ToolsScreen({ onOpenQRCode, onOpenPersonalRides }: Tools
             </View>
           </View>
         </View>
-
-        <View style={{ height: 40 }} />
       </ScrollView>
     </View>
   );
@@ -166,6 +164,9 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#0f172a',
+  },
+  scrollContent: {
+    paddingBottom: 100,
   },
   header: {
     paddingTop: 60,

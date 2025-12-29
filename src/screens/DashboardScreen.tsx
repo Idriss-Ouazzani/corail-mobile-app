@@ -109,6 +109,7 @@ export default function DashboardScreen({
     <View style={styles.container}>
       <ScrollView
         showsVerticalScrollIndicator={false}
+        contentContainerStyle={styles.scrollContent}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />}
       >
         {/* Header */}
@@ -362,8 +363,6 @@ export default function DashboardScreen({
             ))}
           </View>
         )}
-
-        <View style={{ height: 40 }} />
       </ScrollView>
     </View>
   );
@@ -373,6 +372,9 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#0f172a',
+  },
+  scrollContent: {
+    paddingBottom: 100,
   },
   header: {
     paddingHorizontal: 20,

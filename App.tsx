@@ -788,7 +788,7 @@ export default function App() {
             </Text>
           </View>
           
-          {/* Créer button */}
+          {/* Publier button */}
           <TouchableOpacity
             style={styles.createButtonCompact}
             onPress={() => setShowCreateRide(true)}
@@ -798,8 +798,8 @@ export default function App() {
               colors={['#10b981', '#059669']}
               style={styles.createButtonGradient}
             >
-              <Ionicons name="add" size={20} color="#fff" />
-              <Text style={styles.createButtonText}>Créer</Text>
+              <Ionicons name="add" size={18} color="#fff" />
+              <Text style={styles.createButtonText}>Publier</Text>
             </LinearGradient>
           </TouchableOpacity>
         </View>
@@ -922,16 +922,19 @@ export default function App() {
             </Text>
           </View>
           
-          {/* Refresh button */}
+          {/* Créer une course button */}
           <TouchableOpacity
-            style={styles.refreshButton}
-            onPress={async () => {
-              console.log('🔄 Rechargement manuel des courses...');
-              await loadRides();
-            }}
-            activeOpacity={0.7}
+            style={styles.createButtonCompact}
+            onPress={() => setShowCreateRide(true)}
+            activeOpacity={0.8}
           >
-            <Ionicons name="refresh" size={22} color="#64748b" />
+            <LinearGradient
+              colors={['#6366f1', '#8b5cf6']}
+              style={styles.createButtonGradient}
+            >
+              <Ionicons name="add" size={18} color="#fff" />
+              <Text style={styles.createButtonText}>Créer</Text>
+            </LinearGradient>
           </TouchableOpacity>
         </View>
 
