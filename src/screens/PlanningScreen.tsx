@@ -52,44 +52,32 @@ export default function PlanningScreen({ onBack }: PlanningScreenProps) {
     try {
       setLoading(true);
       
-      // Charger événements du mois
-      const startOfMonth = new Date(selectedDate);
-      startOfMonth.setDate(1);
-      const endOfMonth = new Date(selectedDate);
-      endOfMonth.setMonth(endOfMonth.getMonth() + 1);
-      endOfMonth.setDate(0);
-      
       // Charger événements de planning existants
       let planningEvents: PlanningEvent[] = [];
       try {
-        planningEvents = await apiClient.getPlanningEvents({
-          start_date: startOfMonth.toISOString().split('T')[0],
-          end_date: endOfMonth.toISOString().split('T')[0],
-        });
+        planningEvents = await apiClient.getPlanningEvents({});
       } catch (error) {
         console.warn('No planning events found, will sync rides only');
         planningEvents = [];
       }
       
-      // Charger MES courses CLAIMED (courses que j'ai prises)
-      let ridesAsEvents: PlanningEvent[] = [];
+      // Charger MES courses CLAIMED (courses marketplace que j'ai prises)
+      let marketplaceRidesAsEvents: PlanningEvent[] = [];
       try {
-        const rides = await apiClient.getMyRides('claimed'); // Utiliser l'endpoint spécifique
+        const rides = await apiClient.getMyRides('claimed');
+        console.log(`📅 Planning: ${rides.length} courses claimed chargées`);
+        
         if (Array.isArray(rides)) {
-          ridesAsEvents = rides
-            .filter(ride => 
-              ride.scheduled_at && 
-              (ride.status === 'CLAIMED' || ride.status === 'COMPLETED') && // CLAIMED ou COMPLETED
-              new Date(ride.scheduled_at) >= startOfMonth &&
-              new Date(ride.scheduled_at) <= endOfMonth
-            )
+          marketplaceRidesAsEvents = rides
+            .filter(ride => ride.scheduled_at && (ride.status === 'CLAIMED' || ride.status === 'COMPLETED'))
             .map(ride => {
               const startTime = new Date(ride.scheduled_at);
-              const durationMinutes = ride.duration_minutes || 60; // 1 heure par défaut
+              const durationMinutes = ride.duration_minutes || 60;
               const endTime = new Date(startTime.getTime() + durationMinutes * 60000);
+              const isPast = startTime.getTime() < Date.now();
               
               return {
-                id: `ride-${ride.id}`,
+                id: `marketplace-${ride.id}`,
                 event_type: 'RIDE' as const,
                 start_time: startTime.toISOString().replace('T', ' ').substring(0, 19),
                 end_time: endTime.toISOString().replace('T', ' ').substring(0, 19),
@@ -97,17 +85,60 @@ export default function PlanningScreen({ onBack }: PlanningScreenProps) {
                 end_address: ride.dropoff_address,
                 ride_source: 'MARKETPLACE',
                 status: ride.status,
-                notes: `Course réclamée`,
-                color: '#ff6b47', // Corail color
+                notes: `Course Corail ${ride.status === 'COMPLETED' ? '(terminée)' : ''}`,
+                color: isPast ? '#64748b' : '#ff6b47', // Gris si passé, orange si futur
               };
             });
+          console.log(`📅 Planning: ${marketplaceRidesAsEvents.length} courses marketplace ajoutées`);
         }
       } catch (error) {
-        console.warn('Error loading rides for planning:', error);
+        console.error('Error loading marketplace rides:', error);
       }
       
-      // Fusionner événements de planning et courses marketplace
-      const allEvents = [...planningEvents, ...ridesAsEvents];
+      // Charger MES courses PERSONNELLES (Uber, Bolt, Direct, etc.)
+      let personalRidesAsEvents: PlanningEvent[] = [];
+      try {
+        const personalRides = await apiClient.listPersonalRides({ status: 'SCHEDULED' });
+        console.log(`📅 Planning: ${personalRides.length} courses personnelles chargées`);
+        
+        if (Array.isArray(personalRides)) {
+          personalRidesAsEvents = personalRides
+            .filter(ride => ride.scheduled_at)
+            .map(ride => {
+              const startTime = new Date(ride.scheduled_at);
+              const durationMinutes = ride.duration_minutes || 60;
+              const endTime = new Date(startTime.getTime() + durationMinutes * 60000);
+              const isPast = startTime.getTime() < Date.now();
+              
+              // Couleur selon la source
+              let color = '#6366f1'; // Défaut
+              if (ride.source === 'UBER') color = '#000000';
+              if (ride.source === 'BOLT') color = '#34d399';
+              if (ride.source === 'DIRECT_CLIENT') color = '#8b5cf6';
+              if (isPast) color = '#64748b'; // Gris si passé
+              
+              return {
+                id: `personal-${ride.id}`,
+                event_type: 'RIDE' as const,
+                start_time: startTime.toISOString().replace('T', ' ').substring(0, 19),
+                end_time: endTime.toISOString().replace('T', ' ').substring(0, 19),
+                start_address: ride.pickup_address || '',
+                end_address: ride.dropoff_address || '',
+                ride_source: ride.source || 'OTHER',
+                status: ride.status,
+                notes: `Course ${ride.source || 'autre'}`,
+                color: color,
+              };
+            });
+          console.log(`📅 Planning: ${personalRidesAsEvents.length} courses personnelles ajoutées`);
+        }
+      } catch (error) {
+        console.error('Error loading personal rides:', error);
+      }
+      
+      // Fusionner tous les événements
+      const allEvents = [...planningEvents, ...marketplaceRidesAsEvents, ...personalRidesAsEvents];
+      console.log(`📅 Planning: Total ${allEvents.length} événements`);
       setEvents(allEvents);
     } catch (error) {
       console.error('Error loading planning events:', error);
@@ -125,16 +156,21 @@ export default function PlanningScreen({ onBack }: PlanningScreenProps) {
 
   const getMarkedDates = () => {
     const marked: any = {};
+    const eventCountByDate: { [key: string]: number } = {};
     
+    // Compter les événements par date
     events.forEach(event => {
       const date = event.start_time.split(' ')[0];
-      if (!marked[date]) {
-        marked[date] = { dots: [] };
-      }
-      
-      marked[date].dots.push({
-        color: event.color || getEventColor(event.event_type),
-      });
+      eventCountByDate[date] = (eventCountByDate[date] || 0) + 1;
+    });
+    
+    // Marquer les dates avec événements (afficher un dot + nombre)
+    Object.keys(eventCountByDate).forEach(date => {
+      const count = eventCountByDate[date];
+      marked[date] = {
+        marked: true,
+        dotColor: '#ff6b47',
+      };
     });
     
     // Selected date
@@ -250,36 +286,53 @@ export default function PlanningScreen({ onBack }: PlanningScreenProps) {
                   {hourEvents.length === 0 ? (
                     <View style={styles.emptySlot} />
                   ) : (
-                    hourEvents.map(event => (
-                      <TouchableOpacity
-                        key={event.id}
-                        style={[
-                          styles.timelineEvent,
-                          { borderLeftColor: event.color || getEventColor(event.event_type) }
-                        ]}
-                        onPress={() => setSelectedEvent(event)}
-                        activeOpacity={0.7}
-                      >
-                        <View style={styles.timelineEventHeader}>
-                          <Ionicons 
-                            name={getEventIcon(event.event_type, event.ride_source) as any} 
-                            size={16} 
-                            color={event.color || getEventColor(event.event_type)} 
-                          />
-                          <Text style={styles.timelineEventLabel}>
-                            {getEventLabel(event)}
+                    hourEvents.map(event => {
+                      const eventTime = new Date(event.start_time).getTime();
+                      const isPast = eventTime < Date.now();
+                      const isFuture = eventTime > Date.now();
+                      
+                      return (
+                        <TouchableOpacity
+                          key={event.id}
+                          style={[
+                            styles.timelineEvent,
+                            { borderLeftColor: event.color || getEventColor(event.event_type) },
+                            isPast && styles.timelineEventPast,
+                            isFuture && styles.timelineEventFuture,
+                          ]}
+                          onPress={() => setSelectedEvent(event)}
+                          activeOpacity={0.7}
+                        >
+                          <View style={styles.timelineEventHeader}>
+                            <Ionicons 
+                              name={getEventIcon(event.event_type, event.ride_source) as any} 
+                              size={16} 
+                              color={isPast ? '#64748b' : (event.color || getEventColor(event.event_type))} 
+                            />
+                            <Text style={[
+                              styles.timelineEventLabel,
+                              isPast && { color: '#64748b' }
+                            ]}>
+                              {getEventLabel(event)}
+                            </Text>
+                          </View>
+                          <Text style={[
+                            styles.timelineEventTime,
+                            isPast && { color: '#475569' }
+                          ]}>
+                            {formatTime(event.start_time)} - {formatTime(event.end_time)}
                           </Text>
-                        </View>
-                        <Text style={styles.timelineEventTime}>
-                          {formatTime(event.start_time)} - {formatTime(event.end_time)}
-                        </Text>
-                        {event.start_address && (
-                          <Text style={styles.timelineEventAddress} numberOfLines={1}>
-                            <Ionicons name="location" size={12} color="#94a3b8" /> {event.start_address}
-                          </Text>
-                        )}
-                      </TouchableOpacity>
-                    ))
+                          {event.start_address && (
+                            <Text style={[
+                              styles.timelineEventAddress,
+                              isPast && { color: '#475569' }
+                            ]} numberOfLines={1}>
+                              <Ionicons name="location" size={12} color={isPast ? '#475569' : '#94a3b8'} /> {event.start_address}
+                            </Text>
+                          )}
+                        </TouchableOpacity>
+                      );
+                    })
                   )}
                 </View>
               </View>
@@ -397,7 +450,7 @@ export default function PlanningScreen({ onBack }: PlanningScreenProps) {
               setViewMode('day');
             }}
             markedDates={getMarkedDates()}
-            markingType='multi-dot'
+            markingType='dot'
             theme={{
               calendarBackground: '#0f172a',
               textSectionTitleColor: '#94a3b8',
@@ -657,6 +710,21 @@ const styles = StyleSheet.create({
     borderLeftWidth: 3,
     borderWidth: 1,
     borderColor: '#334155',
+  },
+  timelineEventPast: {
+    backgroundColor: '#1a1f2e',
+    opacity: 0.6,
+    borderColor: '#2a3341',
+  },
+  timelineEventFuture: {
+    backgroundColor: '#1e293b',
+    borderWidth: 2,
+    borderColor: '#ff6b47',
+    shadowColor: '#ff6b47',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    elevation: 3,
   },
   timelineEventHeader: {
     flexDirection: 'row',
