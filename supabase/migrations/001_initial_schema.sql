@@ -238,18 +238,19 @@ ALTER TABLE public.group_members ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.planning_events ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.activity_log ENABLE ROW LEVEL SECURITY;
 
-CREATE POLICY "Users can read own profile" ON public.users FOR SELECT USING (auth.uid() = id OR is_admin = TRUE);
-CREATE POLICY "Users can update own profile" ON public.users FOR UPDATE USING (auth.uid() = id);
+-- Note: auth.uid() returns UUID, but our IDs are TEXT (Firebase UIDs), so we cast
+CREATE POLICY "Users can read own profile" ON public.users FOR SELECT USING (auth.uid()::text = id OR is_admin = TRUE);
+CREATE POLICY "Users can update own profile" ON public.users FOR UPDATE USING (auth.uid()::text = id);
 CREATE POLICY "Verified users can read public rides" ON public.rides FOR SELECT USING (visibility = 'PUBLIC' AND status IN ('PUBLISHED', 'CLAIMED', 'IN_PROGRESS'));
-CREATE POLICY "Users can read their own rides" ON public.rides FOR SELECT USING (creator_id = auth.uid() OR picker_id = auth.uid());
-CREATE POLICY "Users can create rides" ON public.rides FOR INSERT WITH CHECK (creator_id = auth.uid());
-CREATE POLICY "Creators can update their rides" ON public.rides FOR UPDATE USING (creator_id = auth.uid());
-CREATE POLICY "Users can manage own personal rides" ON public.personal_rides FOR ALL USING (driver_id = auth.uid()) WITH CHECK (driver_id = auth.uid());
-CREATE POLICY "Users can read own credits" ON public.credits_ledger FOR SELECT USING (user_id = auth.uid());
+CREATE POLICY "Users can read their own rides" ON public.rides FOR SELECT USING (creator_id = auth.uid()::text OR picker_id = auth.uid()::text);
+CREATE POLICY "Users can create rides" ON public.rides FOR INSERT WITH CHECK (creator_id = auth.uid()::text);
+CREATE POLICY "Creators can update their rides" ON public.rides FOR UPDATE USING (creator_id = auth.uid()::text);
+CREATE POLICY "Users can manage own personal rides" ON public.personal_rides FOR ALL USING (driver_id = auth.uid()::text) WITH CHECK (driver_id = auth.uid()::text);
+CREATE POLICY "Users can read own credits" ON public.credits_ledger FOR SELECT USING (user_id = auth.uid()::text);
 CREATE POLICY "Anyone can read badges" ON public.badges FOR SELECT TO authenticated USING (true);
 CREATE POLICY "Users can read badges" ON public.user_badges FOR SELECT TO authenticated USING (true);
-CREATE POLICY "Users can manage own planning events" ON public.planning_events FOR ALL USING (user_id = auth.uid()) WITH CHECK (user_id = auth.uid());
-CREATE POLICY "Users can read own activity" ON public.activity_log FOR SELECT USING (user_id = auth.uid());
+CREATE POLICY "Users can manage own planning events" ON public.planning_events FOR ALL USING (user_id = auth.uid()::text) WITH CHECK (user_id = auth.uid()::text);
+CREATE POLICY "Users can read own activity" ON public.activity_log FOR SELECT USING (user_id = auth.uid()::text);
 
 -- ============================================================================
 -- SEED DATA

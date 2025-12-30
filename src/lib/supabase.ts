@@ -4,12 +4,12 @@
 
 import { createClient } from '@supabase/supabase-js';
 
-// ⚠️ REMPLACEZ PAR VOS VRAIES VALEURS (Étape 3)
-const SUPABASE_URL = 'YOUR_SUPABASE_URL_HERE';
-const SUPABASE_ANON_KEY = 'YOUR_SUPABASE_ANON_KEY_HERE';
+// ⚠️ Vos credentials Supabase (safe pour commit - clé publique) gitleaks:allow
+const SUPABASE_URL = 'https://qeheawdjlwlkhnwbhqcg.supabase.co'; // gitleaks:allow
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFlaGVhd2RqbHdsa2hud2JocWNnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjcxMTY3NTMsImV4cCI6MjA4MjY5Mjc1M30.Eb9798W9FD92SNr4KI6W70heZ08hjwl0bbjeXHQU8ds'; // gitleaks:allow
 
-if (SUPABASE_URL === 'YOUR_SUPABASE_URL_HERE' || SUPABASE_ANON_KEY === 'YOUR_SUPABASE_ANON_KEY_HERE') {
-  console.warn('⚠️ Supabase credentials not configured! Complete Step 3.');
+if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
+  console.warn('⚠️ Supabase credentials not configured!');
 }
 
 export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
