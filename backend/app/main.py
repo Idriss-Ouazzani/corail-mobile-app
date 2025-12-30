@@ -1423,7 +1423,7 @@ async def create_personal_ride(
             )
         
         query = """
-        INSERT INTO personal_rides (
+        INSERT INTO io_catalog.corail.personal_rides (
             id, driver_id, source,
             pickup_address, dropoff_address,
             scheduled_at, price_cents, distance_km, duration_minutes,
@@ -1455,7 +1455,7 @@ async def create_personal_ride(
         })
         
         # Récupérer la course créée
-        get_query = "SELECT * FROM personal_rides WHERE id = :id"
+        get_query = "SELECT * FROM io_catalog.corail.personal_rides WHERE id = :id"
         result = db.execute_query(get_query, {"id": ride_id})
         
         if not result:
@@ -1495,7 +1495,7 @@ async def list_personal_rides(
         where_clause = " AND ".join(filters)
         
         query = f"""
-        SELECT * FROM personal_rides
+        SELECT * FROM io_catalog.corail.personal_rides
         WHERE {where_clause}
         ORDER BY 
             CASE 
@@ -1520,7 +1520,7 @@ async def get_personal_ride(ride_id: str, current_user_id: str = CurrentUser):
     """Récupérer les détails d'une course personnelle"""
     try:
         query = """
-        SELECT * FROM personal_rides
+        SELECT * FROM io_catalog.corail.personal_rides
         WHERE id = :ride_id AND driver_id = :driver_id
         """
         result = db.execute_query(query, {"ride_id": ride_id, "driver_id": current_user_id})
@@ -1546,7 +1546,7 @@ async def update_personal_ride(
     try:
         # Vérifier que la course existe et appartient au chauffeur
         check_query = """
-        SELECT id FROM personal_rides
+        SELECT id FROM io_catalog.corail.personal_rides
         WHERE id = :ride_id AND driver_id = :driver_id
         """
         existing = db.execute_query(check_query, {"ride_id": ride_id, "driver_id": current_user_id})
@@ -1617,7 +1617,7 @@ async def update_personal_ride(
         update_fields.append("updated_at = CURRENT_TIMESTAMP()")
         
         query = f"""
-        UPDATE personal_rides
+        UPDATE io_catalog.corail.personal_rides
         SET {', '.join(update_fields)}
         WHERE id = :ride_id AND driver_id = :driver_id
         """
@@ -1626,7 +1626,7 @@ async def update_personal_ride(
         
         # Récupérer la course mise à jour
         get_query = """
-        SELECT * FROM personal_rides
+        SELECT * FROM io_catalog.corail.personal_rides
         WHERE id = :ride_id AND driver_id = :driver_id
         """
         result = db.execute_query(get_query, {"ride_id": ride_id, "driver_id": current_user_id})
@@ -1648,7 +1648,7 @@ async def delete_personal_ride(ride_id: str, current_user_id: str = CurrentUser)
     try:
         # Vérifier que la course existe et appartient au chauffeur
         check_query = """
-        SELECT id FROM personal_rides
+        SELECT id FROM io_catalog.corail.personal_rides
         WHERE id = :ride_id AND driver_id = :driver_id
         """
         existing = db.execute_query(check_query, {"ride_id": ride_id, "driver_id": current_user_id})
@@ -1658,7 +1658,7 @@ async def delete_personal_ride(ride_id: str, current_user_id: str = CurrentUser)
         
         # Supprimer la course
         delete_query = """
-        DELETE FROM personal_rides
+        DELETE FROM io_catalog.corail.personal_rides
         WHERE id = :ride_id AND driver_id = :driver_id
         """
         db.execute_non_query(delete_query, {"ride_id": ride_id, "driver_id": current_user_id})
@@ -1686,7 +1686,7 @@ async def get_personal_rides_stats(current_user_id: str = CurrentUser):
             SUM(CASE WHEN status = 'COMPLETED' THEN price_cents ELSE 0 END) / 100.0 as revenue_eur,
             SUM(CASE WHEN status = 'COMPLETED' THEN distance_km ELSE 0 END) as total_distance_km,
             AVG(CASE WHEN status = 'COMPLETED' THEN price_cents ELSE NULL END) / 100.0 as avg_price_eur
-        FROM personal_rides
+        FROM io_catalog.corail.personal_rides
         WHERE driver_id = :driver_id
         GROUP BY source
         ORDER BY revenue_eur DESC
@@ -1701,7 +1701,7 @@ async def get_personal_rides_stats(current_user_id: str = CurrentUser):
             COUNT(CASE WHEN status = 'COMPLETED' THEN 1 END) as completed_rides,
             SUM(CASE WHEN status = 'COMPLETED' THEN price_cents ELSE 0 END) / 100.0 as total_revenue_eur,
             SUM(CASE WHEN status = 'COMPLETED' THEN distance_km ELSE 0 END) as total_distance_km
-        FROM personal_rides
+        FROM io_catalog.corail.personal_rides
         WHERE driver_id = :driver_id
         """
         
