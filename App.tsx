@@ -1937,7 +1937,7 @@ export default function App() {
             style={styles.bottomNavGradient}
           >
             <View style={styles.bottomNavContent}>
-              {/* Dashboard */}
+              {/* Accueil */}
               <TouchableOpacity
                 style={styles.navItem}
                 onPress={() => setCurrentScreen('dashboard')}
@@ -1951,7 +1951,7 @@ export default function App() {
                   />
                 </View>
                 <Text style={[styles.navText, currentScreen === 'dashboard' && styles.navTextActive]}>
-                  Dashboard
+                  Accueil
                 </Text>
               </TouchableOpacity>
 
@@ -1990,7 +1990,7 @@ export default function App() {
                 </LinearGradient>
               </TouchableOpacity>
 
-              {/* Outils */}
+              {/* Suivi */}
               <TouchableOpacity
                 style={styles.navItem}
                 onPress={() => setCurrentScreen('tools')}
@@ -2004,7 +2004,7 @@ export default function App() {
                   />
                 </View>
                 <Text style={[styles.navText, currentScreen === 'tools' && styles.navTextActive]}>
-                  Outils
+                  Suivi
                 </Text>
               </TouchableOpacity>
 
