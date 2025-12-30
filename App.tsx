@@ -605,6 +605,7 @@ export default function App() {
         onLogout={async () => {
           await firebaseAuth.signOut();
         }}
+        onRefresh={loadVerificationStatus}
         submittedAt={verificationSubmittedAt}
       />
     );

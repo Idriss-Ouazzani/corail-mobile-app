@@ -1,10 +1,11 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
   StyleSheet,
   TouchableOpacity,
   ScrollView,
+  ActivityIndicator,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
@@ -12,13 +13,41 @@ import CoralLogo from '../components/CoralLogo';
 
 interface PendingVerificationScreenProps {
   onLogout: () => void;
+  onRefresh: () => Promise<void>;
   submittedAt?: string;
 }
 
 export const PendingVerificationScreen: React.FC<PendingVerificationScreenProps> = ({ 
   onLogout,
+  onRefresh,
   submittedAt 
 }) => {
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [lastCheck, setLastCheck] = useState(new Date());
+
+  // 🔄 Polling automatique toutes les 30 secondes
+  useEffect(() => {
+    const interval = setInterval(async () => {
+      console.log('🔄 Vérification automatique du statut...');
+      await handleRefresh();
+    }, 30000); // 30 secondes
+
+    return () => clearInterval(interval);
+  }, []);
+
+  const handleRefresh = async () => {
+    try {
+      setIsRefreshing(true);
+      await onRefresh();
+      setLastCheck(new Date());
+      console.log('✅ Statut vérifié');
+    } catch (error) {
+      console.error('❌ Erreur refresh statut:', error);
+    } finally {
+      setIsRefreshing(false);
+    }
+  };
+
   const formatDate = (dateString?: string) => {
     if (!dateString) return '';
     const date = new Date(dateString);
@@ -29,6 +58,18 @@ export const PendingVerificationScreen: React.FC<PendingVerificationScreenProps>
       hour: '2-digit',
       minute: '2-digit',
     });
+  };
+
+  const formatLastCheck = () => {
+    const now = new Date();
+    const diffMs = now.getTime() - lastCheck.getTime();
+    const diffSec = Math.floor(diffMs / 1000);
+    
+    if (diffSec < 60) return 'À l\'instant';
+    const diffMin = Math.floor(diffSec / 60);
+    if (diffMin < 60) return `Il y a ${diffMin} min`;
+    const diffHour = Math.floor(diffMin / 60);
+    return `Il y a ${diffHour}h`;
   };
 
   return (
@@ -152,6 +193,27 @@ export const PendingVerificationScreen: React.FC<PendingVerificationScreenProps>
               </View>
             </View>
           </View>
+
+          {/* Refresh Button */}
+          <TouchableOpacity
+            style={styles.refreshButton}
+            onPress={handleRefresh}
+            activeOpacity={0.7}
+            disabled={isRefreshing}
+          >
+            {isRefreshing ? (
+              <ActivityIndicator size="small" color="#fff" />
+            ) : (
+              <Ionicons name="refresh" size={20} color="#fff" />
+            )}
+            <Text style={styles.refreshButtonText}>
+              {isRefreshing ? 'Vérification...' : 'Actualiser le statut'}
+            </Text>
+          </TouchableOpacity>
+
+          <Text style={styles.lastCheckText}>
+            Dernière vérification : {formatLastCheck()}
+          </Text>
 
           {/* Logout Button */}
           <TouchableOpacity
@@ -324,6 +386,33 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: '#94a3b8',
     lineHeight: 20,
+  },
+  refreshButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 16,
+    paddingHorizontal: 32,
+    borderRadius: 12,
+    backgroundColor: '#0ea5e9',
+    marginBottom: 12,
+    shadowColor: '#0ea5e9',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 5,
+  },
+  refreshButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#fff',
+    marginLeft: 8,
+  },
+  lastCheckText: {
+    fontSize: 13,
+    color: '#64748b',
+    textAlign: 'center',
+    marginBottom: 24,
   },
   logoutButton: {
     flexDirection: 'row',
