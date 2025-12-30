@@ -654,6 +654,10 @@ async def complete_ride(
             }
         )
         
+        # 🏆 Vérifier et attribuer des badges automatiquement (pour créateur ET picker)
+        check_and_award_badges(ride["creator_id"])
+        check_and_award_badges(user_id)  # picker
+        
         return {
             "success": True,
             "message": "Course terminée avec succès ! Le créateur a reçu un crédit bonus."
@@ -732,74 +736,6 @@ async def delete_ride(
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error deleting ride: {str(e)}")
-
-
-@app.post("/api/v1/rides/{ride_id}/complete")
-async def complete_ride(
-    ride_id: str,
-    user_id: str = CurrentUser
-):
-    """
-    Marquer une course comme terminée
-    
-    Seulement le picker peut marquer la course comme complétée.
-    🎉 Le créateur reçoit +1 crédit supplémentaire (total +2 pour la course)
-    """
-    try:
-        # Vérifier que la course existe et appartient au picker
-        check_query = "SELECT creator_id, picker_id, status FROM rides WHERE id = :ride_id"
-        results = db.execute_query(check_query, {"ride_id": ride_id})
-        
-        if not results:
-            raise HTTPException(status_code=404, detail="Course non trouvée")
-        
-        ride = results[0]
-        
-        if ride["picker_id"] != user_id:
-            raise HTTPException(
-                status_code=403, 
-                detail="Seul le chauffeur qui a pris la course peut la marquer comme terminée"
-            )
-        
-        if ride["status"] != "CLAIMED":
-            raise HTTPException(
-                status_code=400, 
-                detail=f"La course doit être en statut CLAIMED (statut actuel: {ride['status']})"
-            )
-        
-        # Marquer la course comme terminée
-        update_query = """
-        UPDATE rides 
-        SET status = 'COMPLETED',
-            completed_at = CURRENT_TIMESTAMP(),
-            updated_at = CURRENT_TIMESTAMP()
-        WHERE id = :ride_id
-        """
-        db.execute_non_query(update_query, {"ride_id": ride_id})
-        
-        # 🎉 SYSTÈME DE CRÉDITS : +1 crédit bonus au créateur (course prise ET validée)
-        credit_query = """
-        UPDATE users 
-        SET credits = COALESCE(credits, 0) + 1
-        WHERE id = :creator_id
-        """
-        db.execute_non_query(credit_query, {"creator_id": ride["creator_id"]})
-        
-        print(f"✅ +1 crédit Corail bonus pour {ride['creator_id']} (course terminée)")
-        
-        # 🏆 Vérifier et attribuer des badges automatiquement (pour créateur ET picker)
-        check_and_award_badges(ride["creator_id"])
-        check_and_award_badges(user_id)  # picker
-        
-        return {
-            "success": True,
-            "message": "Course terminée avec succès ! +1 crédit pour l'apporteur d'affaires 🪸"
-        }
-    
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error completing ride: {str(e)}")
 
 
 # ============================================================================
