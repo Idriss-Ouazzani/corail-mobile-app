@@ -201,7 +201,7 @@ export async function notifyNewRidesAvailable(count: number): Promise<void> {
         data: { type: 'new_rides' },
         sound: true,
       },
-      trigger: null, // Immédiat
+      trigger: { seconds: 1 }, // Immédiat
     });
 
     console.log(`✅ Notification nouvelles courses envoyée (${count})`);
@@ -229,7 +229,7 @@ export async function notifyQRCodeReady(): Promise<void> {
         data: { type: 'qr_ready' },
         sound: true,
       },
-      trigger: null, // Immédiat
+      trigger: { seconds: 1 }, // Immédiat
     });
 
     await AsyncStorage.setItem('@qr_notification_sent', 'true');
@@ -264,7 +264,7 @@ export async function notifyLowCredits(credits: number): Promise<void> {
         data: { type: 'low_credits' },
         sound: true,
       },
-      trigger: null,
+      trigger: { seconds: 1 },
     });
 
     await AsyncStorage.setItem('@low_credits_notif', new Date().toISOString());
@@ -289,7 +289,7 @@ export async function notifyBadgeEarned(badgeName: string, badgeDescription: str
         data: { type: 'badge_earned' },
         sound: true,
       },
-      trigger: null,
+      trigger: { seconds: 1 },
     });
 
     console.log(`✅ Notification badge envoyée: ${badgeName}`);
@@ -313,7 +313,7 @@ export async function notifyGroupInvitation(groupName: string, inviterName: stri
         data: { type: 'group_invitation' },
         sound: true,
       },
-      trigger: null,
+      trigger: { seconds: 1 },
     });
 
     console.log(`✅ Notification invitation groupe envoyée`);
@@ -369,7 +369,7 @@ export async function notifyRideClaimed(pickupAddress: string, pickerName: strin
         data: { type: 'ride_claimed' },
         sound: true,
       },
-      trigger: null,
+      trigger: { seconds: 1 },
     });
 
     console.log('✅ Notification course réclamée envoyée');
@@ -438,7 +438,7 @@ export async function sendTestNotification(): Promise<void> {
         data: { type: 'test' },
         sound: true,
       },
-      trigger: null, // Immédiat
+      trigger: { seconds: 1 }, // Immédiat
     });
 
     console.log('✅ Notification test envoyée');
