@@ -31,6 +31,16 @@ export const RideDetailScreen: React.FC<RideDetailScreenProps> = ({
   onDelete,
 }) => {
   const isMyRide = ride.creator_id === currentUserId;
+  const isPicker = ride.picker_id === currentUserId;
+  
+  // Les infos client sont visibles si :
+  // - Course PERSONAL (toujours visible)
+  // - OU si je suis le créateur
+  // - OU si j'ai pris la course (claimed)
+  const canSeeClientInfo = 
+    ride.visibility === 'PERSONAL' || 
+    isMyRide || 
+    isPicker;
   
   const handleDelete = () => {
     Alert.alert(
@@ -258,8 +268,8 @@ export const RideDetailScreen: React.FC<RideDetailScreenProps> = ({
           </View>
         </View>
 
-        {/* Client Information */}
-        {(ride.client_name || ride.client_phone) && (
+        {/* Client Information - Visible uniquement si PERSONAL OU si créateur/picker */}
+        {canSeeClientInfo && (ride.client_name || ride.client_phone) && (
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Client</Text>
             <View style={styles.clientCard}>
