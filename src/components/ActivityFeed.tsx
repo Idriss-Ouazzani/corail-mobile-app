@@ -127,6 +127,17 @@ const ActivityFeed: React.FC<ActivityFeedProps> = ({ limit = 20 }) => {
           badge: undefined,
         };
       
+      case 'PERSONAL_RIDE_ADDED':
+        return {
+          icon: 'document-text' as const,
+          color: '#6366f1',
+          title: 'Course personnelle enregistrée',
+          subtitle: pickup_address && dropoff_address
+            ? `${pickup_address} → ${dropoff_address}`
+            : 'Course privée ajoutée',
+          badge: price_cents ? `${(price_cents / 100).toFixed(2)}€` : undefined,
+        };
+      
       default:
         return {
           icon: 'help-circle' as const,

@@ -109,10 +109,19 @@ export default function DashboardScreen({
       }
 
       // Calculer revenus du jour et de la semaine
-      // Pour l'instant, on utilise les totaux
-      setTodayRevenue(statsData?.totals?.total_revenue_eur || 0);
+      // Filtrer uniquement les courses d'aujourd'hui dans upcomingRidesData
+      const today = new Date().toDateString();
+      const todayScheduledRides = upcomingRidesData.filter((ride: any) => {
+        if (!ride.scheduled_at) return false;
+        return new Date(ride.scheduled_at).toDateString() === today;
+      });
+      
+      const todayRevenueCalc = todayScheduledRides.reduce((sum: number, ride: any) => 
+        sum + (ride.price_cents || 0), 0) / 100;
+      
+      setTodayRevenue(todayRevenueCalc);
       setWeekRevenue(statsData?.totals?.total_revenue_eur || 0);
-      setTodayRides(statsData?.totals?.completed_rides || 0);
+      setTodayRides(todayScheduledRides.length);
     } catch (error) {
       console.error('Error loading dashboard:', error);
     } finally {
@@ -165,6 +174,12 @@ export default function DashboardScreen({
           icon: 'trash' as const,
           color: '#ef4444',
           title: 'Course supprimée',
+        };
+      case 'PERSONAL_RIDE_ADDED':
+        return {
+          icon: 'document-text' as const,
+          color: '#6366f1',
+          title: 'Course enregistrée',
         };
       default:
         return {
@@ -261,6 +276,86 @@ export default function DashboardScreen({
           </View>
         </View>
 
+        {/* Prochaines courses (marketplace + personnelles) */}
+        {(claimedRides.length > 0 || upcomingRides.length > 0) && (
+          <View style={styles.upcomingCoursesSection}>
+            <View style={styles.sectionHeader}>
+              <Text style={styles.sectionTitle}>Prochaines courses</Text>
+              <TouchableOpacity onPress={onNavigateToPlanning} activeOpacity={0.7}>
+                <Text style={styles.viewMoreText}>
+                  Voir plus <Ionicons name="chevron-forward" size={14} color="#6366f1" />
+                </Text>
+              </TouchableOpacity>
+            </View>
+            
+            {/* Courses marketplace réclamées */}
+            {claimedRides.map((ride: any) => (
+              <View key={ride.id} style={styles.upcomingCourseCard}>
+                <View style={styles.upcomingCourseHeader}>
+                  <Ionicons name="calendar" size={16} color="#6366f1" />
+                  <Text style={styles.upcomingCourseTime}>
+                    {new Date(ride.scheduled_at).toLocaleDateString('fr-FR', {
+                      weekday: 'short',
+                      day: 'numeric',
+                      month: 'short',
+                      hour: '2-digit',
+                      minute: '2-digit',
+                    })}
+                  </Text>
+                </View>
+                <View style={styles.upcomingCourseRoute}>
+                  <Ionicons name="location" size={14} color="#64748b" />
+                  <Text style={styles.upcomingCourseAddress} numberOfLines={1}>
+                    {ride.pickup_address}
+                  </Text>
+                </View>
+                <View style={styles.upcomingCourseRoute}>
+                  <Ionicons name="flag" size={14} color="#64748b" />
+                  <Text style={styles.upcomingCourseAddress} numberOfLines={1}>
+                    {ride.dropoff_address}
+                  </Text>
+                </View>
+                {ride.price_cents && (
+                  <Text style={styles.upcomingCoursePrice}>
+                    {(ride.price_cents / 100).toFixed(2)}€
+                  </Text>
+                )}
+              </View>
+            ))}
+
+            {/* Courses personnelles planifiées */}
+            {upcomingRides.map((ride) => (
+              <View key={ride.id} style={styles.upcomingCourseCard}>
+                <View style={styles.upcomingCourseHeader}>
+                  <Ionicons name="time" size={16} color="#6366f1" />
+                  <Text style={styles.upcomingCourseTime}>
+                    {new Date(ride.scheduled_at).toLocaleString('fr-FR', {
+                      weekday: 'short',
+                      day: 'numeric',
+                      month: 'short',
+                      hour: '2-digit',
+                      minute: '2-digit',
+                    })}
+                  </Text>
+                </View>
+                <View style={styles.upcomingCourseRoute}>
+                  <Ionicons name="location" size={14} color="#64748b" />
+                  <Text style={styles.upcomingCourseAddress}>{ride.pickup_address}</Text>
+                </View>
+                <View style={styles.upcomingCourseRoute}>
+                  <Ionicons name="flag" size={14} color="#64748b" />
+                  <Text style={styles.upcomingCourseAddress}>{ride.dropoff_address}</Text>
+                </View>
+                {ride.price_cents && (
+                  <Text style={styles.upcomingCoursePrice}>
+                    {(ride.price_cents / 100).toFixed(2)}€
+                  </Text>
+                )}
+              </View>
+            ))}
+          </View>
+        )}
+
         {/* Statistiques rapides */}
         {stats && (
           <View style={styles.statsSection}>
@@ -288,27 +383,6 @@ export default function DashboardScreen({
                 <Text style={styles.statLabel}>Prix moyen</Text>
               </View>
             </View>
-          </View>
-        )}
-
-        {/* Revenus par source */}
-        {stats?.by_source && stats.by_source.length > 0 && (
-          <View style={styles.sourceSection}>
-            <Text style={styles.sectionTitle}>Revenus par source</Text>
-            {stats.by_source.map((source: any) => (
-              <View key={source.source} style={styles.sourceCard}>
-                <View style={styles.sourceLeft}>
-                  <View style={styles.sourceIconContainer}>
-                    <Ionicons name={getSourceIcon(source.source) as any} size={20} color="#6366f1" />
-                  </View>
-                  <View>
-                    <Text style={styles.sourceName}>{getSourceLabel(source.source)}</Text>
-                    <Text style={styles.sourceRides}>{source.completed_rides} courses</Text>
-                  </View>
-                </View>
-                <Text style={styles.sourceRevenue}>{source.revenue_eur.toFixed(2)} €</Text>
-              </View>
-            ))}
           </View>
         )}
 
@@ -354,54 +428,6 @@ export default function DashboardScreen({
             </LinearGradient>
           </TouchableOpacity>
         </View>
-
-        {/* Prochaines courses */}
-        {claimedRides.length > 0 && (
-          <View style={styles.upcomingCoursesSection}>
-            <View style={styles.sectionHeader}>
-              <Text style={styles.sectionTitle}>Prochaines courses</Text>
-              <TouchableOpacity onPress={onNavigateToPlanning} activeOpacity={0.7}>
-                <Text style={styles.viewMoreText}>
-                  Voir plus <Ionicons name="chevron-forward" size={14} color="#6366f1" />
-                </Text>
-              </TouchableOpacity>
-            </View>
-            
-            {claimedRides.map((ride: any) => (
-              <View key={ride.id} style={styles.upcomingCourseCard}>
-                <View style={styles.upcomingCourseHeader}>
-                  <Ionicons name="calendar" size={16} color="#6366f1" />
-                  <Text style={styles.upcomingCourseTime}>
-                    {new Date(ride.scheduled_at).toLocaleDateString('fr-FR', {
-                      weekday: 'short',
-                      day: 'numeric',
-                      month: 'short',
-                      hour: '2-digit',
-                      minute: '2-digit',
-                    })}
-                  </Text>
-                </View>
-                <View style={styles.upcomingCourseRoute}>
-                  <Ionicons name="location" size={14} color="#64748b" />
-                  <Text style={styles.upcomingCourseAddress} numberOfLines={1}>
-                    {ride.pickup_address}
-                  </Text>
-                </View>
-                <View style={styles.upcomingCourseRoute}>
-                  <Ionicons name="flag" size={14} color="#64748b" />
-                  <Text style={styles.upcomingCourseAddress} numberOfLines={1}>
-                    {ride.dropoff_address}
-                  </Text>
-                </View>
-                {ride.price_cents && (
-                  <Text style={styles.upcomingCoursePrice}>
-                    {(ride.price_cents / 100).toFixed(2)}€
-                  </Text>
-                )}
-              </View>
-            ))}
-          </View>
-        )}
 
         {/* Activité récente */}
         <View style={styles.activitySection}>
@@ -516,35 +542,6 @@ export default function DashboardScreen({
           </View>
         </View>
 
-        {/* Prochaines courses */}
-        {upcomingRides.length > 0 && (
-          <View style={styles.upcomingSection}>
-            <Text style={styles.sectionTitle}>Prochaines courses planifiées</Text>
-            {upcomingRides.map((ride) => (
-              <View key={ride.id} style={styles.upcomingCard}>
-                <View style={styles.upcomingHeader}>
-                  <Ionicons name="time" size={16} color="#6366f1" />
-                  <Text style={styles.upcomingTime}>
-                    {new Date(ride.scheduled_at).toLocaleString('fr-FR', {
-                      day: 'numeric',
-                      month: 'short',
-                      hour: '2-digit',
-                      minute: '2-digit',
-                    })}
-                  </Text>
-                </View>
-                <View style={styles.upcomingRoute}>
-                  <Ionicons name="location" size={14} color="#64748b" />
-                  <Text style={styles.upcomingAddress}>{ride.pickup_address}</Text>
-                </View>
-                <View style={styles.upcomingRoute}>
-                  <Ionicons name="flag" size={14} color="#64748b" />
-                  <Text style={styles.upcomingAddress}>{ride.dropoff_address}</Text>
-                </View>
-              </View>
-            ))}
-          </View>
-        )}
       </ScrollView>
     </View>
   );
