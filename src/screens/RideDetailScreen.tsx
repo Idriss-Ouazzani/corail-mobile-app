@@ -258,6 +258,31 @@ export const RideDetailScreen: React.FC<RideDetailScreenProps> = ({
           </View>
         </View>
 
+        {/* Client Information */}
+        {(ride.client_name || ride.client_phone) && (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Client</Text>
+            <View style={styles.clientCard}>
+              <Ionicons name="person-circle" size={32} color="#8b5cf6" />
+              <View style={styles.clientInfo}>
+                {ride.client_name && (
+                  <Text style={styles.clientName}>{ride.client_name}</Text>
+                )}
+                {ride.client_phone && (
+                  <TouchableOpacity
+                    onPress={() => Linking.openURL(`tel:${ride.client_phone}`)}
+                    activeOpacity={0.7}
+                  >
+                    <Text style={styles.clientPhone}>
+                      <Ionicons name="call" size={14} color="#10b981" /> {ride.client_phone}
+                    </Text>
+                  </TouchableOpacity>
+                )}
+              </View>
+            </View>
+          </View>
+        )}
+
         {/* Creator */}
         {ride.creator && (
           <View style={styles.section}>
@@ -336,12 +361,6 @@ export const RideDetailScreen: React.FC<RideDetailScreenProps> = ({
               <View style={[styles.tag, { backgroundColor: '#a855f7' }]}>
                 <Ionicons name="people" size={14} color="#fff" />
                 <Text style={styles.tagText}>Groupe</Text>
-              </View>
-            )}
-            {!ride.commission_enabled && (
-              <View style={[styles.tag, { backgroundColor: '#10b981' }]}>
-                <Ionicons name="checkmark-circle" size={14} color="#fff" />
-                <Text style={styles.tagText}>Sans commission</Text>
               </View>
             )}
           </View>
@@ -619,6 +638,30 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     marginLeft: 12,
     flex: 1,
+  },
+  clientCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(139, 92, 246, 0.08)',
+    borderRadius: 16,
+    padding: 18,
+    borderWidth: 1,
+    borderColor: 'rgba(139, 92, 246, 0.2)',
+  },
+  clientInfo: {
+    marginLeft: 14,
+    flex: 1,
+  },
+  clientName: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#f1f5f9',
+    marginBottom: 6,
+  },
+  clientPhone: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#10b981',
   },
   creatorCard: {
     flexDirection: 'row',

@@ -77,6 +77,8 @@ export const CreateRideScreen: React.FC<CreateRideScreenProps> = ({ onBack, onCr
   const [vehicleType, setVehicleType] = useState<string>('STANDARD');
   const [distance, setDistance] = useState('');
   const [duration, setDuration] = useState('');
+  const [clientName, setClientName] = useState('');
+  const [clientPhone, setClientPhone] = useState('');
 
   // Formater la date pour l'API (YYYY-MM-DD HH:MM)
   const formatDateForAPI = (date: Date): string => {
@@ -160,6 +162,8 @@ export const CreateRideScreen: React.FC<CreateRideScreenProps> = ({ onBack, onCr
       vehicle_type: vehicleType,
       distance_km: distance ? parseFloat(distance) : undefined,
       duration_minutes: duration ? parseInt(duration) : undefined,
+      client_name: clientName || undefined,
+      client_phone: clientPhone || undefined,
     });
     onBack();
   };
@@ -332,6 +336,29 @@ export const CreateRideScreen: React.FC<CreateRideScreenProps> = ({ onBack, onCr
               />
             </View>
           </View>
+        </View>
+
+        {/* Client Information (Optional) */}
+        <View style={styles.section}>
+          <Text style={styles.label}>
+            <Ionicons name="person" size={16} color="#8b5cf6" /> Client (optionnel)
+          </Text>
+          <TextInput
+            style={styles.input}
+            placeholder="Nom du client"
+            placeholderTextColor="#64748b"
+            value={clientName}
+            onChangeText={setClientName}
+          />
+          <View style={{ height: 12 }} />
+          <TextInput
+            style={styles.input}
+            placeholder="Téléphone du client"
+            placeholderTextColor="#64748b"
+            keyboardType="phone-pad"
+            value={clientPhone}
+            onChangeText={setClientPhone}
+          />
         </View>
 
         {/* Visibility - Mode 'create' : PERSONAL par défaut + option publier */}

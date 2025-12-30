@@ -92,6 +92,8 @@ class Ride(BaseModel):
     distance_km: Optional[float]
     duration_minutes: Optional[int]
     group_id: Optional[str]
+    client_name: Optional[str] = None
+    client_phone: Optional[str] = None
     created_at: Optional[str] = None
     updated_at: Optional[str] = None
     completed_at: Optional[str] = None
@@ -207,6 +209,8 @@ class CreateRideRequest(BaseModel):
     distance_km: Optional[float] = None
     duration_minutes: Optional[int] = None
     group_ids: Optional[List[str]] = []
+    client_name: Optional[str] = None
+    client_phone: Optional[str] = None
 
 
 # ============================================================================
@@ -381,6 +385,8 @@ async def create_ride(
             distance_km,
             duration_minutes,
             group_id,
+            client_name,
+            client_phone,
             created_at,
             updated_at
         ) VALUES (
@@ -396,6 +402,8 @@ async def create_ride(
             :distance_km,
             :duration_minutes,
             :group_id,
+            :client_name,
+            :client_phone,
             CURRENT_TIMESTAMP(),
             CURRENT_TIMESTAMP()
         )
@@ -412,21 +420,23 @@ async def create_ride(
             "vehicle_type": ride.vehicle_type,
             "distance_km": ride.distance_km,
             "duration_minutes": ride.duration_minutes,
-            "group_id": ride.group_ids[0] if ride.group_ids else None
+            "group_id": ride.group_ids[0] if ride.group_ids else None,
+            "client_name": ride.client_name,
+            "client_phone": ride.client_phone
         }
         
         db.execute_non_query(query, params)
         
-        # 🎉 SYSTÈME DE CRÉDITS : +1 crédit UNIQUEMENT pour les courses PUBLIC
+        # 🎉 SYSTÈME DE CRÉDITS : +1 crédit pour PUBLIC et GROUP (pas PERSONAL)
         credit_message = ""
-        if ride.visibility == "PUBLIC":
+        if ride.visibility in ["PUBLIC", "GROUP"]:
             credit_query = """
             UPDATE users 
             SET credits = COALESCE(credits, 0) + 1
             WHERE id = :user_id
             """
             db.execute_non_query(credit_query, {"user_id": user_id})
-            print(f"✅ +1 crédit Corail pour {user_id} (publication PUBLIC)")
+            print(f"✅ +1 crédit Corail pour {user_id} (publication {ride.visibility})")
             credit_message = " +1 crédit Corail"
         
         # 🏆 Vérifier et attribuer des badges automatiquement

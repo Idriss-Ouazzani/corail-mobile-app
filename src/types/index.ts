@@ -39,6 +39,8 @@ export interface Ride {
   vehicle_type?: VehicleType
   distance_km?: number
   duration_minutes?: number
+  client_name?: string
+  client_phone?: string
   creator?: Partial<User>
   picker?: Partial<User>
 }
