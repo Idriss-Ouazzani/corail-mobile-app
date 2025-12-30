@@ -1733,46 +1733,76 @@ export default function App() {
           try {
             console.log('📤 Envoi de la course au backend:', ride);
             
-            // Appeler l'API pour créer la course
-            const response = await apiClient.createRide({
-              pickup_address: ride.pickup_address,
-              dropoff_address: ride.dropoff_address,
-              scheduled_at: ride.scheduled_at,
-              price_cents: ride.price_cents,
-              visibility: ride.visibility,
-              vehicle_type: ride.vehicle_type,
-              distance_km: ride.distance_km,
-              duration_minutes: ride.duration_minutes,
-              group_id: ride.group_ids && ride.group_ids.length > 0 ? ride.group_ids[0] : undefined,
-            });
-            
-            console.log('✅ Course créée avec succès:', response);
-            
-            // Ajouter la nouvelle course au state local immédiatement
-            const newRide: Ride = {
-              ...response,
-              creator_id: currentUserId,
-              creator: undefined, // Sera chargé lors du prochain refresh
-              picker_id: null,
-              picker: undefined,
-            };
-            setRides(prevRides => [newRide, ...prevRides]);
-            console.log('✅ Course ajoutée au state local - compteur devrait augmenter');
-            
-            // 🔔 Planifier notification de rappel 1h avant (pour le créateur aussi)
-            await NotificationService.scheduleRideReminder(
-              response.id,
-              ride.scheduled_at,
-              ride.pickup_address,
-              ride.dropoff_address
-            );
-            
-            // 🪸 Recharger les crédits après création (devrait avoir +1 crédit)
-            await loadCredits();
-            
-            // Fermer le modal
-            setShowCreateRide(false);
-            Alert.alert('Succès', 'Course créée avec succès ! +1 crédit 🪸');
+            // 🔀 Si visibility === 'PERSONAL', créer une personal_ride
+            if (ride.visibility === 'PERSONAL') {
+              const response = await apiClient.createPersonalRide({
+                source: 'OTHER',
+                pickup_address: ride.pickup_address,
+                dropoff_address: ride.dropoff_address,
+                scheduled_at: ride.scheduled_at,
+                price_cents: ride.price_cents,
+                distance_km: ride.distance_km,
+                duration_minutes: ride.duration_minutes,
+                client_name: ride.client_name,
+                client_phone: ride.client_phone,
+                status: 'SCHEDULED',
+              });
+              
+              console.log('✅ Course personnelle créée avec succès:', response);
+              
+              // 🔔 Planifier notification de rappel 1h avant
+              await NotificationService.scheduleRideReminder(
+                response.id,
+                ride.scheduled_at,
+                ride.pickup_address,
+                ride.dropoff_address
+              );
+              
+              // Fermer le modal
+              setShowCreateRide(false);
+              Alert.alert('Succès', 'Course personnelle enregistrée ! 📝');
+            } else {
+              // Sinon, créer une course normale (marketplace)
+              const response = await apiClient.createRide({
+                pickup_address: ride.pickup_address,
+                dropoff_address: ride.dropoff_address,
+                scheduled_at: ride.scheduled_at,
+                price_cents: ride.price_cents,
+                visibility: ride.visibility,
+                vehicle_type: ride.vehicle_type,
+                distance_km: ride.distance_km,
+                duration_minutes: ride.duration_minutes,
+                group_id: ride.group_ids && ride.group_ids.length > 0 ? ride.group_ids[0] : undefined,
+              });
+              
+              console.log('✅ Course marketplace créée avec succès:', response);
+              
+              // Ajouter la nouvelle course au state local immédiatement
+              const newRide: Ride = {
+                ...response,
+                creator_id: currentUserId,
+                creator: undefined, // Sera chargé lors du prochain refresh
+                picker_id: null,
+                picker: undefined,
+              };
+              setRides(prevRides => [newRide, ...prevRides]);
+              console.log('✅ Course ajoutée au state local - compteur devrait augmenter');
+              
+              // 🔔 Planifier notification de rappel 1h avant (pour le créateur aussi)
+              await NotificationService.scheduleRideReminder(
+                response.id,
+                ride.scheduled_at,
+                ride.pickup_address,
+                ride.dropoff_address
+              );
+              
+              // 🪸 Recharger les crédits après création (devrait avoir +1 crédit)
+              await loadCredits();
+              
+              // Fermer le modal
+              setShowCreateRide(false);
+              Alert.alert('Succès', 'Course créée avec succès ! +1 crédit 🪸');
+            }
           } catch (error: any) {
             console.error('❌ Erreur création course:', error);
             Alert.alert('Erreur', error.message || 'Impossible de créer la course');
