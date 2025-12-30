@@ -109,8 +109,7 @@ export default function DashboardScreen({
       }
 
       // Calculer revenus du jour et de la semaine
-      // Filtrer uniquement les courses d'aujourd'hui dans upcomingRidesData
-      const today = new Date().toDateString();
+      // Réutiliser la variable 'today' déjà déclarée plus haut
       const todayScheduledRides = upcomingRidesData.filter((ride: any) => {
         if (!ride.scheduled_at) return false;
         return new Date(ride.scheduled_at).toDateString() === today;
