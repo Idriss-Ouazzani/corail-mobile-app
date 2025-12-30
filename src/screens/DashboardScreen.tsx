@@ -16,6 +16,7 @@ import {
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { apiClient } from '../services/api';
+import * as NotificationService from '../services/notifications';
 
 interface DashboardProps {
   userFullName: string;
@@ -77,12 +78,25 @@ export default function DashboardScreen({
       }
 
       // Charger les courses à venir (SCHEDULED)
+      let upcomingRidesData: any[] = [];
       try {
         const ridesData = await apiClient.listPersonalRides({ status: 'SCHEDULED', limit: 5 });
-        setUpcomingRides(ridesData || []);
+        upcomingRidesData = ridesData || [];
+        setUpcomingRides(upcomingRidesData);
       } catch (error: any) {
         console.warn('No upcoming rides found');
         setUpcomingRides([]);
+      }
+
+      // 🔔 Planifier le résumé quotidien si des courses prévues aujourd'hui
+      const today = new Date().toDateString();
+      const todayRidesCount = upcomingRidesData.filter((ride: any) => {
+        if (!ride.scheduled_at) return false;
+        return new Date(ride.scheduled_at).toDateString() === today;
+      }).length;
+      
+      if (todayRidesCount > 0) {
+        await NotificationService.scheduleDailySummary(todayRidesCount);
       }
 
       // Charger les 3 dernières activités

@@ -46,6 +46,7 @@ import GlobalCreditsBadge from './src/components/GlobalCreditsBadge';
 import ActivityFeed from './src/components/ActivityFeed';
 import { firebaseAuth } from './src/services/firebase';
 import { apiClient } from './src/services/api';
+import * as NotificationService from './src/services/notifications';
 import type { Ride } from './src/types';
 import type { User as FirebaseUser } from './src/services/firebase';
 
@@ -539,8 +540,33 @@ export default function App() {
       loadRides();
       loadCredits();
       loadBadges();
+      
+      // 🔔 Initialiser les notifications
+      initializeNotifications();
     }
   }, [user]);
+
+  // 🔔 Initialiser les notifications
+  const initializeNotifications = async () => {
+    try {
+      const hasPermission = await NotificationService.requestNotificationPermissions();
+      if (hasPermission) {
+        console.log('✅ Notifications activées');
+        
+        // Vérifier les crédits pour alerte si faible
+        if (userCredits < 2) {
+          await NotificationService.notifyLowCredits(userCredits);
+        }
+        
+        // Notifier QR Code prêt (une seule fois)
+        if (verificationStatus === 'VERIFIED') {
+          await NotificationService.notifyQRCodeReady();
+        }
+      }
+    } catch (error) {
+      console.error('❌ Erreur initialisation notifications:', error);
+    }
+  };
 
   // 🔐 Afficher écran de chargement pendant l'initialisation
   if (authLoading) {
@@ -1733,6 +1759,14 @@ export default function App() {
             setRides(prevRides => [newRide, ...prevRides]);
             console.log('✅ Course ajoutée au state local - compteur devrait augmenter');
             
+            // 🔔 Planifier notification de rappel 1h avant (pour le créateur aussi)
+            await NotificationService.scheduleRideReminder(
+              response.id,
+              ride.scheduled_at,
+              ride.pickup_address,
+              ride.dropoff_address
+            );
+            
             // 🪸 Recharger les crédits après création (devrait avoir +1 crédit)
             await loadCredits();
             
@@ -1771,6 +1805,20 @@ export default function App() {
             // Prendre la course
             await apiClient.claimRide(selectedRide.id);
             console.log('✅ Course réclamée avec succès');
+            
+            // 🔔 Planifier notification de rappel 1h avant
+            await NotificationService.scheduleRideReminder(
+              selectedRide.id,
+              selectedRide.scheduled_at,
+              selectedRide.pickup_address,
+              selectedRide.dropoff_address
+            );
+            
+            // 🔔 Planifier rappel pour terminer la course
+            await NotificationService.notifyCompleteRide(
+              selectedRide.id,
+              selectedRide.scheduled_at
+            );
             
             // Recharger les crédits et les rides
             await loadCredits();
