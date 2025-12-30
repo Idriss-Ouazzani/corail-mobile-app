@@ -43,7 +43,7 @@ import CoursesScreen from './src/screens/CoursesScreen';
 import ToolsScreen from './src/screens/ToolsScreen';
 import PlanningScreen from './src/screens/PlanningScreen';
 import GlobalCreditsBadge from './src/components/GlobalCreditsBadge';
-import ActivityHistoryList from './src/components/ActivityHistoryList';
+import ActivityFeed from './src/components/ActivityFeed';
 import { firebaseAuth } from './src/services/firebase';
 import { apiClient } from './src/services/api';
 import type { Ride } from './src/types';
@@ -1853,7 +1853,7 @@ export default function App() {
           <CoursesScreen
             marketplaceContent={renderMarketplace()}
             myRidesContent={renderMyRides()}
-            historyContent={<ActivityHistoryList />}
+            historyContent={<ActivityFeed limit={50} />}
           />
         )}
         {currentScreen === 'tools' && (

@@ -41,6 +41,7 @@ export default function DashboardScreen({
   const [weekRevenue, setWeekRevenue] = useState(0);
   const [todayRides, setTodayRides] = useState(0);
   const [upcomingRides, setUpcomingRides] = useState<any[]>([]);
+  const [recentActivities, setRecentActivities] = useState<any[]>([]);
 
   useEffect(() => {
     loadDashboardData();
@@ -78,6 +79,15 @@ export default function DashboardScreen({
         setUpcomingRides([]);
       }
 
+      // Charger les 3 dernières activités
+      try {
+        const activitiesData = await apiClient.getRecentActivity(3);
+        setRecentActivities(activitiesData || []);
+      } catch (error: any) {
+        console.warn('No recent activities found');
+        setRecentActivities([]);
+      }
+
       // Calculer revenus du jour et de la semaine
       // TODO: Améliorer avec des filtres backend par date
       const today = new Date().toDateString();
@@ -98,6 +108,68 @@ export default function DashboardScreen({
     setRefreshing(true);
     await loadDashboardData();
     setRefreshing(false);
+  };
+
+  const getActivityInfo = (activity: any) => {
+    const { action_type, pickup_address, dropoff_address } = activity;
+
+    switch (action_type) {
+      case 'RIDE_PUBLISHED_PUBLIC':
+        return {
+          icon: 'megaphone' as const,
+          color: '#0ea5e9',
+          title: 'Course publiée',
+        };
+      case 'RIDE_PUBLISHED_GROUP':
+        return {
+          icon: 'people' as const,
+          color: '#a855f7',
+          title: 'Course en groupe',
+        };
+      case 'RIDE_PUBLISHED_PERSONAL':
+        return {
+          icon: 'lock-closed' as const,
+          color: '#6366f1',
+          title: 'Course personnelle',
+        };
+      case 'RIDE_CLAIMED':
+        return {
+          icon: 'car-sport' as const,
+          color: '#ff6b47',
+          title: 'Course prise',
+        };
+      case 'RIDE_COMPLETED':
+        return {
+          icon: 'checkmark-circle' as const,
+          color: '#10b981',
+          title: 'Course terminée',
+        };
+      case 'RIDE_DELETED':
+        return {
+          icon: 'trash' as const,
+          color: '#ef4444',
+          title: 'Course supprimée',
+        };
+      default:
+        return {
+          icon: 'help-circle' as const,
+          color: '#64748b',
+          title: action_type,
+        };
+    }
+  };
+
+  const formatRelativeTime = (dateString: string) => {
+    const date = new Date(dateString);
+    const now = new Date();
+    const diffMs = now.getTime() - date.getTime();
+    const diffMins = Math.floor(diffMs / 60000);
+    const diffHours = Math.floor(diffMs / 3600000);
+
+    if (diffMins < 1) return 'À l\'instant';
+    if (diffMins < 60) return `Il y a ${diffMins} min`;
+    if (diffHours < 24) return `Il y a ${diffHours}h`;
+    return 'Il y a 1 jour+';
   };
 
   const getSourceIcon = (src: string) => {
@@ -260,31 +332,45 @@ export default function DashboardScreen({
 
         {/* Activité récente */}
         <View style={styles.activitySection}>
-          <Text style={styles.sectionTitle}>Activité récente</Text>
-          <View style={styles.activityCard}>
-            <View style={styles.activityItem}>
-              <View style={styles.activityIconContainer}>
-                <Ionicons name="checkmark-circle" size={20} color="#10b981" />
-              </View>
-              <View style={styles.activityContent}>
-                <Text style={styles.activityTitle}>Dernière course complétée</Text>
-                <Text style={styles.activitySubtext}>
-                  {stats?.totals?.completed_rides > 0 ? 'Il y a 2 heures' : 'Aucune course complétée'}
-                </Text>
-              </View>
-            </View>
-            <View style={styles.activityItem}>
-              <View style={styles.activityIconContainer}>
-                <Ionicons name="calendar" size={20} color="#6366f1" />
-              </View>
-              <View style={styles.activityContent}>
-                <Text style={styles.activityTitle}>Courses cette semaine</Text>
-                <Text style={styles.activitySubtext}>
-                  {stats?.totals?.completed_rides || 0} courses complétées
-                </Text>
-              </View>
-            </View>
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionTitle}>Activité récente</Text>
+            <TouchableOpacity onPress={onNavigateToCourses} activeOpacity={0.7}>
+              <Text style={styles.viewMoreText}>
+                Voir plus <Ionicons name="chevron-forward" size={14} color="#6366f1" />
+              </Text>
+            </TouchableOpacity>
           </View>
+          
+          {recentActivities.length > 0 ? (
+            <View style={styles.activityCard}>
+              {recentActivities.map((activity, index) => {
+                const info = getActivityInfo(activity);
+                return (
+                  <View key={activity.id} style={styles.activityItem}>
+                    <View style={[styles.activityIconContainer, { backgroundColor: info.color + '20' }]}>
+                      <Ionicons name={info.icon} size={18} color={info.color} />
+                    </View>
+                    <View style={styles.activityContent}>
+                      <Text style={styles.activityTitle}>{info.title}</Text>
+                      <Text style={styles.activitySubtext}>
+                        {formatRelativeTime(activity.created_at)}
+                      </Text>
+                    </View>
+                  </View>
+                );
+              })}
+            </View>
+          ) : (
+            <View style={styles.activityCard}>
+              <View style={styles.emptyActivityContainer}>
+                <Ionicons name="time-outline" size={40} color="#475569" />
+                <Text style={styles.emptyActivityText}>Aucune activité récente</Text>
+                <Text style={styles.emptyActivitySubtext}>
+                  Vos actions apparaîtront ici
+                </Text>
+              </View>
+            </View>
+          )}
         </View>
 
         {/* Comment fonctionnent les crédits ? */}
@@ -533,6 +619,17 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     marginBottom: 24,
   },
+  sectionHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  viewMoreText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#6366f1',
+  },
   activityCard: {
     backgroundColor: '#1e293b',
     borderRadius: 16,
@@ -564,6 +661,21 @@ const styles = StyleSheet.create({
     marginBottom: 2,
   },
   activitySubtext: {
+    fontSize: 12,
+    color: '#64748b',
+  },
+  emptyActivityContainer: {
+    alignItems: 'center',
+    paddingVertical: 24,
+  },
+  emptyActivityText: {
+    marginTop: 12,
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#94a3b8',
+  },
+  emptyActivitySubtext: {
+    marginTop: 4,
     fontSize: 12,
     color: '#64748b',
   },

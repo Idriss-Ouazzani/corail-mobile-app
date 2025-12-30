@@ -355,6 +355,18 @@ class ApiClient {
   }
 
   // ============================================================================
+  // ACTIVITY FEED
+  // ============================================================================
+
+  /**
+   * Récupérer l'activité récente de l'utilisateur
+   */
+  async getRecentActivity(limit: number = 20) {
+    const { data } = await this.client.get(`/api/v1/activity/recent?limit=${limit}`);
+    return data;
+  }
+
+  // ============================================================================
   // PLANNING & NOTIFICATIONS
   // ============================================================================
 
