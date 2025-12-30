@@ -190,14 +190,11 @@ export async function notifyNewRidesAvailable(count: number): Promise<void> {
   if (!prefs.enabled || !prefs.newRidesAvailable) return;
 
   try {
-    await Notifications.scheduleNotificationAsync({
-      content: {
-        title: '🆕 Nouvelles courses !',
-        body: `${count} nouvelle${count > 1 ? 's' : ''} course${count > 1 ? 's' : ''} disponible${count > 1 ? 's' : ''} sur la marketplace`,
-        data: { type: 'new_rides' },
-        sound: true,
-      },
-      trigger: { seconds: 1 }, // Immédiat
+    await Notifications.presentNotificationAsync({
+      title: '🆕 Nouvelles courses !',
+      body: `${count} nouvelle${count > 1 ? 's' : ''} course${count > 1 ? 's' : ''} disponible${count > 1 ? 's' : ''} sur la marketplace`,
+      data: { type: 'new_rides' },
+      sound: true,
     });
 
     console.log(`✅ Notification nouvelles courses envoyée (${count})`);
@@ -218,14 +215,11 @@ export async function notifyQRCodeReady(): Promise<void> {
     const sent = await AsyncStorage.getItem('@qr_notification_sent');
     if (sent === 'true') return;
 
-    await Notifications.scheduleNotificationAsync({
-      content: {
-        title: '✨ QR Code professionnel',
-        body: 'Votre QR Code est prêt ! Partagez-le avec vos clients',
-        data: { type: 'qr_ready' },
-        sound: true,
-      },
-      trigger: { seconds: 1 }, // Immédiat
+    await Notifications.presentNotificationAsync({
+      title: '✨ QR Code professionnel',
+      body: 'Votre QR Code est prêt ! Partagez-le avec vos clients',
+      data: { type: 'qr_ready' },
+      sound: true,
     });
 
     await AsyncStorage.setItem('@qr_notification_sent', 'true');
@@ -251,16 +245,13 @@ export async function notifyLowCredits(credits: number): Promise<void> {
       if (daysSince < 1) return;
     }
 
-    await Notifications.scheduleNotificationAsync({
-      content: {
-        title: '⚠️ Crédits faibles',
-        body: credits === 0 
-          ? 'Vous n\'avez plus de crédits ! Publiez des courses pour en gagner'
-          : `Plus que ${credits} crédit${credits > 1 ? 's' : ''}. Pensez à publier des courses !`,
-        data: { type: 'low_credits' },
-        sound: true,
-      },
-      trigger: { seconds: 1 },
+    await Notifications.presentNotificationAsync({
+      title: '⚠️ Crédits faibles',
+      body: credits === 0 
+        ? 'Vous n\'avez plus de crédits ! Publiez des courses pour en gagner'
+        : `Plus que ${credits} crédit${credits > 1 ? 's' : ''}. Pensez à publier des courses !`,
+      data: { type: 'low_credits' },
+      sound: true,
     });
 
     await AsyncStorage.setItem('@low_credits_notif', new Date().toISOString());
@@ -278,14 +269,11 @@ export async function notifyBadgeEarned(badgeName: string, badgeDescription: str
   if (!prefs.enabled || !prefs.badgesEarned) return;
 
   try {
-    await Notifications.scheduleNotificationAsync({
-      content: {
-        title: '🏆 Nouveau badge !',
-        body: `${badgeName} : ${badgeDescription}`,
-        data: { type: 'badge_earned' },
-        sound: true,
-      },
-      trigger: { seconds: 1 },
+    await Notifications.presentNotificationAsync({
+      title: '🏆 Nouveau badge !',
+      body: `${badgeName} : ${badgeDescription}`,
+      data: { type: 'badge_earned' },
+      sound: true,
     });
 
     console.log(`✅ Notification badge envoyée: ${badgeName}`);
@@ -302,14 +290,11 @@ export async function notifyGroupInvitation(groupName: string, inviterName: stri
   if (!prefs.enabled || !prefs.groupInvitations) return;
 
   try {
-    await Notifications.scheduleNotificationAsync({
-      content: {
-        title: '👥 Invitation groupe',
-        body: `${inviterName} vous a invité à rejoindre "${groupName}"`,
-        data: { type: 'group_invitation' },
-        sound: true,
-      },
-      trigger: { seconds: 1 },
+    await Notifications.presentNotificationAsync({
+      title: '👥 Invitation groupe',
+      body: `${inviterName} vous a invité à rejoindre "${groupName}"`,
+      data: { type: 'group_invitation' },
+      sound: true,
     });
 
     console.log(`✅ Notification invitation groupe envoyée`);
@@ -356,14 +341,11 @@ export async function notifyRideClaimed(pickupAddress: string, pickerName: strin
   if (!prefs.enabled) return;
 
   try {
-    await Notifications.scheduleNotificationAsync({
-      content: {
-        title: '🎉 Course prise !',
-        body: `${pickerName} a pris votre course (${pickupAddress})`,
-        data: { type: 'ride_claimed' },
-        sound: true,
-      },
-      trigger: { seconds: 1 },
+    await Notifications.presentNotificationAsync({
+      title: '🎉 Course prise !',
+      body: `${pickerName} a pris votre course (${pickupAddress})`,
+      data: { type: 'ride_claimed' },
+      sound: true,
     });
 
     console.log('✅ Notification course réclamée envoyée');
@@ -425,14 +407,11 @@ export async function getScheduledNotificationsCount(): Promise<number> {
  */
 export async function sendTestNotification(): Promise<void> {
   try {
-    await Notifications.scheduleNotificationAsync({
-      content: {
-        title: '🔔 Notification test',
-        body: 'Les notifications fonctionnent correctement !',
-        data: { type: 'test' },
-        sound: true,
-      },
-      trigger: { seconds: 1 }, // Immédiat
+    await Notifications.presentNotificationAsync({
+      title: '🔔 Notification test',
+      body: 'Les notifications fonctionnent correctement !',
+      data: { type: 'test' },
+      sound: true,
     });
 
     console.log('✅ Notification test envoyée');
