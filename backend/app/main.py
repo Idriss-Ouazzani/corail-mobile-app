@@ -786,8 +786,8 @@ async def get_my_groups(user_id: str = CurrentUser):
             g.owner_id,
             g.icon,
             g.created_at
-        FROM groups g
-        JOIN group_members gm ON g.id = gm.group_id
+        FROM io_catalog.corail.groups g
+        JOIN io_catalog.corail.group_members gm ON g.id = gm.group_id
         WHERE gm.user_id = :user_id AND gm.status = 'ACTIVE'
         ORDER BY g.created_at DESC
         """
@@ -805,8 +805,8 @@ async def get_my_groups(user_id: str = CurrentUser):
                 gm.role,
                 gm.status,
                 u.full_name
-            FROM group_members gm
-            LEFT JOIN users u ON gm.user_id = u.id
+            FROM io_catalog.corail.group_members gm
+            LEFT JOIN io_catalog.corail.users u ON gm.user_id = u.id
             WHERE gm.group_id = :group_id AND gm.status IN ('ACTIVE', 'PENDING')
             ORDER BY gm.role DESC, gm.status, gm.email
             """
@@ -844,7 +844,7 @@ async def create_group(
         
         # Créer le groupe
         create_group_query = """
-        INSERT INTO groups (id, name, description, owner_id, icon, created_at, updated_at)
+        INSERT INTO io_catalog.corail.groups (id, name, description, owner_id, icon, created_at, updated_at)
         VALUES (:id, :name, :description, :owner_id, :icon, CURRENT_TIMESTAMP(), CURRENT_TIMESTAMP())
         """
         
@@ -859,9 +859,9 @@ async def create_group(
         # Ajouter le créateur comme membre admin
         member_id = f"member-{uuid.uuid4()}"
         add_member_query = """
-        INSERT INTO group_members (id, group_id, user_id, email, role, status, invited_by, created_at, updated_at)
+        INSERT INTO io_catalog.corail.group_members (id, group_id, user_id, email, role, status, invited_by, created_at, updated_at)
         SELECT :id, :group_id, :user_id, u.email, 'ADMIN', 'ACTIVE', NULL, CURRENT_TIMESTAMP(), CURRENT_TIMESTAMP()
-        FROM users u WHERE u.id = :user_id
+        FROM io_catalog.corail.users u WHERE u.id = :user_id
         """
         
         db.execute_non_query(add_member_query, {
@@ -897,7 +897,7 @@ async def invite_to_group(
         
         # Vérifier que l'utilisateur est admin du groupe
         check_admin_query = """
-        SELECT role FROM group_members
+        SELECT role FROM io_catalog.corail.group_members
         WHERE group_id = :group_id AND user_id = :user_id AND status = 'ACTIVE'
         """
         admin_check = db.execute_query(check_admin_query, {"group_id": group_id, "user_id": user_id})
@@ -907,7 +907,7 @@ async def invite_to_group(
         
         # Vérifier si l'email existe déjà dans le groupe
         check_existing_query = """
-        SELECT status FROM group_members
+        SELECT status FROM io_catalog.corail.group_members
         WHERE group_id = :group_id AND email = :email
         """
         existing = db.execute_query(check_existing_query, {"group_id": group_id, "email": invitation.email})
@@ -919,14 +919,14 @@ async def invite_to_group(
                 raise HTTPException(status_code=400, detail="Une invitation est déjà en attente pour cet email")
         
         # Récupérer le user_id si l'email existe dans la table users
-        find_user_query = "SELECT id FROM users WHERE email = :email"
+        find_user_query = "SELECT id FROM io_catalog.corail.users WHERE email = :email"
         user_result = db.execute_query(find_user_query, {"email": invitation.email})
         found_user_id = user_result[0]["id"] if user_result else None
         
         # Créer l'invitation
         invitation_id = f"member-{uuid.uuid4()}"
         create_invitation_query = """
-        INSERT INTO group_members (id, group_id, user_id, email, role, status, invited_by, invited_at, created_at, updated_at)
+        INSERT INTO io_catalog.corail.group_members (id, group_id, user_id, email, role, status, invited_by, invited_at, created_at, updated_at)
         VALUES (:id, :group_id, :user_id, :email, 'MEMBER', 'PENDING', :invited_by, CURRENT_TIMESTAMP(), CURRENT_TIMESTAMP(), CURRENT_TIMESTAMP())
         """
         
@@ -962,7 +962,7 @@ async def get_group_details(
     try:
         # Vérifier que l'utilisateur est membre du groupe
         check_member_query = """
-        SELECT status FROM group_members
+        SELECT status FROM io_catalog.corail.group_members
         WHERE group_id = :group_id AND user_id = :user_id
         """
         member_check = db.execute_query(check_member_query, {"group_id": group_id, "user_id": user_id})
@@ -973,7 +973,7 @@ async def get_group_details(
         # Récupérer les infos du groupe
         group_query = """
         SELECT id, name, description, owner_id, icon, created_at
-        FROM groups WHERE id = :group_id
+        FROM io_catalog.corail.groups WHERE id = :group_id
         """
         group_data = db.execute_query(group_query, {"group_id": group_id})
         
@@ -989,8 +989,8 @@ async def get_group_details(
             gm.role,
             gm.status,
             u.full_name
-        FROM group_members gm
-        LEFT JOIN users u ON gm.user_id = u.id
+        FROM io_catalog.corail.group_members gm
+        LEFT JOIN io_catalog.corail.users u ON gm.user_id = u.id
         WHERE gm.group_id = :group_id AND gm.status IN ('ACTIVE', 'PENDING')
         ORDER BY gm.role DESC, gm.status, gm.email
         """
@@ -1409,12 +1409,13 @@ def check_and_award_badges(user_id: str):
         # Récupérer les stats de l'utilisateur
         stats_query = """
         SELECT 
-            COUNT(CASE WHEN creator_id = :user_id THEN 1 END) as total_published,
-            COUNT(CASE WHEN picker_id = :user_id AND status = 'COMPLETED' THEN 1 END) as total_completed,
-            COALESCE(u.credits, 0) as total_credits
-        FROM rides
-        LEFT JOIN users u ON u.id = :user_id
-        WHERE creator_id = :user_id OR picker_id = :user_id
+            COUNT(CASE WHEN r.creator_id = :user_id THEN 1 END) as total_published,
+            COUNT(CASE WHEN r.picker_id = :user_id AND r.status = 'COMPLETED' THEN 1 END) as total_completed,
+            MAX(COALESCE(u.credits, 0)) as total_credits
+        FROM io_catalog.corail.rides r
+        LEFT JOIN io_catalog.corail.users u ON u.id = :user_id
+        WHERE r.creator_id = :user_id OR r.picker_id = :user_id
+        GROUP BY u.id
         """
         stats = db.execute_query(stats_query, {"user_id": user_id})
         

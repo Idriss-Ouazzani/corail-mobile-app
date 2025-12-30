@@ -155,8 +155,8 @@ class ApiClient {
 
   // Groups
   async listMyGroups(): Promise<{ data: Group[] }> {
-    const response = await this.client.get('/api/v1/groups/my-groups');
-    return response.data;
+    const response = await this.client.get('/api/v1/groups');
+    return { data: response.data };
   }
 
   async getGroup(groupId: string): Promise<Group> {
