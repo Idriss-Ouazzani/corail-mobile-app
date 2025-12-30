@@ -428,6 +428,12 @@ export default function App() {
   });
   const [myRidesTab, setMyRidesTab] = useState<'claimed' | 'published' | 'personal'>('claimed');
   
+  // États pour publier une course personnelle
+  const [showPublishModal, setShowPublishModal] = useState(false);
+  const [selectedPersonalRide, setSelectedPersonalRide] = useState<any | null>(null);
+  const [publishVisibility, setPublishVisibility] = useState<'PUBLIC' | 'GROUP'>('PUBLIC');
+  const [publishVehicleType, setPublishVehicleType] = useState<'STANDARD' | 'ELECTRIC' | 'VAN' | 'PREMIUM' | 'LUXURY'>('STANDARD');
+  
   // 🗄️ Rides depuis Databricks
   const [rides, setRides] = useState<Ride[]>([]);
   const [personalRides, setPersonalRides] = useState<any[]>([]); // Courses personnelles
@@ -1379,13 +1385,12 @@ export default function App() {
                 <Text style={styles.sectionSubtitle}>Courses privées non publiées</Text>
                 
                 {activePersonal.map((ride) => (
-                  <TouchableOpacity
-                    key={ride.id}
-                    style={styles.compactRideRow}
-                    onPress={() => setSelectedRide(ride)}
-                    activeOpacity={0.7}
-                  >
-                    <View style={styles.compactRideLeft}>
+                  <View key={ride.id} style={styles.compactRideRow}>
+                    <TouchableOpacity
+                      style={[styles.compactRideLeft, { flex: 1 }]}
+                      onPress={() => setSelectedRide(ride)}
+                      activeOpacity={0.7}
+                    >
                       <View style={styles.compactRideIconWrapper}>
                         <Ionicons name="lock-closed-outline" size={20} color="#6366f1" />
                       </View>
@@ -1411,15 +1416,24 @@ export default function App() {
                           </Text>
                         </View>
                       </View>
-                    </View>
+                    </TouchableOpacity>
                     
                     <View style={styles.compactRideRight}>
                       <Text style={styles.compactRidePrice}>
                         {(ride.price_cents / 100).toFixed(2)}€
                       </Text>
-                      <Ionicons name="chevron-forward" size={20} color="#64748b" />
+                      <TouchableOpacity
+                        style={styles.publishButton}
+                        onPress={() => {
+                          setSelectedPersonalRide(ride);
+                          setShowPublishModal(true);
+                        }}
+                        activeOpacity={0.7}
+                      >
+                        <Ionicons name="megaphone" size={16} color="#fff" />
+                      </TouchableOpacity>
                     </View>
-                  </TouchableOpacity>
+                  </View>
                 ))}
               </View>
             )}
@@ -2078,6 +2092,113 @@ export default function App() {
             </View>
           </LinearGradient>
         </View>
+
+        {/* Modal: Publier une course personnelle */}
+        {showPublishModal && selectedPersonalRide && (
+          <View style={styles.modalOverlay}>
+            <View style={styles.publishModal}>
+              <Text style={styles.publishModalTitle}>Publier la course</Text>
+              <Text style={styles.publishModalSubtitle}>
+                {selectedPersonalRide.pickup_address} → {selectedPersonalRide.dropoff_address}
+              </Text>
+
+              {/* Visibilité */}
+              <Text style={styles.publishLabel}>Visibilité</Text>
+              <View style={styles.publishOptions}>
+                <TouchableOpacity
+                  style={[styles.publishOption, publishVisibility === 'PUBLIC' && styles.publishOptionActive]}
+                  onPress={() => setPublishVisibility('PUBLIC')}
+                >
+                  <Ionicons 
+                    name="globe" 
+                    size={20} 
+                    color={publishVisibility === 'PUBLIC' ? '#fff' : '#64748b'} 
+                  />
+                  <Text style={[styles.publishOptionText, publishVisibility === 'PUBLIC' && styles.publishOptionTextActive]}>
+                    Public
+                  </Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.publishOption, publishVisibility === 'GROUP' && styles.publishOptionActive]}
+                  onPress={() => setPublishVisibility('GROUP')}
+                >
+                  <Ionicons 
+                    name="people" 
+                    size={20} 
+                    color={publishVisibility === 'GROUP' ? '#fff' : '#64748b'} 
+                  />
+                  <Text style={[styles.publishOptionText, publishVisibility === 'GROUP' && styles.publishOptionTextActive]}>
+                    Groupe
+                  </Text>
+                </TouchableOpacity>
+              </View>
+
+              {/* Type de véhicule */}
+              <Text style={styles.publishLabel}>Type de véhicule</Text>
+              <View style={styles.publishVehicleTypes}>
+                {['STANDARD', 'ELECTRIC', 'VAN', 'PREMIUM', 'LUXURY'].map((type) => (
+                  <TouchableOpacity
+                    key={type}
+                    style={[styles.publishVehicleType, publishVehicleType === type && styles.publishVehicleTypeActive]}
+                    onPress={() => setPublishVehicleType(type as any)}
+                  >
+                    <Text style={[styles.publishVehicleTypeText, publishVehicleType === type && styles.publishVehicleTypeTextActive]}>
+                      {type === 'STANDARD' ? '🚗 Standard' :
+                       type === 'ELECTRIC' ? '⚡ Électrique' :
+                       type === 'VAN' ? '🚐 Van' :
+                       type === 'PREMIUM' ? '✨ Premium' :
+                       '💎 Luxe'}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+
+              {/* Actions */}
+              <View style={styles.publishModalActions}>
+                <TouchableOpacity
+                  style={styles.publishCancelButton}
+                  onPress={() => {
+                    setShowPublishModal(false);
+                    setSelectedPersonalRide(null);
+                  }}
+                >
+                  <Text style={styles.publishCancelButtonText}>Annuler</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={styles.publishConfirmButton}
+                  onPress={async () => {
+                    try {
+                      console.log('📤 Publication course personnelle:', selectedPersonalRide.id);
+                      await apiClient.publishPersonalRide(selectedPersonalRide.id, {
+                        visibility: publishVisibility,
+                        vehicle_type: publishVehicleType,
+                      });
+                      
+                      // Recharger les données
+                      await loadRides();
+                      await loadPersonalRides();
+                      
+                      setShowPublishModal(false);
+                      setSelectedPersonalRide(null);
+                      Alert.alert('Succès', 'Course publiée sur le marketplace ! 🎉');
+                    } catch (error: any) {
+                      console.error('❌ Erreur publication:', error);
+                      Alert.alert('Erreur', error.message || 'Impossible de publier la course');
+                    }
+                  }}
+                >
+                  <LinearGradient
+                    colors={['#6366f1', '#8b5cf6']}
+                    style={styles.publishConfirmGradient}
+                  >
+                    <Ionicons name="megaphone" size={18} color="#fff" />
+                    <Text style={styles.publishConfirmButtonText}>Publier</Text>
+                  </LinearGradient>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+        )}
       </LinearGradient>
     </View>
   );
@@ -3013,13 +3134,156 @@ const styles = StyleSheet.create({
     color: '#94a3b8',
   },
   compactRideRight: {
-    alignItems: 'flex-end',
-    gap: 4,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
     marginLeft: 12,
   },
   compactRidePrice: {
     fontSize: 16,
     fontWeight: '700',
     color: '#10b981',
+  },
+  
+  // Bouton publier course personnelle
+  publishButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#6366f1',
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#6366f1',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  
+  // Modal publier course
+  modalOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0, 0, 0, 0.7)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+  },
+  publishModal: {
+    width: '100%',
+    maxWidth: 400,
+    backgroundColor: '#1e293b',
+    borderRadius: 20,
+    padding: 24,
+    borderWidth: 1,
+    borderColor: '#334155',
+  },
+  publishModalTitle: {
+    fontSize: 22,
+    fontWeight: '700',
+    color: '#f1f5f9',
+    marginBottom: 8,
+  },
+  publishModalSubtitle: {
+    fontSize: 14,
+    color: '#94a3b8',
+    marginBottom: 24,
+  },
+  publishLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#cbd5e1',
+    marginBottom: 12,
+    marginTop: 16,
+  },
+  publishOptions: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  publishOption: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    paddingVertical: 14,
+    borderRadius: 12,
+    backgroundColor: '#0f172a',
+    borderWidth: 2,
+    borderColor: '#334155',
+  },
+  publishOptionActive: {
+    backgroundColor: '#6366f1',
+    borderColor: '#6366f1',
+  },
+  publishOptionText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#64748b',
+  },
+  publishOptionTextActive: {
+    color: '#fff',
+  },
+  publishVehicleTypes: {
+    gap: 8,
+  },
+  publishVehicleType: {
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 12,
+    backgroundColor: '#0f172a',
+    borderWidth: 2,
+    borderColor: '#334155',
+  },
+  publishVehicleTypeActive: {
+    backgroundColor: '#6366f1',
+    borderColor: '#6366f1',
+  },
+  publishVehicleTypeText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#64748b',
+    textAlign: 'center',
+  },
+  publishVehicleTypeTextActive: {
+    color: '#fff',
+  },
+  publishModalActions: {
+    flexDirection: 'row',
+    gap: 12,
+    marginTop: 24,
+  },
+  publishCancelButton: {
+    flex: 1,
+    paddingVertical: 14,
+    borderRadius: 12,
+    backgroundColor: '#334155',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  publishCancelButtonText: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#cbd5e1',
+  },
+  publishConfirmButton: {
+    flex: 1,
+    borderRadius: 12,
+    overflow: 'hidden',
+  },
+  publishConfirmGradient: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    paddingVertical: 14,
+  },
+  publishConfirmButtonText: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#fff',
   },
 });

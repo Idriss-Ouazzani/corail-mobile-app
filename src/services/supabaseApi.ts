@@ -405,6 +405,70 @@ export const createPersonalRide = async (rideData: {
   return data;
 };
 
+/**
+ * Publier une course personnelle sur le marketplace
+ */
+export const publishPersonalRide = async (
+  personalRideId: string,
+  options: {
+    visibility: 'PUBLIC' | 'GROUP';
+    vehicle_type: 'STANDARD' | 'ELECTRIC' | 'VAN' | 'PREMIUM' | 'LUXURY';
+    group_id?: string;
+  }
+) => {
+  if (!currentUserId) throw new Error('User not authenticated');
+
+  // 1. Récupérer la course personnelle
+  const { data: personalRide, error: fetchError } = await supabase
+    .from('personal_rides')
+    .select('*')
+    .eq('id', personalRideId)
+    .eq('driver_id', currentUserId)
+    .single();
+
+  if (fetchError) throw new Error(fetchError.message);
+  if (!personalRide) throw new Error('Course personnelle non trouvée');
+
+  // 2. Créer une course marketplace avec les données de la course personnelle
+  const { data: newRide, error: createError } = await supabase
+    .from('rides')
+    .insert({
+      creator_id: currentUserId,
+      pickup_address: personalRide.pickup_address,
+      dropoff_address: personalRide.dropoff_address,
+      scheduled_at: personalRide.scheduled_at,
+      price_cents: personalRide.price_cents,
+      distance_km: personalRide.distance_km,
+      duration_minutes: personalRide.duration_minutes,
+      visibility: options.visibility,
+      vehicle_type: options.vehicle_type,
+      status: 'PUBLISHED',
+      group_id: options.group_id,
+    })
+    .select()
+    .single();
+
+  if (createError) throw new Error(createError.message);
+
+  // 3. Supprimer la course personnelle (elle est maintenant publiée)
+  const { error: deleteError } = await supabase
+    .from('personal_rides')
+    .delete()
+    .eq('id', personalRideId);
+
+  if (deleteError) console.warn('⚠️ Erreur suppression course personnelle:', deleteError);
+
+  // 4. Activity log
+  await supabase.from('activity_log').insert({
+    user_id: currentUserId,
+    action_type: 'RIDE_PUBLISHED',
+    description: `Published personal ride to marketplace as ${options.visibility}`,
+    ride_id: newRide.id,
+  });
+
+  return newRide;
+};
+
 export const getPersonalRidesStats = async () => {
   if (!currentUserId) throw new Error('User not authenticated');
 
@@ -620,6 +684,7 @@ export const supabaseApi = {
   deleteRide,
   listPersonalRides,
   createPersonalRide,
+  publishPersonalRide,
   getPersonalRidesStats,
   getCredits,
   getUserBadges,

@@ -62,6 +62,14 @@ class ApiClient {
     return supabaseApi.createPersonalRide(rideData);
   }
 
+  async publishPersonalRide(personalRideId: string, options: {
+    visibility: 'PUBLIC' | 'GROUP';
+    vehicle_type: 'STANDARD' | 'ELECTRIC' | 'VAN' | 'PREMIUM' | 'LUXURY';
+    group_id?: string;
+  }) {
+    return supabaseApi.publishPersonalRide(personalRideId, options);
+  }
+
   async getPersonalRidesStats() {
     return supabaseApi.getPersonalRidesStats();
   }
