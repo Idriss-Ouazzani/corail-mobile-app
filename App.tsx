@@ -386,6 +386,7 @@ export default function App() {
         setIsAdmin(false);
         setVerificationLoading(true);
         setRides([]);
+        setPersonalRides([]);
         setUserCredits(0);
         setUserBadges([]);
         setShowPersonalRides(false);
@@ -429,11 +430,24 @@ export default function App() {
   
   // 🗄️ Rides depuis Databricks
   const [rides, setRides] = useState<Ride[]>([]);
+  const [personalRides, setPersonalRides] = useState<any[]>([]); // Courses personnelles
   const [loadingRides, setLoadingRides] = useState(false);
   const [userCredits, setUserCredits] = useState<number>(0);
 
   // 🏆 Badges de l'utilisateur (chargés depuis l'API)
   const [userBadges, setUserBadges] = useState<any[]>([]);
+
+  // 📥 Charger les courses personnelles
+  const loadPersonalRides = async () => {
+    try {
+      console.log('📡 Chargement des courses personnelles...');
+      const response = await apiClient.listPersonalRides();
+      console.log('✅ Courses personnelles chargées:', response.length);
+      setPersonalRides(response);
+    } catch (error: any) {
+      console.error('❌ Erreur chargement courses personnelles:', error);
+    }
+  };
 
   // 📥 Charger les rides depuis l'API
   const loadRides = async () => {
@@ -538,6 +552,7 @@ export default function App() {
     if (user) {
       loadVerificationStatus(); // Charger en premier pour rediriger si besoin
       loadRides();
+      loadPersonalRides(); // Charger courses personnelles
       loadCredits();
       loadBadges();
       
@@ -961,8 +976,8 @@ export default function App() {
       ride.visibility === 'PUBLIC' || ride.visibility === 'GROUP'
     );
     
-    // Personal rides = PERSONAL visibility only
-    const personalByMe = createdByMe.filter((ride) => ride.visibility === 'PERSONAL');
+    // Personal rides = utiliser l'état personalRides directement
+    const personalByMe = personalRides;
     
     // Active published: PUBLISHED status + date future (non expirées)
     const activePublished = publishedByMe.filter((ride) => {
@@ -976,10 +991,9 @@ export default function App() {
     
     const claimedPublished = publishedByMe.filter((ride) => ride.status === 'CLAIMED' || ride.status === 'COMPLETED');
     
-    // Personal rides actives (PUBLISHED, non expirées)
+    // Personal rides actives (SCHEDULED ou sans statut, non expirées)
     const activePersonal = personalByMe.filter((ride) => {
-      if (ride.status !== 'PUBLISHED') return false;
-      if (ride.status === 'EXPIRED') return false;
+      if (ride.status === 'COMPLETED' || ride.status === 'EXPIRED') return false;
       const scheduledTime = new Date(ride.scheduled_at).getTime();
       const now = Date.now();
       return scheduledTime >= now;
@@ -1759,6 +1773,9 @@ export default function App() {
                 ride.dropoff_address
               );
               
+              // Recharger les courses personnelles
+              await loadPersonalRides();
+              
               // Fermer le modal
               setShowCreateRide(false);
               Alert.alert('Succès', 'Course personnelle enregistrée ! 📝');
@@ -1854,6 +1871,7 @@ export default function App() {
             // Recharger les crédits et les rides
             await loadCredits();
             await loadRides();
+            await loadPersonalRides();
             
             // Recharger la course spécifique pour voir les infos client mises à jour
             const updatedRide = await apiClient.getRide(selectedRide.id);
@@ -1897,6 +1915,7 @@ export default function App() {
             // Recharger les crédits et les rides
             await loadCredits();
             await loadRides();
+            await loadPersonalRides();
             
             // Fermer le modal
             setSelectedRide(null);
