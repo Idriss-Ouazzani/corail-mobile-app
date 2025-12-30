@@ -1469,6 +1469,51 @@ async def create_personal_ride(
         raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
 
 
+@app.get("/api/v1/personal-rides/stats/summary")
+async def get_personal_rides_stats(current_user_id: str = CurrentUser):
+    """
+    Récupérer les statistiques des courses personnelles du chauffeur
+    (revenus, nombre de courses, distance, par source)
+    """
+    try:
+        query = """
+        SELECT 
+            source,
+            COUNT(*) as total_rides,
+            COUNT(CASE WHEN status = 'COMPLETED' THEN 1 END) as completed_rides,
+            SUM(CASE WHEN status = 'COMPLETED' THEN price_cents ELSE 0 END) / 100.0 as revenue_eur,
+            SUM(CASE WHEN status = 'COMPLETED' THEN distance_km ELSE 0 END) as total_distance_km,
+            AVG(CASE WHEN status = 'COMPLETED' THEN price_cents ELSE NULL END) / 100.0 as avg_price_eur
+        FROM io_catalog.corail.personal_rides
+        WHERE driver_id = :driver_id
+        GROUP BY source
+        ORDER BY revenue_eur DESC
+        """
+        
+        results = db.execute_query(query, {"driver_id": current_user_id})
+        
+        # Calculer les totaux globaux
+        total_query = """
+        SELECT 
+            COUNT(*) as total_rides,
+            COUNT(CASE WHEN status = 'COMPLETED' THEN 1 END) as completed_rides,
+            SUM(CASE WHEN status = 'COMPLETED' THEN price_cents ELSE 0 END) / 100.0 as total_revenue_eur,
+            SUM(CASE WHEN status = 'COMPLETED' THEN distance_km ELSE 0 END) as total_distance_km
+        FROM io_catalog.corail.personal_rides
+        WHERE driver_id = :driver_id
+        """
+        
+        total_results = db.execute_query(total_query, {"driver_id": current_user_id})
+        
+        return {
+            "by_source": results,
+            "totals": total_results[0] if total_results else {}
+        }
+    
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
+
+
 @app.get("/api/v1/personal-rides")
 async def list_personal_rides(
     current_user_id: str = CurrentUser,
@@ -1667,51 +1712,6 @@ async def delete_personal_ride(ride_id: str, current_user_id: str = CurrentUser)
     
     except HTTPException:
         raise
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
-
-
-@app.get("/api/v1/personal-rides/stats/summary")
-async def get_personal_rides_stats(current_user_id: str = CurrentUser):
-    """
-    Récupérer les statistiques des courses personnelles du chauffeur
-    (revenus, nombre de courses, distance, par source)
-    """
-    try:
-        query = """
-        SELECT 
-            source,
-            COUNT(*) as total_rides,
-            COUNT(CASE WHEN status = 'COMPLETED' THEN 1 END) as completed_rides,
-            SUM(CASE WHEN status = 'COMPLETED' THEN price_cents ELSE 0 END) / 100.0 as revenue_eur,
-            SUM(CASE WHEN status = 'COMPLETED' THEN distance_km ELSE 0 END) as total_distance_km,
-            AVG(CASE WHEN status = 'COMPLETED' THEN price_cents ELSE NULL END) / 100.0 as avg_price_eur
-        FROM io_catalog.corail.personal_rides
-        WHERE driver_id = :driver_id
-        GROUP BY source
-        ORDER BY revenue_eur DESC
-        """
-        
-        results = db.execute_query(query, {"driver_id": current_user_id})
-        
-        # Calculer les totaux globaux
-        total_query = """
-        SELECT 
-            COUNT(*) as total_rides,
-            COUNT(CASE WHEN status = 'COMPLETED' THEN 1 END) as completed_rides,
-            SUM(CASE WHEN status = 'COMPLETED' THEN price_cents ELSE 0 END) / 100.0 as total_revenue_eur,
-            SUM(CASE WHEN status = 'COMPLETED' THEN distance_km ELSE 0 END) as total_distance_km
-        FROM io_catalog.corail.personal_rides
-        WHERE driver_id = :driver_id
-        """
-        
-        total_results = db.execute_query(total_query, {"driver_id": current_user_id})
-        
-        return {
-            "by_source": results,
-            "totals": total_results[0] if total_results else {}
-        }
-    
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
 
