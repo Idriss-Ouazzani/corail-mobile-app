@@ -17,8 +17,8 @@ init_firebase()
 # Créer l'app FastAPI
 app = FastAPI(
     title="Corail VTC API",
-    description="Backend pour l'application mobile Corail VTC - Activity Feed + Groups Fix",
-    version="1.1.0"
+    description="Backend pour l'application mobile Corail VTC - Activity Feed + Groups Fix + Badge Fix",
+    version="1.1.1"
 )
 
 # CORS
@@ -1418,8 +1418,10 @@ def check_and_award_badges(user_id: str):
         GROUP BY u.id
         """
         stats = db.execute_query(stats_query, {"user_id": user_id})
+        print(f"🏆 Badge check for {user_id}: stats retrieved successfully")
         
         if not stats:
+            print(f"⚠️ No stats found for user {user_id}")
             return
         
         stat = stats[0]
