@@ -505,7 +505,8 @@ export const getPlanningEvents = async (params: {
 export const getRecentActivity = async (limit: number = 10) => {
   if (!currentUserId) throw new Error('User not authenticated');
 
-  const { data, error } = await supabase
+  // Récupérer les activités avec les détails des courses
+  const { data: activities, error } = await supabase
     .from('activity_log')
     .select('*')
     .eq('user_id', currentUserId)
@@ -513,7 +514,50 @@ export const getRecentActivity = async (limit: number = 10) => {
     .limit(limit);
 
   if (error) throw new Error(error.message);
-  return data;
+
+  // Enrichir avec les détails des courses
+  const enrichedActivities = await Promise.all(
+    activities.map(async (activity: any) => {
+      if (activity.ride_id) {
+        // Essayer de récupérer depuis rides
+        const { data: ride } = await supabase
+          .from('rides')
+          .select('pickup_address, dropoff_address, price_cents, visibility')
+          .eq('id', activity.ride_id)
+          .single();
+
+        if (ride) {
+          return {
+            ...activity,
+            pickup_address: ride.pickup_address,
+            dropoff_address: ride.dropoff_address,
+            price_cents: ride.price_cents,
+            ride_visibility: ride.visibility,
+          };
+        }
+
+        // Si pas dans rides, essayer personal_rides
+        const { data: personalRide } = await supabase
+          .from('personal_rides')
+          .select('pickup_address, dropoff_address, price_cents')
+          .eq('id', activity.ride_id)
+          .single();
+
+        if (personalRide) {
+          return {
+            ...activity,
+            pickup_address: personalRide.pickup_address,
+            dropoff_address: personalRide.dropoff_address,
+            price_cents: personalRide.price_cents,
+          };
+        }
+      }
+
+      return activity;
+    })
+  );
+
+  return enrichedActivities;
 };
 
 // ============================================================================
