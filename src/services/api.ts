@@ -120,13 +120,13 @@ class ApiClient {
     return supabaseApi.getRecentActivity(limit);
   }
 
-  // ADMIN (stub)
+  // ADMIN
   async getPendingVerifications() {
-    return [];
+    return supabaseApi.getPendingVerifications();
   }
 
   async reviewVerification(userId: string, review: any) {
-    return { success: true };
+    return supabaseApi.reviewVerification(userId, review);
   }
 
   // NOTIFICATIONS (stub)

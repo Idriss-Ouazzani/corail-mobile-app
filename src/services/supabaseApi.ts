@@ -89,6 +89,45 @@ export const submitVerification = async (verificationData: {
   return data;
 };
 
+export const getPendingVerifications = async () => {
+  if (!currentUserId) throw new Error('User not authenticated');
+
+  const { data, error } = await supabase
+    .from('users')
+    .select('id, email, full_name, phone, professional_card_number, siren, verification_submitted_at')
+    .eq('verification_status', 'PENDING')
+    .order('verification_submitted_at', { ascending: true });
+
+  if (error) throw new Error(error.message);
+  
+  console.log('✅ Vérifications en attente:', data?.length || 0);
+  return data || [];
+};
+
+export const reviewVerification = async (userId: string, review: { status: 'VERIFIED' | 'REJECTED', rejection_reason?: string }) => {
+  if (!currentUserId) throw new Error('User not authenticated');
+
+  const updateData: any = {
+    verification_status: review.status,
+  };
+
+  if (review.status === 'REJECTED' && review.rejection_reason) {
+    updateData.rejection_reason = review.rejection_reason;
+  }
+
+  const { data, error } = await supabase
+    .from('users')
+    .update(updateData)
+    .eq('id', userId)
+    .select()
+    .single();
+
+  if (error) throw new Error(error.message);
+  
+  console.log(`✅ Vérification ${review.status} pour:`, userId);
+  return data;
+};
+
 export const createUser = async (userData: {
   id: string;
   email: string;
