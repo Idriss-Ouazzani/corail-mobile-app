@@ -136,9 +136,7 @@ export async function scheduleRideReminder(
         data: { rideId, type: 'ride_reminder' },
         sound: true,
       },
-      trigger: {
-        date: reminderTime,
-      },
+      trigger: reminderTime, // Passer directement la Date
     });
 
     console.log(`✅ Notification planifiée pour ${reminderTime.toLocaleString()}`);
@@ -175,9 +173,7 @@ export async function scheduleDailySummary(ridesCount: number): Promise<void> {
         data: { type: 'daily_summary' },
         sound: true,
       },
-      trigger: {
-        date: tomorrow,
-      },
+      trigger: tomorrow, // Passer directement la Date
     });
 
     console.log(`✅ Résumé quotidien planifié pour demain 8h`);
@@ -343,9 +339,7 @@ export async function notifyCompleteRide(rideId: string, scheduledAt: string): P
         data: { rideId, type: 'complete_reminder' },
         sound: true,
       },
-      trigger: {
-        date: reminderTime,
-      },
+      trigger: reminderTime, // Passer directement la Date
     });
 
     console.log(`✅ Rappel "terminer course" planifié`);
