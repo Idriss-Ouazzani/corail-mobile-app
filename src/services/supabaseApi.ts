@@ -33,12 +33,29 @@ export const getVerificationStatus = async () => {
     .single();
 
   if (error) {
-    // User doesn't exist yet, create it
+    // User doesn't exist yet, create it automatically
     if (error.code === 'PGRST116') {
-      return {
-        verification_status: 'UNVERIFIED',
-        is_admin: false,
-      };
+      console.log('🆕 Utilisateur non trouvé, création automatique dans Supabase...');
+      
+      // Créer l'utilisateur avec des valeurs par défaut
+      const { data: newUser, error: createError } = await supabase
+        .from('users')
+        .insert({
+          id: currentUserId,
+          email: '', // Sera rempli lors de la vérification
+          verification_status: 'UNVERIFIED',
+          is_admin: false,
+        })
+        .select()
+        .single();
+
+      if (createError) {
+        console.error('❌ Erreur création utilisateur:', createError);
+        throw new Error(createError.message);
+      }
+
+      console.log('✅ Utilisateur créé automatiquement dans Supabase');
+      return newUser;
     }
     throw new Error(error.message);
   }
@@ -51,6 +68,7 @@ export const submitVerification = async (verificationData: {
   phone: string;
   siren: string;
   professional_card_number: string;
+  email?: string; // Optionnel mais recommandé
 }) => {
   if (!currentUserId) throw new Error('User not authenticated');
 
@@ -66,6 +84,8 @@ export const submitVerification = async (verificationData: {
     .single();
 
   if (error) throw new Error(error.message);
+  
+  console.log('✅ Vérification soumise pour:', verificationData.email || currentUserId);
   return data;
 };
 

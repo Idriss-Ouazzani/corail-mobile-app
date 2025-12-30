@@ -12,6 +12,7 @@ import {
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { apiClient } from '../services/api';
+import { firebaseAuth } from '../services/firebase';
 
 interface VerificationScreenProps {
   onBack: () => void;
@@ -46,11 +47,17 @@ export const VerificationScreen: React.FC<VerificationScreenProps> = ({ onBack, 
 
     try {
       setLoading(true);
+      
+      // Récupérer l'email Firebase
+      const currentUser = firebaseAuth.getCurrentUser();
+      const email = currentUser?.email || '';
+      
       await apiClient.submitVerification({
         full_name: fullName,
         phone,
         professional_card_number: professionalCard,
         siren,
+        email, // Ajouter l'email Firebase
       });
 
       Alert.alert(
