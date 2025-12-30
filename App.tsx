@@ -997,9 +997,9 @@ export default function App() {
           >
             <Ionicons
               name="hand-right"
-              size={18}
+              size={14}
               color={myRidesTab === 'claimed' ? '#fff' : '#64748b'}
-              style={{ marginRight: 6 }}
+              style={{ marginRight: 4 }}
             />
             <Text style={[styles.tabText, myRidesTab === 'claimed' && styles.tabTextActive]}>
               Prises ({claimedByMe.length})
@@ -1013,9 +1013,9 @@ export default function App() {
           >
             <Ionicons
               name="megaphone"
-              size={18}
+              size={14}
               color={myRidesTab === 'published' ? '#fff' : '#64748b'}
-              style={{ marginRight: 6 }}
+              style={{ marginRight: 4 }}
             />
             <Text style={[styles.tabText, myRidesTab === 'published' && styles.tabTextActive]}>
               Publiées ({publishedByMe.length})
@@ -1029,9 +1029,9 @@ export default function App() {
           >
             <Ionicons
               name="lock-closed"
-              size={18}
+              size={14}
               color={myRidesTab === 'personal' ? '#fff' : '#64748b'}
-              style={{ marginRight: 6 }}
+              style={{ marginRight: 4 }}
             />
             <Text style={[styles.tabText, myRidesTab === 'personal' && styles.tabTextActive]}>
               Perso ({personalByMe.length})
@@ -1046,50 +1046,120 @@ export default function App() {
             <View style={styles.myRidesStats}>
               <View style={[styles.statCard, { flex: 1, marginRight: 8 }]}>
                 <View style={[styles.statIconWrapper, { backgroundColor: 'rgba(14, 165, 233, 0.2)' }]}>
-                  <Ionicons name="time" size={24} color="#0ea5e9" />
+                  <Ionicons name="time" size={18} color="#0ea5e9" />
                 </View>
                 <Text style={styles.statValue}>{claimedRides.length}</Text>
                 <Text style={styles.statLabel}>En cours</Text>
               </View>
               <View style={[styles.statCard, { flex: 1, marginLeft: 8 }]}>
                 <View style={[styles.statIconWrapper, { backgroundColor: 'rgba(16, 185, 129, 0.2)' }]}>
-                  <Ionicons name="checkmark-circle" size={24} color="#10b981" />
+                  <Ionicons name="checkmark-circle" size={18} color="#10b981" />
                 </View>
                 <Text style={styles.statValue}>{completedRides.length}</Text>
                 <Text style={styles.statLabel}>Terminées</Text>
               </View>
             </View>
 
-            {/* Claimed Rides */}
+            {/* Claimed Rides - Compact View */}
             {claimedRides.length > 0 && (
               <View style={styles.section}>
                 <Text style={styles.sectionTitle}>
                   <Ionicons name="time" size={20} color="#0ea5e9" /> En cours
                 </Text>
                 {claimedRides.map((ride) => (
-                  <RideCard 
-                    key={ride.id} 
-                    ride={ride} 
-                    currentUserId={currentUserId}
+                  <TouchableOpacity
+                    key={ride.id}
+                    style={styles.compactRideRow}
                     onPress={() => setSelectedRide(ride)}
-                  />
+                    activeOpacity={0.7}
+                  >
+                    <View style={styles.compactRideLeft}>
+                      <View style={styles.compactRideIconWrapper}>
+                        <Ionicons name="car-sport-outline" size={20} color="#0ea5e9" />
+                      </View>
+                      <View style={styles.compactRideInfo}>
+                        <Text style={styles.compactRideTime}>
+                          {new Date(ride.scheduled_at).toLocaleDateString('fr-FR', { 
+                            day: 'numeric', 
+                            month: 'short',
+                            hour: '2-digit',
+                            minute: '2-digit'
+                          })}
+                        </Text>
+                        <View style={styles.compactRideRoute}>
+                          <Ionicons name="location" size={12} color="#10b981" />
+                          <Text style={styles.compactRideAddress} numberOfLines={1}>
+                            {ride.pickup_address}
+                          </Text>
+                        </View>
+                        <View style={styles.compactRideRoute}>
+                          <Ionicons name="flag" size={12} color="#ff6b47" />
+                          <Text style={styles.compactRideAddress} numberOfLines={1}>
+                            {ride.dropoff_address}
+                          </Text>
+                        </View>
+                      </View>
+                    </View>
+                    
+                    <View style={styles.compactRideRight}>
+                      <Text style={styles.compactRidePrice}>
+                        {(ride.price_cents / 100).toFixed(2)}€
+                      </Text>
+                      <Ionicons name="chevron-forward" size={20} color="#64748b" />
+                    </View>
+                  </TouchableOpacity>
                 ))}
               </View>
             )}
 
-            {/* Completed Rides */}
+            {/* Completed Rides - Compact View */}
             {completedRides.length > 0 && (
               <View style={styles.section}>
                 <Text style={styles.sectionTitle}>
                   <Ionicons name="checkmark-circle" size={20} color="#10b981" /> Terminées
                 </Text>
                 {completedRides.map((ride) => (
-                  <RideCard 
-                    key={ride.id} 
-                    ride={ride} 
-                    currentUserId={currentUserId}
+                  <TouchableOpacity
+                    key={ride.id}
+                    style={styles.compactRideRow}
                     onPress={() => setSelectedRide(ride)}
-                  />
+                    activeOpacity={0.7}
+                  >
+                    <View style={styles.compactRideLeft}>
+                      <View style={styles.compactRideIconWrapper}>
+                        <Ionicons name="checkmark-circle-outline" size={20} color="#10b981" />
+                      </View>
+                      <View style={styles.compactRideInfo}>
+                        <Text style={styles.compactRideTime}>
+                          {new Date(ride.scheduled_at).toLocaleDateString('fr-FR', { 
+                            day: 'numeric', 
+                            month: 'short',
+                            hour: '2-digit',
+                            minute: '2-digit'
+                          })}
+                        </Text>
+                        <View style={styles.compactRideRoute}>
+                          <Ionicons name="location" size={12} color="#10b981" />
+                          <Text style={styles.compactRideAddress} numberOfLines={1}>
+                            {ride.pickup_address}
+                          </Text>
+                        </View>
+                        <View style={styles.compactRideRoute}>
+                          <Ionicons name="flag" size={12} color="#ff6b47" />
+                          <Text style={styles.compactRideAddress} numberOfLines={1}>
+                            {ride.dropoff_address}
+                          </Text>
+                        </View>
+                      </View>
+                    </View>
+                    
+                    <View style={styles.compactRideRight}>
+                      <Text style={styles.compactRidePrice}>
+                        {(ride.price_cents / 100).toFixed(2)}€
+                      </Text>
+                      <Ionicons name="chevron-forward" size={20} color="#64748b" />
+                    </View>
+                  </TouchableOpacity>
                 ))}
               </View>
             )}
@@ -1113,14 +1183,14 @@ export default function App() {
             <View style={styles.myRidesStats}>
               <View style={[styles.statCard, { flex: 1, marginRight: 8 }]}>
                 <View style={[styles.statIconWrapper, { backgroundColor: 'rgba(255, 107, 71, 0.2)' }]}>
-                  <Ionicons name="radio-button-on" size={24} color="#ff6b47" />
+                  <Ionicons name="radio-button-on" size={18} color="#ff6b47" />
                 </View>
                 <Text style={styles.statValue}>{activePublished.length}</Text>
                 <Text style={styles.statLabel}>Actives</Text>
               </View>
               <View style={[styles.statCard, { flex: 1, marginLeft: 8 }]}>
                 <View style={[styles.statIconWrapper, { backgroundColor: 'rgba(139, 92, 246, 0.2)' }]}>
-                  <Ionicons name="person-add" size={24} color="#8b5cf6" />
+                  <Ionicons name="person-add" size={18} color="#8b5cf6" />
                 </View>
                 <Text style={styles.statValue}>{claimedPublished.length}</Text>
                 <Text style={styles.statLabel}>Prises</Text>
@@ -1244,14 +1314,14 @@ export default function App() {
             <View style={styles.myRidesStats}>
               <View style={[styles.statCard, { flex: 1, marginRight: 8 }]}>
                 <View style={[styles.statIconWrapper, { backgroundColor: 'rgba(99, 102, 241, 0.2)' }]}>
-                  <Ionicons name="calendar" size={24} color="#6366f1" />
+                  <Ionicons name="calendar" size={18} color="#6366f1" />
                 </View>
                 <Text style={styles.statValue}>{activePersonal.length}</Text>
                 <Text style={styles.statLabel}>À venir</Text>
               </View>
               <View style={[styles.statCard, { flex: 1, marginLeft: 8 }]}>
                 <View style={[styles.statIconWrapper, { backgroundColor: 'rgba(139, 92, 246, 0.2)' }]}>
-                  <Ionicons name="lock-closed" size={24} color="#8b5cf6" />
+                  <Ionicons name="lock-closed" size={18} color="#8b5cf6" />
                 </View>
                 <Text style={styles.statValue}>{personalByMe.length}</Text>
                 <Text style={styles.statLabel}>Total</Text>
@@ -2092,8 +2162,8 @@ const styles = StyleSheet.create({
   statCard: {
     width: (width - 60) / 2,
     backgroundColor: 'rgba(255, 255, 255, 0.03)',
-    borderRadius: 20,
-    padding: 18,
+    borderRadius: 14,
+    padding: 12,
     marginHorizontal: 6,
     marginBottom: 12,
     borderWidth: 1,
@@ -2106,15 +2176,15 @@ const styles = StyleSheet.create({
     elevation: 4,
   },
   statIconWrapper: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 12,
+    marginBottom: 8,
   },
-  statValue: { fontSize: 22, fontWeight: 'bold', color: '#f1f5f9', marginBottom: 4 },
-  statLabel: { fontSize: 11, color: '#94a3b8', textAlign: 'center' },
+  statValue: { fontSize: 18, fontWeight: 'bold', color: '#f1f5f9', marginBottom: 3 },
+  statLabel: { fontSize: 10, color: '#94a3b8', textAlign: 'center' },
 
   // Stats Compact
   statsContainerCompact: {
@@ -2634,19 +2704,19 @@ const styles = StyleSheet.create({
   tabsRow: {
     flexDirection: 'row',
     marginBottom: 20,
-    gap: 12,
+    gap: 8,
   },
   tab: {
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     paddingVertical: 10,
-    paddingHorizontal: 14,
+    paddingHorizontal: 8,
     borderRadius: 14,
     backgroundColor: 'rgba(255, 255, 255, 0.05)',
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.1)',
-    marginHorizontal: 3,
   },
   tabActive: {
     backgroundColor: '#ff6b47',
@@ -2658,7 +2728,7 @@ const styles = StyleSheet.create({
     elevation: 6,
   },
   tabText: {
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: '600',
     color: '#64748b',
   },
