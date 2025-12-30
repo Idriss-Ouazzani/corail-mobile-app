@@ -72,7 +72,8 @@ export const QRCodeScreen: React.FC<QRCodeScreenProps> = ({ onBack, userData }) 
       });
 
       // Sauvegarder dans la galerie
-      const fileName = `corail-qr-${userData.name.replace(/\s+/g, '-').toLowerCase()}.png`;
+      const safeName = userData.name ? userData.name.replace(/\s+/g, '-').toLowerCase() : 'driver';
+      const fileName = `corail-qr-${safeName}.png`;
       const localUri = `${FileSystem.documentDirectory}${fileName}`;
       
       await FileSystem.copyAsync({

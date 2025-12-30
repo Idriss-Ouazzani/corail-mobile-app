@@ -2179,6 +2179,11 @@ async def get_recent_activity(
         return results
     
     except Exception as e:
+        # Si la table n'existe pas encore, retourner une liste vide au lieu d'une erreur
+        error_msg = str(e).lower()
+        if "not found" in error_msg or "does not exist" in error_msg or "table_or_view_not_found" in error_msg:
+            print(f"⚠️  Table activity_log pas encore créée, retour liste vide")
+            return []
         raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
 
 
