@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -10,9 +10,12 @@ import {
   Alert,
   KeyboardAvoidingView,
   Platform,
+  RefreshControl,
+  ActivityIndicator,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
+import { apiClient } from '../services/api';
 
 interface Group {
   id: string;
@@ -28,37 +31,49 @@ interface GroupsScreenProps {
   onSelectGroup?: (group: Group) => void;
 }
 
-const MOCK_GROUPS: Group[] = [
-  {
-    id: 'group-1',
-    name: 'Famille',
-    description: 'Groupe familial pour partager des trajets',
-    memberCount: 5,
-    color: '#10b981',
-    icon: 'people',
-  },
-  {
-    id: 'group-2',
-    name: 'Collègues VTC',
-    description: 'Réseau de chauffeurs VTC de Toulouse',
-    memberCount: 12,
-    color: '#0ea5e9',
-    icon: 'briefcase',
-  },
-  {
-    id: 'group-3',
-    name: 'Amis',
-    description: 'Groupe d\'amis proches',
-    memberCount: 8,
-    color: '#a855f7',
-    icon: 'heart',
-  },
-];
+// Couleurs prédéfinies pour les nouveaux groupes
+const GROUP_COLORS = ['#10b981', '#0ea5e9', '#a855f7', '#f59e0b', '#ef4444', '#6366f1'];
 
 export const GroupsScreen: React.FC<GroupsScreenProps> = ({ onBack, onSelectGroup }) => {
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [newGroupName, setNewGroupName] = useState('');
   const [newGroupDesc, setNewGroupDesc] = useState('');
+  const [groups, setGroups] = useState<Group[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+
+  useEffect(() => {
+    loadGroups();
+  }, []);
+
+  const loadGroups = async () => {
+    try {
+      setLoading(true);
+      const response = await apiClient.listMyGroups();
+      // Mapper les groupes de l'API au format local avec couleur et icône par défaut
+      const mappedGroups: Group[] = response.data.map((g: any, index: number) => ({
+        id: g.id,
+        name: g.name,
+        description: g.description || '',
+        memberCount: 1, // TODO: récupérer le vrai nombre de membres via l'API
+        color: g.icon ? GROUP_COLORS[index % GROUP_COLORS.length] : GROUP_COLORS[0],
+        icon: g.icon || 'people',
+      }));
+      setGroups(mappedGroups);
+    } catch (error: any) {
+      console.error('Error loading groups:', error);
+      Alert.alert('Erreur', 'Impossible de charger les groupes');
+      setGroups([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleRefresh = async () => {
+    setRefreshing(true);
+    await loadGroups();
+    setRefreshing(false);
+  };
 
   const handleCreateGroup = () => {
     if (!newGroupName.trim()) {
@@ -90,64 +105,83 @@ export const GroupsScreen: React.FC<GroupsScreenProps> = ({ onBack, onSelectGrou
         </TouchableOpacity>
       </LinearGradient>
 
-      <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
-        {/* Stats */}
-        <View style={styles.statsRow}>
-          <View style={styles.statBox}>
-            <Text style={styles.statValue}>{MOCK_GROUPS.length}</Text>
-            <Text style={styles.statLabel}>Groupes</Text>
+      <ScrollView 
+        style={styles.content} 
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor="#6366f1" />
+        }
+      >
+        {loading && !refreshing ? (
+          <View style={styles.loadingContainer}>
+            <ActivityIndicator size="large" color="#6366f1" />
+            <Text style={styles.loadingText}>Chargement des groupes...</Text>
           </View>
-          <View style={styles.statBox}>
-            <Text style={styles.statValue}>
-              {MOCK_GROUPS.reduce((sum, g) => sum + g.memberCount, 0)}
-            </Text>
-            <Text style={styles.statLabel}>Membres</Text>
-          </View>
-        </View>
-
-        {/* Groups List */}
-        <Text style={styles.sectionTitle}>Vos groupes</Text>
-        {MOCK_GROUPS.map((group) => (
-          <TouchableOpacity
-            key={group.id}
-            style={styles.groupCard}
-            onPress={() => onSelectGroup?.(group)}
-            activeOpacity={0.8}
-          >
-            <LinearGradient
-              colors={[`${group.color}20`, `${group.color}05`]}
-              style={styles.groupGradient}
-            >
-              <View style={[styles.groupIcon, { backgroundColor: `${group.color}30` }]}>
-                <Ionicons name={group.icon as any} size={28} color={group.color} />
+        ) : (
+          <>
+            {/* Stats */}
+            <View style={styles.statsRow}>
+              <View style={styles.statBox}>
+                <Text style={styles.statValue}>{groups.length}</Text>
+                <Text style={styles.statLabel}>Groupes</Text>
               </View>
-              <View style={styles.groupInfo}>
-                <Text style={styles.groupName}>{group.name}</Text>
-                <Text style={styles.groupDesc}>{group.description}</Text>
-                <View style={styles.groupMeta}>
-                  <Ionicons name="people" size={14} color="#94a3b8" />
-                  <Text style={styles.groupMetaText}>
-                    {group.memberCount} membre{group.memberCount > 1 ? 's' : ''}
-                  </Text>
-                </View>
+              <View style={styles.statBox}>
+                <Text style={styles.statValue}>
+                  {groups.reduce((sum, g) => sum + g.memberCount, 0)}
+                </Text>
+                <Text style={styles.statLabel}>Membres</Text>
               </View>
-              <Ionicons name="chevron-forward" size={20} color="#64748b" />
-            </LinearGradient>
-          </TouchableOpacity>
-        ))}
+            </View>
 
-        {/* Empty State (if no groups) */}
-        {MOCK_GROUPS.length === 0 && (
-          <View style={styles.emptyState}>
-            <Ionicons name="people-outline" size={64} color="#475569" />
-            <Text style={styles.emptyStateText}>Aucun groupe</Text>
-            <Text style={styles.emptyStateSubtext}>
-              Créez votre premier groupe pour commencer
-            </Text>
-          </View>
+            {/* Groups List */}
+            {groups.length > 0 && (
+              <>
+                <Text style={styles.sectionTitle}>Vos groupes</Text>
+                {groups.map((group) => (
+                  <TouchableOpacity
+                    key={group.id}
+                    style={styles.groupCard}
+                    onPress={() => onSelectGroup?.(group)}
+                    activeOpacity={0.8}
+                  >
+                    <LinearGradient
+                      colors={[`${group.color}20`, `${group.color}05`]}
+                      style={styles.groupGradient}
+                    >
+                      <View style={[styles.groupIcon, { backgroundColor: `${group.color}30` }]}>
+                        <Ionicons name={group.icon as any} size={28} color={group.color} />
+                      </View>
+                      <View style={styles.groupInfo}>
+                        <Text style={styles.groupName}>{group.name}</Text>
+                        <Text style={styles.groupDesc}>{group.description}</Text>
+                        <View style={styles.groupMeta}>
+                          <Ionicons name="people" size={14} color="#94a3b8" />
+                          <Text style={styles.groupMetaText}>
+                            {group.memberCount} membre{group.memberCount > 1 ? 's' : ''}
+                          </Text>
+                        </View>
+                      </View>
+                      <Ionicons name="chevron-forward" size={20} color="#64748b" />
+                    </LinearGradient>
+                  </TouchableOpacity>
+                ))}
+              </>
+            )}
+
+            {/* Empty State (if no groups) */}
+            {groups.length === 0 && !loading && (
+              <View style={styles.emptyState}>
+                <Ionicons name="people-outline" size={64} color="#475569" />
+                <Text style={styles.emptyStateText}>Aucun groupe</Text>
+                <Text style={styles.emptyStateSubtext}>
+                  Créez votre premier groupe pour commencer
+                </Text>
+              </View>
+            )}
+
+            <View style={{ height: 40 }} />
+          </>
         )}
-
-        <View style={{ height: 40 }} />
       </ScrollView>
 
       {/* Create Group Modal */}
@@ -285,6 +319,16 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingHorizontal: 20,
     paddingTop: 20,
+  },
+  loadingContainer: {
+    paddingVertical: 60,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  loadingText: {
+    marginTop: 12,
+    fontSize: 14,
+    color: '#94a3b8',
   },
   statsRow: {
     flexDirection: 'row',

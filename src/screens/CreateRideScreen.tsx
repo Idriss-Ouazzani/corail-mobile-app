@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -13,6 +13,7 @@ import {
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import DateTimePicker from '@react-native-community/datetimepicker';
+import { apiClient } from '../services/api';
 
 interface Group {
   id: string;
@@ -23,32 +24,8 @@ interface Group {
   icon: string;
 }
 
-const MOCK_GROUPS: Group[] = [
-  {
-    id: 'group-1',
-    name: 'Famille',
-    description: 'Groupe familial pour partager des trajets',
-    memberCount: 5,
-    color: '#10b981',
-    icon: 'people',
-  },
-  {
-    id: 'group-2',
-    name: 'Collègues VTC',
-    description: 'Réseau de chauffeurs VTC de Toulouse',
-    memberCount: 12,
-    color: '#0ea5e9',
-    icon: 'briefcase',
-  },
-  {
-    id: 'group-3',
-    name: 'Amis',
-    description: 'Groupe d\'amis proches',
-    memberCount: 8,
-    color: '#8b5cf6',
-    icon: 'heart',
-  },
-];
+// Couleurs prédéfinies pour les groupes
+const GROUP_COLORS = ['#10b981', '#0ea5e9', '#8b5cf6', '#f59e0b', '#ef4444', '#6366f1'];
 
 interface CreateRideScreenProps {
   onBack: () => void;
@@ -79,6 +56,31 @@ export const CreateRideScreen: React.FC<CreateRideScreenProps> = ({ onBack, onCr
   const [duration, setDuration] = useState('');
   const [clientName, setClientName] = useState('');
   const [clientPhone, setClientPhone] = useState('');
+  const [groups, setGroups] = useState<Group[]>([]);
+
+  // Charger les groupes de l'utilisateur au montage
+  useEffect(() => {
+    loadGroups();
+  }, []);
+
+  const loadGroups = async () => {
+    try {
+      const response = await apiClient.listMyGroups();
+      // Mapper les groupes de l'API au format local avec couleur et icône par défaut
+      const mappedGroups: Group[] = response.data.map((g: any, index: number) => ({
+        id: g.id,
+        name: g.name,
+        description: g.description || '',
+        memberCount: 1, // TODO: récupérer le vrai nombre de membres via l'API
+        color: GROUP_COLORS[index % GROUP_COLORS.length],
+        icon: g.icon || 'people',
+      }));
+      setGroups(mappedGroups);
+    } catch (error: any) {
+      console.error('Error loading groups:', error);
+      setGroups([]);
+    }
+  };
 
   // Formater la date pour l'API (YYYY-MM-DD HH:MM)
   const formatDateForAPI = (date: Date): string => {
@@ -488,7 +490,7 @@ export const CreateRideScreen: React.FC<CreateRideScreenProps> = ({ onBack, onCr
 
             {/* All Groups List */}
             <View style={styles.groupsList}>
-              {MOCK_GROUPS.map((group) => {
+              {groups.map((group) => {
                 const isSelected = isGroupSelected(group.id);
                 return (
                   <TouchableOpacity
