@@ -417,15 +417,17 @@ async def create_ride(
         
         db.execute_non_query(query, params)
         
-        # 🎉 SYSTÈME DE CRÉDITS : +1 crédit pour avoir publié une course
-        credit_query = """
-        UPDATE users 
-        SET credits = COALESCE(credits, 0) + 1
-        WHERE id = :user_id
-        """
-        db.execute_non_query(credit_query, {"user_id": user_id})
-        
-        print(f"✅ +1 crédit Corail pour {user_id} (publication de course)")
+        # 🎉 SYSTÈME DE CRÉDITS : +1 crédit UNIQUEMENT pour les courses PUBLIC
+        credit_message = ""
+        if ride.visibility == "PUBLIC":
+            credit_query = """
+            UPDATE users 
+            SET credits = COALESCE(credits, 0) + 1
+            WHERE id = :user_id
+            """
+            db.execute_non_query(credit_query, {"user_id": user_id})
+            print(f"✅ +1 crédit Corail pour {user_id} (publication PUBLIC)")
+            credit_message = " +1 crédit Corail"
         
         # 🏆 Vérifier et attribuer des badges automatiquement
         check_and_award_badges(user_id)
@@ -433,7 +435,7 @@ async def create_ride(
         return {
             "success": True,
             "ride_id": ride_id,
-            "message": "Course créée avec succès ! +1 crédit Corail 🪸"
+            "message": f"Course créée avec succès !{credit_message}"
         }
     
     except Exception as e:

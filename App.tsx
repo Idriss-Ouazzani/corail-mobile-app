@@ -925,8 +925,16 @@ export default function App() {
     const claimedRides = claimedByMe.filter((ride) => ride.status === 'CLAIMED');
     const completedRides = claimedByMe.filter((ride) => ride.status === 'COMPLETED');
 
-    // Filter rides where current user is the creator (published rides)
-    const publishedByMe = rides.filter((ride) => ride.creator_id === currentUserId);
+    // Filter rides where current user is the creator
+    const createdByMe = rides.filter((ride) => ride.creator_id === currentUserId);
+    
+    // Published rides = PUBLIC + GROUP only (excluant PERSONAL)
+    const publishedByMe = createdByMe.filter((ride) => 
+      ride.visibility === 'PUBLIC' || ride.visibility === 'GROUP'
+    );
+    
+    // Personal rides = PERSONAL visibility only
+    const personalByMe = createdByMe.filter((ride) => ride.visibility === 'PERSONAL');
     
     // Active published: PUBLISHED status + date future (non expirées)
     const activePublished = publishedByMe.filter((ride) => {
@@ -939,8 +947,17 @@ export default function App() {
     });
     
     const claimedPublished = publishedByMe.filter((ride) => ride.status === 'CLAIMED' || ride.status === 'COMPLETED');
+    
+    // Personal rides actives (PUBLISHED, non expirées)
+    const activePersonal = personalByMe.filter((ride) => {
+      if (ride.status !== 'PUBLISHED') return false;
+      if (ride.status === 'EXPIRED') return false;
+      const scheduledTime = new Date(ride.scheduled_at).getTime();
+      const now = Date.now();
+      return scheduledTime >= now;
+    });
 
-    const totalCount = myRidesTab === 'claimed' ? claimedByMe.length : publishedByMe.length;
+    const totalCount = myRidesTab === 'claimed' ? claimedByMe.length : myRidesTab === 'published' ? publishedByMe.length : personalByMe.length;
 
     return (
       <ScrollView contentContainerStyle={styles.scrollContentCourses} showsVerticalScrollIndicator={false}>
@@ -1002,6 +1019,22 @@ export default function App() {
             />
             <Text style={[styles.tabText, myRidesTab === 'published' && styles.tabTextActive]}>
               Publiées ({publishedByMe.length})
+            </Text>
+          </TouchableOpacity>
+          
+          <TouchableOpacity
+            style={[styles.tab, myRidesTab === 'personal' && styles.tabActive]}
+            onPress={() => setMyRidesTab('personal')}
+            activeOpacity={0.7}
+          >
+            <Ionicons
+              name="lock-closed"
+              size={18}
+              color={myRidesTab === 'personal' ? '#fff' : '#64748b'}
+              style={{ marginRight: 6 }}
+            />
+            <Text style={[styles.tabText, myRidesTab === 'personal' && styles.tabTextActive]}>
+              Perso ({personalByMe.length})
             </Text>
           </TouchableOpacity>
         </View>
@@ -1198,6 +1231,93 @@ export default function App() {
                 <Text style={styles.emptyStateText}>Aucune course publiée</Text>
                 <Text style={styles.emptyStateSubtext}>
                   Créez une nouvelle course pour commencer
+                </Text>
+              </View>
+            )}
+          </>
+        )}
+
+        {/* Personal Tab Content */}
+        {myRidesTab === 'personal' && (
+          <>
+            {/* Stats */}
+            <View style={styles.myRidesStats}>
+              <View style={[styles.statCard, { flex: 1, marginRight: 8 }]}>
+                <View style={[styles.statIconWrapper, { backgroundColor: 'rgba(99, 102, 241, 0.2)' }]}>
+                  <Ionicons name="calendar" size={24} color="#6366f1" />
+                </View>
+                <Text style={styles.statValue}>{activePersonal.length}</Text>
+                <Text style={styles.statLabel}>À venir</Text>
+              </View>
+              <View style={[styles.statCard, { flex: 1, marginLeft: 8 }]}>
+                <View style={[styles.statIconWrapper, { backgroundColor: 'rgba(139, 92, 246, 0.2)' }]}>
+                  <Ionicons name="lock-closed" size={24} color="#8b5cf6" />
+                </View>
+                <Text style={styles.statValue}>{personalByMe.length}</Text>
+                <Text style={styles.statLabel}>Total</Text>
+              </View>
+            </View>
+
+            {/* Active Personal Rides */}
+            {activePersonal.length > 0 && (
+              <View style={styles.section}>
+                <Text style={styles.sectionTitle}>
+                  <Ionicons name="calendar" size={20} color="#6366f1" /> Prochaines courses personnelles
+                </Text>
+                <Text style={styles.sectionSubtitle}>Courses privées non publiées</Text>
+                
+                {activePersonal.map((ride) => (
+                  <TouchableOpacity
+                    key={ride.id}
+                    style={styles.compactRideRow}
+                    onPress={() => setSelectedRide(ride)}
+                    activeOpacity={0.7}
+                  >
+                    <View style={styles.compactRideLeft}>
+                      <View style={styles.compactRideIconWrapper}>
+                        <Ionicons name="lock-closed-outline" size={20} color="#6366f1" />
+                      </View>
+                      <View style={styles.compactRideInfo}>
+                        <Text style={styles.compactRideTime}>
+                          {new Date(ride.scheduled_at).toLocaleDateString('fr-FR', {
+                            day: 'numeric',
+                            month: 'short',
+                            hour: '2-digit',
+                            minute: '2-digit',
+                          })}
+                        </Text>
+                        <View style={styles.compactRideRoute}>
+                          <Ionicons name="location-outline" size={12} color="#94a3b8" />
+                          <Text style={styles.compactRideAddress} numberOfLines={1}>
+                            {ride.pickup_address}
+                          </Text>
+                        </View>
+                        <View style={styles.compactRideRoute}>
+                          <Ionicons name="flag-outline" size={12} color="#94a3b8" />
+                          <Text style={styles.compactRideAddress} numberOfLines={1}>
+                            {ride.dropoff_address}
+                          </Text>
+                        </View>
+                      </View>
+                    </View>
+                    
+                    <View style={styles.compactRideRight}>
+                      <Text style={styles.compactRidePrice}>
+                        {(ride.price_cents / 100).toFixed(2)}€
+                      </Text>
+                      <Ionicons name="chevron-forward" size={20} color="#64748b" />
+                    </View>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            )}
+
+            {personalByMe.length === 0 && (
+              <View style={styles.emptyState}>
+                <Ionicons name="lock-closed-outline" size={64} color="#475569" />
+                <Text style={styles.emptyStateText}>Aucune course personnelle</Text>
+                <Text style={styles.emptyStateSubtext}>
+                  Créez une course privée pour votre propre usage
                 </Text>
               </View>
             )}
@@ -1708,7 +1828,7 @@ export default function App() {
               <TouchableOpacity
                 style={styles.centerFABIntegrated}
                 onPress={() => {
-                  setCreateRideMode('publish');
+                  setCreateRideMode('create');
                   setShowCreateRide(true);
                 }}
                 activeOpacity={0.85}
