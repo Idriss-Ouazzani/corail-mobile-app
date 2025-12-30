@@ -608,6 +608,8 @@ export const supabaseApi = {
   clearAuth,
   getVerificationStatus,
   submitVerification,
+  getPendingVerifications,
+  reviewVerification,
   createUser,
   getRides,
   getMyRides,
