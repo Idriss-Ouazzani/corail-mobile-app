@@ -214,6 +214,46 @@ class CreateRideRequest(BaseModel):
 
 
 # ============================================================================
+# HELPER FUNCTIONS
+# ============================================================================
+
+def log_activity(user_id: str, action_type: str, entity_type: str, entity_id: str, metadata: Optional[dict] = None):
+    """
+    Logguer une activité utilisateur dans la table activity_log
+    
+    action_type: RIDE_CREATED, RIDE_CLAIMED, RIDE_COMPLETED, RIDE_DELETED, 
+                 RIDE_PUBLISHED_PUBLIC, RIDE_PUBLISHED_GROUP, RIDE_PUBLISHED_PERSONAL
+    entity_type: RIDE, GROUP, USER, etc.
+    """
+    try:
+        activity_id = f"activity-{user_id}-{int(datetime.now().timestamp() * 1000)}"
+        
+        import json
+        metadata_str = json.dumps(metadata) if metadata else None
+        
+        query = """
+        INSERT INTO io_catalog.corail.activity_log 
+        (id, user_id, action_type, entity_type, entity_id, metadata, created_at)
+        VALUES (:id, :user_id, :action_type, :entity_type, :entity_id, :metadata, CURRENT_TIMESTAMP())
+        """
+        
+        params = {
+            "id": activity_id,
+            "user_id": user_id,
+            "action_type": action_type,
+            "entity_type": entity_type,
+            "entity_id": entity_id,
+            "metadata": metadata_str
+        }
+        
+        db.execute_non_query(query, params)
+        print(f"📝 Activity logged: {action_type} by {user_id}")
+    except Exception as e:
+        print(f"⚠️ Failed to log activity: {str(e)}")
+        # Ne pas faire échouer la requête principale si le log échoue
+
+
+# ============================================================================
 # ROUTES
 # ============================================================================
 
@@ -442,6 +482,21 @@ async def create_ride(
         # 🏆 Vérifier et attribuer des badges automatiquement
         check_and_award_badges(user_id)
         
+        # 📝 Logguer l'activité
+        action_type = f"RIDE_PUBLISHED_{ride.visibility}"  # RIDE_PUBLISHED_PUBLIC, RIDE_PUBLISHED_GROUP, RIDE_PUBLISHED_PERSONAL
+        log_activity(
+            user_id=user_id,
+            action_type=action_type,
+            entity_type="RIDE",
+            entity_id=ride_id,
+            metadata={
+                "pickup": ride.pickup_address,
+                "dropoff": ride.dropoff_address,
+                "price": ride.price_cents,
+                "visibility": ride.visibility
+            }
+        )
+        
         return {
             "success": True,
             "ride_id": ride_id,
@@ -524,6 +579,15 @@ async def claim_ride(
         
         print(f"✅ -1 crédit Corail pour {user_id} (prise de course)")
         
+        # 📝 Logguer l'activité
+        log_activity(
+            user_id=user_id,
+            action_type="RIDE_CLAIMED",
+            entity_type="RIDE",
+            entity_id=ride_id,
+            metadata={"credit_spent": 1}
+        )
+        
         return {
             "success": True,
             "message": "Course réclamée avec succès"
@@ -577,6 +641,18 @@ async def complete_ride(
             """
             db.execute_non_query(bonus_credit_query, {"creator_id": ride["creator_id"]})
             print(f"✅ +1 crédit bonus pour {ride['creator_id']} (course {ride['visibility']} complétée)")
+        
+        # 📝 Logguer l'activité
+        log_activity(
+            user_id=user_id,
+            action_type="RIDE_COMPLETED",
+            entity_type="RIDE",
+            entity_id=ride_id,
+            metadata={
+                "visibility": ride["visibility"],
+                "bonus_credit_awarded": ride["visibility"] in ["PUBLIC", "GROUP"]
+            }
+        )
         
         return {
             "success": True,
@@ -637,6 +713,15 @@ async def delete_ride(
         # Supprimer la course
         delete_query = "DELETE FROM rides WHERE id = :ride_id"
         db.execute_non_query(delete_query, {"ride_id": ride_id})
+        
+        # 📝 Logguer l'activité
+        log_activity(
+            user_id=user_id,
+            action_type="RIDE_DELETED",
+            entity_type="RIDE",
+            entity_id=ride_id,
+            metadata={"status": results[0]["status"]}
+        )
         
         return {
             "success": True,
@@ -2114,6 +2199,48 @@ async def update_notification_preferences(
         
         await db.execute(query)
         return {"success": True}
+    
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
+
+
+# ============================================================================
+# ACTIVITY FEED
+# ============================================================================
+
+@app.get("/api/v1/activity/recent")
+async def get_recent_activity(
+    current_user_id: str = CurrentUser,
+    limit: int = Query(20, le=100)
+):
+    """
+    Récupérer l'activité récente de l'utilisateur
+    
+    Retourne les dernières actions : publier, prendre, terminer, supprimer des courses
+    """
+    try:
+        query = """
+        SELECT 
+          a.id,
+          a.user_id,
+          a.action_type,
+          a.entity_type,
+          a.entity_id,
+          a.metadata,
+          a.created_at,
+          r.pickup_address,
+          r.dropoff_address,
+          r.price_cents,
+          r.visibility as ride_visibility
+        FROM io_catalog.corail.activity_log a
+        LEFT JOIN io_catalog.corail.rides r ON a.entity_id = r.id AND a.entity_type = 'RIDE'
+        WHERE a.user_id = :user_id
+        ORDER BY a.created_at DESC
+        LIMIT :limit
+        """
+        
+        results = db.execute_query(query, {"user_id": current_user_id, "limit": limit})
+        return results
     
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
