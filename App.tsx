@@ -749,8 +749,8 @@ export default function App() {
       // Region filter (case insensitive search in pickup or dropoff address)
       if (selectedCity && selectedCity !== 'toulouse') {
         const cityName = selectedCity.charAt(0).toUpperCase() + selectedCity.slice(1);
-        const pickupMatch = ride.pickup_address.toLowerCase().includes(cityName.toLowerCase());
-        const dropoffMatch = ride.dropoff_address.toLowerCase().includes(cityName.toLowerCase());
+        const pickupMatch = ride.pickup_address?.toLowerCase().includes(cityName.toLowerCase()) || false;
+        const dropoffMatch = ride.dropoff_address?.toLowerCase().includes(cityName.toLowerCase()) || false;
         if (!pickupMatch && !dropoffMatch) return false;
       }
       

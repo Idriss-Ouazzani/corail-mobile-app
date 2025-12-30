@@ -17,8 +17,8 @@ init_firebase()
 # Créer l'app FastAPI
 app = FastAPI(
     title="Corail VTC API",
-    description="Backend pour l'application mobile Corail VTC",
-    version="1.0.0"
+    description="Backend pour l'application mobile Corail VTC - Activity Feed + Groups Fix",
+    version="1.1.0"
 )
 
 # CORS
