@@ -153,6 +153,11 @@ class ApiClient {
     return response.data;
   }
 
+  async getMyRides(type: 'claimed' | 'published' = 'claimed'): Promise<Ride[]> {
+    const response = await this.client.get('/api/v1/my-rides', { params: { type } });
+    return response.data;
+  }
+
   // Groups
   async listMyGroups(): Promise<{ data: Group[] }> {
     const response = await this.client.get('/api/v1/groups');

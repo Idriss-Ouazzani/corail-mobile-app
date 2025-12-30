@@ -682,9 +682,9 @@ async def get_my_rides(
     """
     try:
         if type == "claimed":
-            query = "SELECT * FROM rides WHERE picker_id = :user_id ORDER BY scheduled_at DESC"
+            query = "SELECT * FROM io_catalog.corail.rides WHERE picker_id = :user_id ORDER BY scheduled_at DESC"
         else:
-            query = "SELECT * FROM rides WHERE creator_id = :user_id ORDER BY scheduled_at DESC"
+            query = "SELECT * FROM io_catalog.corail.rides WHERE creator_id = :user_id ORDER BY scheduled_at DESC"
         
         results = db.execute_query(query, {"user_id": user_id})
         return results

@@ -71,16 +71,15 @@ export default function PlanningScreen({ onBack }: PlanningScreenProps) {
         planningEvents = [];
       }
       
-      // Charger les courses de la marketplace et les convertir en événements
-      // UNIQUEMENT les courses CLAIMED (prises/validées)
+      // Charger MES courses CLAIMED (courses que j'ai prises)
       let ridesAsEvents: PlanningEvent[] = [];
       try {
-        const rides = await apiClient.getRides();
+        const rides = await apiClient.getMyRides('claimed'); // Utiliser l'endpoint spécifique
         if (Array.isArray(rides)) {
           ridesAsEvents = rides
             .filter(ride => 
               ride.scheduled_at && 
-              ride.status === 'CLAIMED' && // SEULEMENT les courses CLAIMED
+              (ride.status === 'CLAIMED' || ride.status === 'COMPLETED') && // CLAIMED ou COMPLETED
               new Date(ride.scheduled_at) >= startOfMonth &&
               new Date(ride.scheduled_at) <= endOfMonth
             )
