@@ -535,6 +535,60 @@ async def claim_ride(
         raise HTTPException(status_code=500, detail=f"Error claiming ride: {str(e)}")
 
 
+@app.post("/api/v1/rides/{ride_id}/complete")
+async def complete_ride(
+    ride_id: str,
+    user_id: str = CurrentUser
+):
+    """Terminer/Valider une course (CLAIMED -> COMPLETED)"""
+    try:
+        # Vérifier que la course existe et que l'utilisateur est le picker
+        check_query = "SELECT status, picker_id, creator_id, visibility FROM rides WHERE id = :ride_id"
+        results = db.execute_query(check_query, {"ride_id": ride_id})
+        
+        if not results:
+            raise HTTPException(status_code=404, detail="Ride not found")
+        
+        ride = results[0]
+        
+        if ride["picker_id"] != user_id and ride["creator_id"] != user_id:
+            raise HTTPException(status_code=403, detail="Not authorized to complete this ride")
+        
+        if ride["status"] != "CLAIMED":
+            raise HTTPException(status_code=400, detail="Only CLAIMED rides can be completed")
+        
+        # Marquer la course comme complétée
+        update_query = """
+        UPDATE rides 
+        SET status = 'COMPLETED',
+            completed_at = CURRENT_TIMESTAMP(),
+            updated_at = CURRENT_TIMESTAMP()
+        WHERE id = :ride_id
+        """
+        
+        db.execute_non_query(update_query, {"ride_id": ride_id})
+        
+        # 🎉 SYSTÈME DE CRÉDITS : +1 crédit supplémentaire pour le créateur si PUBLIC/GROUP
+        if ride["visibility"] in ["PUBLIC", "GROUP"] and ride["creator_id"]:
+            bonus_credit_query = """
+            UPDATE users 
+            SET credits = COALESCE(credits, 0) + 1
+            WHERE id = :creator_id
+            """
+            db.execute_non_query(bonus_credit_query, {"creator_id": ride["creator_id"]})
+            print(f"✅ +1 crédit bonus pour {ride['creator_id']} (course {ride['visibility']} complétée)")
+        
+        return {
+            "success": True,
+            "message": "Course terminée avec succès ! Le créateur a reçu un crédit bonus."
+        }
+    
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error completing ride: {str(e)}")
+
+
 @app.get("/api/v1/my-rides", response_model=List[Ride])
 async def get_my_rides(
     user_id: str = CurrentUser,

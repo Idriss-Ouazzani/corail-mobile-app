@@ -423,7 +423,7 @@ export default function App() {
     vehicleTypes: [],
     sortBy: null,
   });
-  const [myRidesTab, setMyRidesTab] = useState<'claimed' | 'published'>('claimed');
+  const [myRidesTab, setMyRidesTab] = useState<'claimed' | 'published' | 'personal'>('claimed');
   
   // 🗄️ Rides depuis Databricks
   const [rides, setRides] = useState<Ride[]>([]);
@@ -1705,9 +1705,11 @@ export default function App() {
             await loadCredits();
             await loadRides();
             
-            // Fermer le modal
-            setSelectedRide(null);
-            Alert.alert('Succès', 'Course réclamée ! -1 crédit [C]');
+            // Recharger la course spécifique pour voir les infos client mises à jour
+            const updatedRide = await apiClient.getRide(selectedRide.id);
+            setSelectedRide(updatedRide);
+            
+            Alert.alert('Succès', 'Course réclamée ! -1 crédit [C]\n\nLes informations du client sont maintenant visibles.');
           } catch (error: any) {
             console.error('❌ Erreur réclamation course:', error);
             Alert.alert('Erreur', error.message || 'Impossible de réclamer la course');
@@ -1732,6 +1734,26 @@ export default function App() {
           } catch (error: any) {
             console.error('❌ Erreur suppression course:', error);
             Alert.alert('Erreur', error.message || 'Impossible de supprimer la course');
+          }
+        }}
+        onComplete={async () => {
+          try {
+            console.log('✅ Terminer la course:', selectedRide.id);
+            
+            // Terminer la course
+            await apiClient.completeRide(selectedRide.id);
+            console.log('✅ Course terminée avec succès');
+            
+            // Recharger les crédits et les rides
+            await loadCredits();
+            await loadRides();
+            
+            // Fermer le modal
+            setSelectedRide(null);
+            Alert.alert('Succès', 'Course terminée avec succès ! Le créateur a reçu un crédit bonus (+1 [C])');
+          } catch (error: any) {
+            console.error('❌ Erreur terminer course:', error);
+            Alert.alert('Erreur', error.message || 'Impossible de terminer la course');
           }
         }}
       />
@@ -2615,15 +2637,16 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   tab: {
-    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 12,
-    borderRadius: 16,
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+    borderRadius: 14,
     backgroundColor: 'rgba(255, 255, 255, 0.05)',
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.1)',
+    marginHorizontal: 3,
   },
   tabActive: {
     backgroundColor: '#ff6b47',
@@ -2635,7 +2658,7 @@ const styles = StyleSheet.create({
     elevation: 6,
   },
   tabText: {
-    fontSize: 14,
+    fontSize: 12,
     fontWeight: '600',
     color: '#64748b',
   },

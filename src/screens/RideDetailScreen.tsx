@@ -20,6 +20,7 @@ interface RideDetailScreenProps {
   onBack: () => void;
   onClaim?: () => void;
   onDelete?: () => void;
+  onComplete?: () => void;
 }
 
 export const RideDetailScreen: React.FC<RideDetailScreenProps> = ({
@@ -29,6 +30,7 @@ export const RideDetailScreen: React.FC<RideDetailScreenProps> = ({
   onBack,
   onClaim,
   onDelete,
+  onComplete,
 }) => {
   const isMyRide = ride.creator_id === currentUserId;
   const isPicker = ride.picker_id === currentUserId;
@@ -429,6 +431,25 @@ export const RideDetailScreen: React.FC<RideDetailScreenProps> = ({
             >
               <Ionicons name="trash" size={24} color="#fff" />
               <Text style={styles.actionButtonText}>Supprimer cette course</Text>
+            </LinearGradient>
+          </TouchableOpacity>
+        </View>
+      )}
+
+      {/* Complete Button - Only for picker with CLAIMED status */}
+      {isPicker && ride.status === 'CLAIMED' && onComplete && (
+        <View style={styles.actionContainer}>
+          <TouchableOpacity
+            style={styles.actionButton}
+            onPress={onComplete}
+            activeOpacity={0.8}
+          >
+            <LinearGradient
+              colors={['#10b981', '#059669']}
+              style={styles.actionButtonGradient}
+            >
+              <Ionicons name="checkmark-circle" size={24} color="#fff" />
+              <Text style={styles.actionButtonText}>Terminer la course</Text>
             </LinearGradient>
           </TouchableOpacity>
         </View>
