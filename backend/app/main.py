@@ -1872,8 +1872,8 @@ async def get_planning_events(
         
         query += " ORDER BY start_time ASC"
         
-        result = await db.fetch_all(query)
-        return [dict(row) for row in result]
+        result = db.execute_query(query, {})
+        return result
     
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
@@ -1905,7 +1905,7 @@ async def create_planning_event(
           )
         """
         
-        conflicts = await db.fetch_all(conflicts_query)
+        conflicts = db.execute_query(conflicts_query, {})
         
         if conflicts:
             return {
@@ -2025,11 +2025,11 @@ async def check_conflicts(
           )
         """
         
-        conflicts = await db.fetch_all(query)
+        conflicts = db.execute_query(query, {})
         
         return {
             "has_conflicts": len(conflicts) > 0,
-            "conflicts": [dict(row) for row in conflicts]
+            "conflicts": conflicts
         }
     
     except Exception as e:

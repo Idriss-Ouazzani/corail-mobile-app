@@ -401,6 +401,7 @@ export default function App() {
 
   // États de l'application
   const [currentScreen, setCurrentScreen] = useState<'dashboard' | 'courses' | 'tools' | 'profile'>('dashboard');
+  const [coursesTab, setCoursesTab] = useState<'marketplace' | 'myrides' | 'history'>('marketplace');
   const [selectedCity, setSelectedCity] = useState('toulouse');
   const [selectedRide, setSelectedRide] = useState<Ride | null>(null);
   const [activeFilter, setActiveFilter] = useState<'all' | 'public' | 'groups'>('all');
@@ -1840,8 +1841,14 @@ export default function App() {
           <DashboardScreen
             userFullName={userFullName}
             userCredits={userCredits}
+            userRides={rides}
             onNavigateToCourses={() => setCurrentScreen('courses')}
             onNavigateToTools={() => setCurrentScreen('tools')}
+            onNavigateToActivity={() => {
+              setCoursesTab('history');
+              setCurrentScreen('courses');
+            }}
+            onNavigateToPlanning={() => setShowPlanning(true)}
             onOpenQRCode={() => setShowQRCode(true)}
             onCreateRide={() => {
               setCreateRideMode('create');
@@ -1851,6 +1858,8 @@ export default function App() {
         )}
         {currentScreen === 'courses' && (
           <CoursesScreen
+            activeTab={coursesTab}
+            onTabChange={setCoursesTab}
             marketplaceContent={renderMarketplace()}
             myRidesContent={renderMyRides()}
             historyContent={<ActivityFeed limit={50} />}

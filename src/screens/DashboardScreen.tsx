@@ -20,8 +20,11 @@ import { apiClient } from '../services/api';
 interface DashboardProps {
   userFullName: string;
   userCredits: number;
+  userRides: any[]; // All marketplace rides for the user
   onNavigateToCourses: () => void;
   onNavigateToTools: () => void;
+  onNavigateToActivity: () => void; // Navigate to Courses > Activity tab
+  onNavigateToPlanning: () => void; // Navigate to Planning
   onOpenQRCode: () => void;
   onCreateRide: () => void; // Ouvrir formulaire création en mode 'create'
 }
@@ -29,8 +32,11 @@ interface DashboardProps {
 export default function DashboardScreen({
   userFullName,
   userCredits,
+  userRides,
   onNavigateToCourses,
   onNavigateToTools,
+  onNavigateToActivity,
+  onNavigateToPlanning,
   onOpenQRCode,
   onCreateRide,
 }: DashboardProps) {
@@ -192,6 +198,15 @@ export default function DashboardScreen({
     }
   };
 
+  // Calculer les prochaines courses (CLAIMED du marketplace)
+  const claimedRides = userRides.filter((ride: any) => 
+    ride.status === 'CLAIMED' && 
+    ride.picker_id && 
+    new Date(ride.scheduled_at).getTime() > Date.now()
+  ).sort((a: any, b: any) => 
+    new Date(a.scheduled_at).getTime() - new Date(b.scheduled_at).getTime()
+  ).slice(0, 3); // Max 3 courses
+
   if (loading && !refreshing) {
     return (
       <View style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}>
@@ -330,11 +345,59 @@ export default function DashboardScreen({
           </TouchableOpacity>
         </View>
 
+        {/* Prochaines courses */}
+        {claimedRides.length > 0 && (
+          <View style={styles.upcomingCoursesSection}>
+            <View style={styles.sectionHeader}>
+              <Text style={styles.sectionTitle}>Prochaines courses</Text>
+              <TouchableOpacity onPress={onNavigateToPlanning} activeOpacity={0.7}>
+                <Text style={styles.viewMoreText}>
+                  Voir plus <Ionicons name="chevron-forward" size={14} color="#6366f1" />
+                </Text>
+              </TouchableOpacity>
+            </View>
+            
+            {claimedRides.map((ride: any) => (
+              <View key={ride.id} style={styles.upcomingCourseCard}>
+                <View style={styles.upcomingCourseHeader}>
+                  <Ionicons name="calendar" size={16} color="#6366f1" />
+                  <Text style={styles.upcomingCourseTime}>
+                    {new Date(ride.scheduled_at).toLocaleDateString('fr-FR', {
+                      weekday: 'short',
+                      day: 'numeric',
+                      month: 'short',
+                      hour: '2-digit',
+                      minute: '2-digit',
+                    })}
+                  </Text>
+                </View>
+                <View style={styles.upcomingCourseRoute}>
+                  <Ionicons name="location" size={14} color="#64748b" />
+                  <Text style={styles.upcomingCourseAddress} numberOfLines={1}>
+                    {ride.pickup_address}
+                  </Text>
+                </View>
+                <View style={styles.upcomingCourseRoute}>
+                  <Ionicons name="flag" size={14} color="#64748b" />
+                  <Text style={styles.upcomingCourseAddress} numberOfLines={1}>
+                    {ride.dropoff_address}
+                  </Text>
+                </View>
+                {ride.price_cents && (
+                  <Text style={styles.upcomingCoursePrice}>
+                    {(ride.price_cents / 100).toFixed(2)}€
+                  </Text>
+                )}
+              </View>
+            ))}
+          </View>
+        )}
+
         {/* Activité récente */}
         <View style={styles.activitySection}>
           <View style={styles.sectionHeader}>
             <Text style={styles.sectionTitle}>Activité récente</Text>
-            <TouchableOpacity onPress={onNavigateToCourses} activeOpacity={0.7}>
+            <TouchableOpacity onPress={onNavigateToActivity} activeOpacity={0.7}>
               <Text style={styles.viewMoreText}>
                 Voir plus <Ionicons name="chevron-forward" size={14} color="#6366f1" />
               </Text>
@@ -716,6 +779,46 @@ const styles = StyleSheet.create({
   quickAccessSection: {
     paddingHorizontal: 20,
     marginBottom: 24,
+  },
+  upcomingCoursesSection: {
+    paddingHorizontal: 20,
+    marginBottom: 24,
+  },
+  upcomingCourseCard: {
+    backgroundColor: '#1e293b',
+    borderRadius: 12,
+    padding: 14,
+    marginBottom: 10,
+    borderWidth: 1,
+    borderColor: '#334155',
+  },
+  upcomingCourseHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  upcomingCourseTime: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#e2e8f0',
+    marginLeft: 8,
+  },
+  upcomingCourseRoute: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 4,
+  },
+  upcomingCourseAddress: {
+    fontSize: 13,
+    color: '#94a3b8',
+    marginLeft: 8,
+    flex: 1,
+  },
+  upcomingCoursePrice: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#10b981',
+    marginTop: 8,
   },
   quickAccessButton: {
     borderRadius: 12,

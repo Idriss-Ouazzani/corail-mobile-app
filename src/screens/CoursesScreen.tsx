@@ -3,7 +3,7 @@
  * 3 tabs : Marketplace Corail, Mes Courses Corail, Historique complet
  */
 
-import React, { useState } from 'react';
+import React from 'react';
 import {
   View,
   Text,
@@ -15,17 +15,20 @@ import { Ionicons } from '@expo/vector-icons';
 
 interface CoursesScreenProps {
   // Props pour passer les composants des différents tabs
+  activeTab: 'marketplace' | 'myrides' | 'history';
+  onTabChange: (tab: 'marketplace' | 'myrides' | 'history') => void;
   marketplaceContent: React.ReactNode;
   myRidesContent: React.ReactNode;
   historyContent: React.ReactNode;
 }
 
 export default function CoursesScreen({
+  activeTab,
+  onTabChange,
   marketplaceContent,
   myRidesContent,
   historyContent,
 }: CoursesScreenProps) {
-  const [activeTab, setActiveTab] = useState<'marketplace' | 'myrides' | 'history'>('marketplace');
 
   const renderContent = () => {
     switch (activeTab) {
@@ -54,7 +57,7 @@ export default function CoursesScreen({
         <View style={styles.tabs}>
           <TouchableOpacity
             style={[styles.tab, activeTab === 'marketplace' && styles.tabActive]}
-            onPress={() => setActiveTab('marketplace')}
+            onPress={() => onTabChange('marketplace')}
           >
             <Ionicons 
               name="storefront" 
@@ -68,7 +71,7 @@ export default function CoursesScreen({
 
           <TouchableOpacity
             style={[styles.tab, activeTab === 'myrides' && styles.tabActive]}
-            onPress={() => setActiveTab('myrides')}
+            onPress={() => onTabChange('myrides')}
           >
             <Ionicons 
               name="car" 
@@ -82,7 +85,7 @@ export default function CoursesScreen({
 
           <TouchableOpacity
             style={[styles.tab, activeTab === 'history' && styles.tabActive]}
-            onPress={() => setActiveTab('history')}
+            onPress={() => onTabChange('history')}
           >
             <Ionicons 
               name="list" 
