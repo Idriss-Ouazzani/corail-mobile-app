@@ -138,13 +138,65 @@ const ActivityFeed: React.FC<ActivityFeedProps> = ({ limit = 20 }) => {
           badge: price_cents ? `${(price_cents / 100).toFixed(2)}€` : undefined,
         };
       
-      default:
+      case 'RIDE_PUBLISHED':
         return {
-          icon: 'help-circle' as const,
-          color: '#64748b',
-          title: action_type,
-          subtitle: 'Action inconnue',
+          icon: 'megaphone' as const,
+          color: '#0ea5e9',
+          title: 'Course publiée',
+          subtitle: pickup_address && dropoff_address
+            ? `${pickup_address} → ${dropoff_address}`
+            : 'Nouvelle course',
+          badge: price_cents ? `${(price_cents / 100).toFixed(2)}€` : undefined,
+        };
+      
+      case 'RIDE_CREATED':
+        return {
+          icon: 'add-circle' as const,
+          color: '#10b981',
+          title: 'Course créée',
+          subtitle: pickup_address && dropoff_address
+            ? `${pickup_address} → ${dropoff_address}`
+            : 'Nouvelle course',
+          badge: price_cents ? `${(price_cents / 100).toFixed(2)}€` : undefined,
+        };
+      
+      case 'RIDE_UPDATED':
+        return {
+          icon: 'create' as const,
+          color: '#f59e0b',
+          title: 'Course modifiée',
+          subtitle: pickup_address && dropoff_address
+            ? `${pickup_address} → ${dropoff_address}`
+            : 'Course mise à jour',
           badge: undefined,
+        };
+      
+      case 'RIDE_CANCELLED':
+        return {
+          icon: 'close-circle' as const,
+          color: '#ef4444',
+          title: 'Course annulée',
+          subtitle: pickup_address && dropoff_address
+            ? `${pickup_address} → ${dropoff_address}`
+            : 'Course annulée',
+          badge: undefined,
+        };
+      
+      default:
+        // Pour les actions inconnues, essayer de rendre lisible
+        const readableTitle = action_type
+          .replace(/_/g, ' ')
+          .toLowerCase()
+          .replace(/\b\w/g, (l) => l.toUpperCase());
+        
+        return {
+          icon: 'information-circle' as const,
+          color: '#64748b',
+          title: readableTitle,
+          subtitle: pickup_address && dropoff_address
+            ? `${pickup_address} → ${dropoff_address}`
+            : 'Action',
+          badge: price_cents ? `${(price_cents / 100).toFixed(2)}€` : undefined,
         };
     }
   };
@@ -231,13 +283,40 @@ const ActivityFeed: React.FC<ActivityFeedProps> = ({ limit = 20 }) => {
                 )}
               </View>
               
-              <Text style={styles.activitySubtitle} numberOfLines={2}>
-                {info.subtitle}
-              </Text>
+              {/* Détails de la course */}
+              {activity.pickup_address && (
+                <View style={styles.routeDetails}>
+                  <View style={styles.routeRow}>
+                    <Ionicons name="location" size={14} color="#10b981" />
+                    <Text style={styles.routeText} numberOfLines={1}>
+                      {activity.pickup_address}
+                    </Text>
+                  </View>
+                  {activity.dropoff_address && (
+                    <View style={styles.routeRow}>
+                      <Ionicons name="flag" size={14} color="#ff6b47" />
+                      <Text style={styles.routeText} numberOfLines={1}>
+                        {activity.dropoff_address}
+                      </Text>
+                    </View>
+                  )}
+                </View>
+              )}
               
-              <Text style={styles.activityTime}>
-                {formatRelativeTime(activity.created_at)}
-              </Text>
+              {/* Prix et temps */}
+              <View style={styles.metaRow}>
+                {activity.price_cents && (
+                  <View style={styles.priceTag}>
+                    <Ionicons name="cash-outline" size={14} color="#10b981" />
+                    <Text style={styles.priceText}>
+                      {(activity.price_cents / 100).toFixed(2)}€
+                    </Text>
+                  </View>
+                )}
+                <Text style={styles.activityTime}>
+                  {formatRelativeTime(activity.created_at)}
+                </Text>
+              </View>
             </View>
           </View>
         );
@@ -345,6 +424,40 @@ const styles = StyleSheet.create({
     color: '#94a3b8',
     lineHeight: 18,
     marginBottom: 6,
+  },
+  routeDetails: {
+    marginBottom: 8,
+    gap: 4,
+  },
+  routeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  routeText: {
+    fontSize: 13,
+    color: '#cbd5e1',
+    flex: 1,
+  },
+  metaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginTop: 4,
+  },
+  priceTag: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(16, 185, 129, 0.1)',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
+    gap: 4,
+  },
+  priceText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#10b981',
   },
   activityTime: {
     fontSize: 12,

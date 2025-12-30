@@ -180,11 +180,41 @@ export default function DashboardScreen({
           color: '#6366f1',
           title: 'Course enregistrée',
         };
-      default:
+      case 'RIDE_PUBLISHED':
         return {
-          icon: 'help-circle' as const,
+          icon: 'megaphone' as const,
+          color: '#0ea5e9',
+          title: 'Course publiée',
+        };
+      case 'RIDE_CREATED':
+        return {
+          icon: 'add-circle' as const,
+          color: '#10b981',
+          title: 'Course créée',
+        };
+      case 'RIDE_UPDATED':
+        return {
+          icon: 'create' as const,
+          color: '#f59e0b',
+          title: 'Course modifiée',
+        };
+      case 'RIDE_CANCELLED':
+        return {
+          icon: 'close-circle' as const,
+          color: '#ef4444',
+          title: 'Course annulée',
+        };
+      default:
+        // Pour les actions inconnues, rendre lisible
+        const readableTitle = action_type
+          .replace(/_/g, ' ')
+          .toLowerCase()
+          .replace(/\b\w/g, (l) => l.toUpperCase());
+        
+        return {
+          icon: 'information-circle' as const,
           color: '#64748b',
-          title: action_type,
+          title: readableTitle,
         };
     }
   };
