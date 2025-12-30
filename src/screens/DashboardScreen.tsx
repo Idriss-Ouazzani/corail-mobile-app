@@ -109,10 +109,6 @@ export default function DashboardScreen({
       }
 
       // Calculer revenus du jour et de la semaine
-      // TODO: Améliorer avec des filtres backend par date
-      const today = new Date().toDateString();
-      const weekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
-
       // Pour l'instant, on utilise les totaux
       setTodayRevenue(statsData?.totals?.total_revenue_eur || 0);
       setWeekRevenue(statsData?.totals?.total_revenue_eur || 0);
