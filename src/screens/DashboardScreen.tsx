@@ -81,7 +81,10 @@ export default function DashboardScreen({
       let upcomingRidesData: any[] = [];
       try {
         const ridesData = await apiClient.listPersonalRides({ status: 'SCHEDULED', limit: 5 });
-        upcomingRidesData = ridesData || [];
+        // Filtrer uniquement les courses futures
+        upcomingRidesData = (ridesData || []).filter((ride: any) => 
+          ride.scheduled_at && new Date(ride.scheduled_at).getTime() > Date.now()
+        );
         setUpcomingRides(upcomingRidesData);
       } catch (error: any) {
         console.warn('No upcoming rides found');

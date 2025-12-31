@@ -247,6 +247,12 @@ export default function PlanningScreen({ onBack }: PlanningScreenProps) {
     const dayEvents = getDayEvents();
     const hours = Array.from({ length: 24 }, (_, i) => i); // 0-23
     
+    // Calculer la position de l'indicateur d'heure actuelle
+    const now = new Date();
+    const isToday = selectedDate === now.toISOString().split('T')[0];
+    const currentHour = now.getHours();
+    const currentMinutes = now.getMinutes();
+    
     return (
       <ScrollView style={styles.dayView} showsVerticalScrollIndicator={false}>
         {/* Header jour sélectionné */}
@@ -333,6 +339,17 @@ export default function PlanningScreen({ onBack }: PlanningScreenProps) {
                         </TouchableOpacity>
                       );
                     })
+                  )}
+                  
+                  {/* Indicateur d'heure actuelle */}
+                  {isToday && hour === currentHour && (
+                    <View style={[styles.currentTimeIndicator, { top: (currentMinutes / 60) * 60 }]}>
+                      <View style={styles.currentTimeDot} />
+                      <View style={styles.currentTimeLine} />
+                      <Text style={styles.currentTimeText}>
+                        {now.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
+                      </Text>
+                    </View>
                   )}
                 </View>
               </View>
@@ -876,6 +893,43 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '700',
     color: '#fff',
+  },
+  // Indicateur d'heure actuelle
+  currentTimeIndicator: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    flexDirection: 'row',
+    alignItems: 'center',
+    zIndex: 10,
+  },
+  currentTimeDot: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    backgroundColor: '#ff6b47',
+    marginLeft: -5,
+    borderWidth: 2,
+    borderColor: '#fff',
+  },
+  currentTimeLine: {
+    flex: 1,
+    height: 2,
+    backgroundColor: '#ff6b47',
+    shadowColor: '#ff6b47',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.5,
+    shadowRadius: 4,
+  },
+  currentTimeText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#ff6b47',
+    backgroundColor: '#0f172a',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
+    marginLeft: 4,
   },
 });
 
