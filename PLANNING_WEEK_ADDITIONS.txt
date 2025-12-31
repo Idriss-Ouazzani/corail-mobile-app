@@ -1,0 +1,15 @@
+# Ajouts pour la vue semaine dans PlanningScreen.tsx
+
+## 1. Modifier ligne 44 - Type du viewMode
+Remplacer:
+  const [viewMode, setViewMode] = useState<'calendar' | 'day'>('calendar');
+Par:
+  const [viewMode, setViewMode] = useState<'calendar' | 'day' | 'week'>('calendar');
+
+## 2. Après ligne 49 - Ajouter fonctions de navigation
+Créer un fichier séparé avec toutes les nouvelles fonctions
+
+## 3. Modifications dans le render
+- Ajouter bouton "Semaine" dans le toggle
+- Ajouter renderWeekView() 
+- Ajouter navigation dans renderDayView()
