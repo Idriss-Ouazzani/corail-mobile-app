@@ -14,6 +14,7 @@ import {
   Platform,
   ActivityIndicator,
   Linking,
+  Clipboard,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
@@ -139,18 +140,29 @@ export default function CreateQuoteScreen({ onBack, onQuoteSent }: CreateQuoteSc
       
       Alert.alert(
         '✅ Devis créé !',
-        `Le devis a été créé pour ${clientName}.\n\nVoulez-vous l'envoyer maintenant via WhatsApp ?`,
+        `Le devis a été créé pour ${clientName}.\n\nComment souhaitez-vous l'envoyer ?`,
         [
           {
-            text: 'Annuler',
-            style: 'cancel',
+            text: 'Copier le lien',
             onPress: () => {
-              onQuoteSent?.();
-              onBack();
+              Clipboard.setString(quoteUrl);
+              Alert.alert(
+                '✅ Lien copié !',
+                `Le lien du devis a été copié.\n\nVous pouvez maintenant l'envoyer par SMS, email, etc.\n\n${quoteUrl}`,
+                [
+                  {
+                    text: 'OK',
+                    onPress: () => {
+                      onQuoteSent?.();
+                      onBack();
+                    },
+                  },
+                ]
+              );
             },
           },
           {
-            text: 'Envoyer via WhatsApp',
+            text: 'WhatsApp',
             onPress: async () => {
               try {
                 const canOpen = await Linking.canOpenURL(whatsappUrl);
@@ -159,12 +171,22 @@ export default function CreateQuoteScreen({ onBack, onQuoteSent }: CreateQuoteSc
                   onQuoteSent?.();
                   onBack();
                 } else {
+                  // Copier automatiquement le lien
+                  Clipboard.setString(quoteUrl);
                   Alert.alert(
                     'WhatsApp non disponible',
-                    'WhatsApp n\'est pas installé sur cet appareil. Copiez le lien manuellement :\n\n' + quoteUrl,
+                    `WhatsApp n'est pas installé sur cet appareil.\n\n✅ Le lien a été copié dans votre presse-papiers !\n\nVous pouvez l'envoyer par SMS, email ou tout autre moyen.\n\nLien : ${quoteUrl}`,
                     [
                       {
+                        text: 'Copier à nouveau',
+                        onPress: () => {
+                          Clipboard.setString(quoteUrl);
+                          Alert.alert('✅ Copié !', 'Le lien a été copié dans votre presse-papiers.');
+                        },
+                      },
+                      {
                         text: 'OK',
+                        style: 'default',
                         onPress: () => {
                           onQuoteSent?.();
                           onBack();
