@@ -145,7 +145,7 @@ export async function scheduleRideReminder(
         data: { rideId, type: 'ride_reminder' },
         sound: true,
       },
-      trigger: secondsUntilReminder,
+      trigger: { seconds: secondsUntilReminder, repeats: false },
     });
 
     console.log(`✅ Notification planifiée pour ${reminderTime.toLocaleString()}`);
@@ -191,7 +191,7 @@ export async function scheduleDailySummary(ridesCount: number): Promise<void> {
         data: { type: 'daily_summary' },
         sound: true,
       },
-      trigger: secondsUntilTomorrow,
+      trigger: { seconds: secondsUntilTomorrow, repeats: false },
     });
 
     console.log(`✅ Résumé quotidien planifié pour demain 8h`);
@@ -215,7 +215,7 @@ export async function notifyNewRidesAvailable(count: number): Promise<void> {
         data: { type: 'new_rides' },
         sound: true,
       },
-      trigger: 1,
+      trigger: { seconds: 1, repeats: false },
     });
 
     console.log(`✅ Notification nouvelles courses envoyée (${count})`);
@@ -243,7 +243,7 @@ export async function notifyQRCodeReady(): Promise<void> {
         data: { type: 'qr_ready' },
         sound: true,
       },
-      trigger: 1,
+      trigger: { seconds: 1, repeats: false },
     });
 
     await AsyncStorage.setItem('@qr_notification_sent', 'true');
@@ -278,7 +278,7 @@ export async function notifyLowCredits(credits: number): Promise<void> {
         data: { type: 'low_credits' },
         sound: true,
       },
-      trigger: 1,
+      trigger: { seconds: 1, repeats: false },
     });
 
     await AsyncStorage.setItem('@low_credits_notif', new Date().toISOString());
@@ -303,7 +303,7 @@ export async function notifyBadgeEarned(badgeName: string, badgeDescription: str
         data: { type: 'badge_earned' },
         sound: true,
       },
-      trigger: 1,
+      trigger: { seconds: 1, repeats: false },
     });
 
     console.log(`✅ Notification badge envoyée: ${badgeName}`);
@@ -327,7 +327,7 @@ export async function notifyGroupInvitation(groupName: string, inviterName: stri
         data: { type: 'group_invitation' },
         sound: true,
       },
-      trigger: 1,
+      trigger: { seconds: 1, repeats: false },
     });
 
     console.log(`✅ Notification invitation groupe envoyée`);
@@ -363,7 +363,7 @@ export async function notifyCompleteRide(rideId: string, scheduledAt: string): P
         data: { rideId, type: 'complete_reminder' },
         sound: true,
       },
-      trigger: secondsUntilReminder,
+      trigger: { seconds: secondsUntilReminder, repeats: false },
     });
 
     console.log(`✅ Rappel "terminer course" planifié`);
@@ -387,7 +387,7 @@ export async function notifyRideClaimed(pickupAddress: string, pickerName: strin
         data: { type: 'ride_claimed' },
         sound: true,
       },
-      trigger: 1,
+      trigger: { seconds: 1, repeats: false },
     });
 
     console.log('✅ Notification course réclamée envoyée');
@@ -456,7 +456,7 @@ export async function sendTestNotification(): Promise<void> {
         data: { type: 'test' },
         sound: true,
       },
-      trigger: 1,
+      trigger: { seconds: 1, repeats: false },
     });
 
     console.log('✅ Notification test envoyée');
