@@ -117,16 +117,21 @@ export async function scheduleRideReminder(
   dropoffAddress: string
 ): Promise<void> {
   const prefs = await getNotificationPreferences();
-  if (!prefs.enabled || !prefs.rideReminders) return;
 
   try {
     const rideTime = new Date(scheduledAt);
     const reminderTime = new Date(rideTime.getTime() - 60 * 60 * 1000); // 1h avant
 
-    // Ne pas planifier si c'est dans le passé
-    if (reminderTime.getTime() <= Date.now()) {
+    // Calculer le nombre de secondes jusqu'au rappel
+    const secondsUntilReminder = Math.floor((reminderTime.getTime() - Date.now()) / 1000);
+    
+    // Ne pas planifier si c'est dans le passé ou trop proche (< 10 secondes)
+    if (secondsUntilReminder < 10) {
       console.log('⏰ Reminder trop proche, pas de notification');
       return;
+    }
+
+    // Ne pas planifier si c'est dans le passé
     }
 
     await Notifications.scheduleNotificationAsync({
@@ -136,7 +141,7 @@ export async function scheduleRideReminder(
         data: { rideId, type: 'ride_reminder' },
         sound: true,
       },
-      trigger: { date: reminderTime },
+      trigger: { seconds: secondsUntilReminder },
     });
 
     console.log(`✅ Notification planifiée pour ${reminderTime.toLocaleString()}`);
@@ -165,6 +170,15 @@ export async function scheduleDailySummary(ridesCount: number): Promise<void> {
     const tomorrow = new Date();
     tomorrow.setDate(tomorrow.getDate() + 1);
     tomorrow.setHours(8, 0, 0, 0);
+    
+    // Calculer le nombre de secondes jusqu'à demain 8h
+    const secondsUntilTomorrow = Math.floor((tomorrow.getTime() - Date.now()) / 1000);
+    
+    // Ne pas planifier si c'est trop proche (< 10 secondes)
+    if (secondsUntilTomorrow < 10) {
+      console.log('⏰ Résumé quotidien trop proche, pas de notification');
+      return;
+    }
 
     await Notifications.scheduleNotificationAsync({
       content: {
@@ -173,7 +187,7 @@ export async function scheduleDailySummary(ridesCount: number): Promise<void> {
         data: { type: 'daily_summary' },
         sound: true,
       },
-      trigger: { date: tomorrow },
+      trigger: { seconds: secondsUntilTomorrow },
     });
 
     console.log(`✅ Résumé quotidien planifié pour demain 8h`);
@@ -328,9 +342,13 @@ export async function notifyCompleteRide(rideId: string, scheduledAt: string): P
   try {
     const rideTime = new Date(scheduledAt);
     const reminderTime = new Date(rideTime.getTime() + 2 * 60 * 60 * 1000); // 2h après
+    
+    // Calculer le nombre de secondes jusqu'au rappel
+    const secondsUntilReminder = Math.floor((reminderTime.getTime() - Date.now()) / 1000);
 
     // Ne pas planifier si c'est dans le passé
-    if (reminderTime.getTime() <= Date.now()) return;
+    // Ne pas planifier si c'est dans le passé ou trop proche
+    if (secondsUntilReminder < 10) return;
 
     await Notifications.scheduleNotificationAsync({
       content: {
@@ -339,7 +357,7 @@ export async function notifyCompleteRide(rideId: string, scheduledAt: string): P
         data: { rideId, type: 'complete_reminder' },
         sound: true,
       },
-      trigger: { date: reminderTime },
+      trigger: { seconds: secondsUntilReminder },
     });
 
     console.log(`✅ Rappel "terminer course" planifié`);
