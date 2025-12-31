@@ -2016,7 +2016,7 @@ export default function App() {
               >
                 <View style={[styles.navIconBox, currentScreen === 'dashboard' && styles.navIconBoxActive]}>
                   <Ionicons
-                    name={currentScreen === 'dashboard' ? 'home-sharp' : 'analytics-outline'}
+                    name={currentScreen === 'dashboard' ? 'home-sharp' : 'home-outline'}
                     size={22}
                     color={currentScreen === 'dashboard' ? '#fff' : '#94a3b8'}
                   />
