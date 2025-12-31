@@ -117,6 +117,7 @@ export async function scheduleRideReminder(
   dropoffAddress: string
 ): Promise<void> {
   const prefs = await getNotificationPreferences();
+  if (!prefs.enabled || !prefs.rideReminders) return;
 
   try {
     const rideTime = new Date(scheduledAt);
@@ -132,6 +133,9 @@ export async function scheduleRideReminder(
     }
 
     // Ne pas planifier si c'est dans le passé
+    if (reminderTime.getTime() <= Date.now()) {
+      console.log('⏰ Reminder trop proche, pas de notification');
+      return;
     }
 
     await Notifications.scheduleNotificationAsync({
@@ -346,9 +350,11 @@ export async function notifyCompleteRide(rideId: string, scheduledAt: string): P
     // Calculer le nombre de secondes jusqu'au rappel
     const secondsUntilReminder = Math.floor((reminderTime.getTime() - Date.now()) / 1000);
 
-    // Ne pas planifier si c'est dans le passé
     // Ne pas planifier si c'est dans le passé ou trop proche
     if (secondsUntilReminder < 10) return;
+
+    // Ne pas planifier si c'est dans le passé
+    if (reminderTime.getTime() <= Date.now()) return;
 
     await Notifications.scheduleNotificationAsync({
       content: {
