@@ -149,6 +149,23 @@ class ApiClient {
   async updateNotificationPreferences(preferences: any) {
     return preferences;
   }
+
+  // QUOTES
+  async createQuote(quoteData: any) {
+    return supabaseApi.createQuote(quoteData);
+  }
+
+  async listQuotes(filters?: any) {
+    return supabaseApi.listQuotes(filters);
+  }
+
+  async getQuote(quoteId: string) {
+    return supabaseApi.getQuote(quoteId);
+  }
+
+  async getQuoteByToken(token: string) {
+    return supabaseApi.getQuoteByToken(token);
+  }
 }
 
 // Utiliser l'URL Supabase (non utilisée maintenant mais garde la compatibilité)

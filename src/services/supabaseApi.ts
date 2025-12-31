@@ -667,6 +667,122 @@ export const getRecentActivity = async (limit: number = 10) => {
 // EXPORT
 // ============================================================================
 
+
+// ============================================================================
+// QUOTES (DEVIS)
+// ============================================================================
+
+export const createQuote = async (quoteData: {
+  client_name: string;
+  client_phone: string;
+  pickup_address: string;
+  dropoff_address: string;
+  scheduled_date: string; // YYYY-MM-DD
+  scheduled_time: string; // HH:MM:SS
+  price_cents: number;
+  notes?: string | null;
+}) => {
+  if (!currentUserId) throw new Error('User not authenticated');
+
+  const { data, error } = await supabase
+    .from('quotes')
+    .insert({
+      driver_id: currentUserId,
+      ...quoteData,
+      status: 'SENT',
+      sent_at: new Date().toISOString(),
+    })
+    .select()
+    .single();
+
+  if (error) {
+    console.error('❌ Error creating quote:', error);
+    throw new Error(error.message);
+  }
+
+  console.log('✅ Quote created:', data.id);
+  
+  // TODO: Envoyer SMS au client via Edge Function
+  // Pour l'instant, juste retourner le devis
+  return data;
+};
+
+export const listQuotes = async (filters?: {
+  status?: 'SENT' | 'VIEWED' | 'ACCEPTED' | 'REFUSED' | 'EXPIRED';
+  limit?: number;
+}) => {
+  if (!currentUserId) throw new Error('User not authenticated');
+
+  let query = supabase
+    .from('quotes')
+    .select('*')
+    .eq('driver_id', currentUserId)
+    .order('created_at', { ascending: false});
+
+  if (filters?.status) {
+    query = query.eq('status', filters.status);
+  }
+
+  if (filters?.limit) {
+    query = query.limit(filters.limit);
+  }
+
+  const { data, error } = await query;
+
+  if (error) {
+    console.error('❌ Error listing quotes:', error);
+    throw new Error(error.message);
+  }
+
+  console.log(`✅ Loaded ${data?.length || 0} quotes`);
+  return data || [];
+};
+
+export const getQuote = async (quoteId: string) => {
+  if (!currentUserId) throw new Error('User not authenticated');
+
+  const { data, error } = await supabase
+    .from('quotes')
+    .select('*')
+    .eq('id', quoteId)
+    .eq('driver_id', currentUserId)
+    .single();
+
+  if (error) {
+    console.error('❌ Error getting quote:', error);
+    throw new Error(error.message);
+  }
+
+  return data;
+};
+
+export const getQuoteByToken = async (token: string) => {
+  // Accès public - pas besoin d'auth
+  const { data, error } = await supabase
+    .from('quotes')
+    .select(`
+      *,
+      users!quotes_driver_id_fkey (
+        full_name,
+        company_name,
+        phone
+      )
+    `)
+    .eq('token', token)
+    .single();
+
+  if (error) {
+    console.error('❌ Error getting quote by token:', error);
+    throw new Error(error.message);
+  }
+
+  // Marquer comme vu
+  await supabase.rpc('mark_quote_viewed', { p_token: token });
+
+  return data;
+};
+
+
 export const supabaseApi = {
   setUserId,
   clearAuth,
@@ -691,6 +807,10 @@ export const supabaseApi = {
   listGroups,
   getPlanningEvents,
   getRecentActivity,
+  createQuote,
+  listQuotes,
+  getQuote,
+  getQuoteByToken,
 };
 
 export default supabaseApi;
