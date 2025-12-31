@@ -118,6 +118,11 @@ export default function CreateQuoteScreen({ onBack, onQuoteSent }: CreateQuoteSc
       const response = await apiClient.createQuote(quoteData);
 
       console.log('✅ Devis créé:', response);
+      console.log('🔗 Token généré:', response?.token);
+      
+      if (!response || !response.token) {
+        throw new Error('Le devis a été créé mais le token est manquant. Vérifiez les logs Supabase.');
+      }
 
       // Construire le lien du devis
       const quoteUrl = `https://corail-quotes-web.vercel.app/q/${response.token}`;
