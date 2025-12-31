@@ -42,6 +42,7 @@ import DashboardScreen from './src/screens/DashboardScreen';
 import CoursesScreen from './src/screens/CoursesScreen';
 import ToolsScreen from './src/screens/ToolsScreen';
 import PlanningScreen from './src/screens/PlanningScreen';
+import CreateQuoteScreen from './src/screens/CreateQuoteScreen';
 import GlobalCreditsBadge from './src/components/GlobalCreditsBadge';
 import ActivityFeed from './src/components/ActivityFeed';
 import { firebaseAuth } from './src/services/firebase';
@@ -422,6 +423,7 @@ export default function App() {
   const [showCreditsInfo, setShowCreditsInfo] = useState(true); // Bandeau crédits marketplace
   const [showPersonalRides, setShowPersonalRides] = useState(false);
   const [showPlanning, setShowPlanning] = useState(false);
+  const [showCreateQuote, setShowCreateQuote] = useState(false);
   const [filters, setFilters] = useState<FilterOptions>({
     vehicleTypes: [],
     sortBy: null,
@@ -1720,6 +1722,10 @@ export default function App() {
   // 🚗 If showing Personal Rides (Enregistrement courses externes)
   if (showPersonalRides) {
     return <PersonalRidesScreen onClose={() => setShowPersonalRides(false)} />;
+
+  if (showCreateQuote) {
+    return <CreateQuoteScreen onBack={() => setShowCreateQuote(false)} onQuoteSent={() => setShowCreateQuote(false)} />;
+  }
   }
 
   // 📅 If showing Planning
@@ -1982,6 +1988,7 @@ export default function App() {
             onOpenQRCode={() => setShowQRCode(true)}
             onOpenPersonalRides={() => setShowPersonalRides(true)}
             onOpenPlanning={() => setShowPlanning(true)}
+            onCreateQuote={() => setShowCreateQuote(true)}
           />
         )}
         {currentScreen === 'profile' && renderProfile()}
