@@ -111,6 +111,7 @@ export default function ToolsScreen({ onOpenQRCode, onOpenPersonalRides, onOpenP
               </View>
               <Ionicons name="chevron-forward" size={24} color="rgba(255,255,255,0.8)" />
             </LinearGradient>
+          </TouchableOpacity>
 
           {/* Créer un devis */}
           <TouchableOpacity
@@ -119,7 +120,7 @@ export default function ToolsScreen({ onOpenQRCode, onOpenPersonalRides, onOpenP
             activeOpacity={0.8}
           >
             <LinearGradient
-              colors={['#f59e0b', '#f97316']}
+              colors={["#f59e0b", "#f97316"]}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 0 }}
               style={styles.toolGradient}
@@ -130,13 +131,13 @@ export default function ToolsScreen({ onOpenQRCode, onOpenPersonalRides, onOpenP
                 </View>
                 <View>
                   <Text style={styles.toolTitle}>Créer un devis</Text>
-                  <Text style={styles.toolDescription}>Envoyez un devis par SMS</Text>
+                  <Text style={styles.toolDescription}>Envoyez un devis par WhatsApp</Text>
                 </View>
               </View>
               <Ionicons name="chevron-forward" size={24} color="rgba(255,255,255,0.8)" />
             </LinearGradient>
           </TouchableOpacity>
-          </TouchableOpacity>
+
         </View>
 
         {/* Section Outils à venir */}

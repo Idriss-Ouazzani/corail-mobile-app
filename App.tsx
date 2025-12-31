@@ -1722,10 +1722,10 @@ export default function App() {
   // 🚗 If showing Personal Rides (Enregistrement courses externes)
   if (showPersonalRides) {
     return <PersonalRidesScreen onClose={() => setShowPersonalRides(false)} />;
+  }
 
   if (showCreateQuote) {
     return <CreateQuoteScreen onBack={() => setShowCreateQuote(false)} onQuoteSent={() => setShowCreateQuote(false)} />;
-  }
   }
 
   // 📅 If showing Planning
