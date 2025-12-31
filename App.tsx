@@ -2069,7 +2069,7 @@ export default function App() {
               >
                 <View style={[styles.navIconBox, currentScreen === 'tools' && styles.navIconBoxActive]}>
                   <Ionicons
-                    name={currentScreen === 'tools' ? 'home' : 'home-outline'}
+                    name={currentScreen === 'tools' ? 'analytics' : 'analytics-outline'}
                     size={22}
                     color={currentScreen === 'tools' ? '#fff' : '#94a3b8'}
                   />
