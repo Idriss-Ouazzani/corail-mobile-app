@@ -41,10 +41,9 @@ export default function CreateQuoteScreen({ onBack, onQuoteSent }: CreateQuoteSc
   // Format date for display
   const formatDateDisplay = (date: Date): string => {
     return date.toLocaleDateString('fr-FR', { 
-      weekday: 'short', 
       day: 'numeric', 
       month: 'short', 
-      year: 'numeric' 
+      year: '2-digit' 
     });
   };
 
@@ -58,26 +57,15 @@ export default function CreateQuoteScreen({ onBack, onQuoteSent }: CreateQuoteSc
 
   // Date picker handlers
   const onDateChange = (event: any, selected?: Date) => {
-    if (Platform.OS === 'android') {
-      setShowDatePicker(false);
-      if (selected) {
-        setSelectedDate(selected);
-      }
-    } else if (selected) {
+    setShowDatePicker(false);
+    if (selected) {
       setSelectedDate(selected);
     }
   };
 
   const onTimeChange = (event: any, selected?: Date) => {
-    if (Platform.OS === 'android') {
-      setShowTimePicker(false);
-      if (selected) {
-        const newDate = new Date(selectedDate);
-        newDate.setHours(selected.getHours());
-        newDate.setMinutes(selected.getMinutes());
-        setSelectedDate(newDate);
-      }
-    } else if (selected) {
+    setShowTimePicker(false);
+    if (selected) {
       const newDate = new Date(selectedDate);
       newDate.setHours(selected.getHours());
       newDate.setMinutes(selected.getMinutes());
@@ -352,7 +340,7 @@ export default function CreateQuoteScreen({ onBack, onQuoteSent }: CreateQuoteSc
         <View style={styles.infoBox}>
           <Ionicons name="information-circle" size={20} color="#0ea5e9" />
           <Text style={styles.infoText}>
-            Le client recevra un SMS avec un lien pour consulter et accepter ce devis.
+            Le client recevra un message WhatsApp avec un lien pour consulter et accepter ce devis.
           </Text>
         </View>
 
@@ -375,7 +363,7 @@ export default function CreateQuoteScreen({ onBack, onQuoteSent }: CreateQuoteSc
             ) : (
               <>
                 <Ionicons name="send" size={20} color="#fff" />
-                <Text style={styles.sendButtonText}>Envoyer le devis par SMS</Text>
+                <Text style={styles.sendButtonText}>Envoyer le devis</Text>
               </>
             )}
           </LinearGradient>
