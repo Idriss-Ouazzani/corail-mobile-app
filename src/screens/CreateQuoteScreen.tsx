@@ -13,6 +13,7 @@ import {
   Alert,
   Platform,
   ActivityIndicator,
+  Linking,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
@@ -127,17 +128,67 @@ export default function CreateQuoteScreen({ onBack, onQuoteSent }: CreateQuoteSc
       // Envoyer le devis via l'API
       const response = await apiClient.createQuote(quoteData);
 
-      console.log('✅ Devis envoyé:', response);
+      console.log('✅ Devis créé:', response);
 
+      // Construire le lien du devis
+      const quoteUrl = `https://corail-quotes-web.vercel.app/q/${response.token}`;
+      
+      // Formater la date pour le message
+      const dateFormatted = selectedDate.toLocaleDateString('fr-FR', {
+        day: 'numeric',
+        month: 'numeric',
+      });
+      const timeFormatted = `${selectedDate.getHours().toString().padStart(2, '0')}h${selectedDate.getMinutes().toString().padStart(2, '0')}`;
+      
+      // Message WhatsApp
+      const whatsappMessage = `Bonjour,\nVoici votre devis VTC pour le ${dateFormatted} à ${timeFormatted}.\nMontant : ${price} €.\n\n👉 Consulter et valider :\n${quoteUrl}`;
+      
+      // Nettoyer le numéro de téléphone (enlever espaces, tirets, etc.)
+      const cleanPhone = clientPhone.replace(/[\s\-\(\)]/g, '');
+      
+      // Ouvrir WhatsApp
+      const whatsappUrl = `whatsapp://send?phone=${cleanPhone}&text=${encodeURIComponent(whatsappMessage)}`;
+      
       Alert.alert(
-        '✅ Devis envoyé !',
-        `Le devis a été envoyé par SMS à ${clientName}.\n\nLe client pourra consulter et accepter le devis via le lien reçu.`,
+        '✅ Devis créé !',
+        `Le devis a été créé pour ${clientName}.\n\nVoulez-vous l'envoyer maintenant via WhatsApp ?`,
         [
           {
-            text: 'OK',
+            text: 'Annuler',
+            style: 'cancel',
             onPress: () => {
               onQuoteSent?.();
               onBack();
+            },
+          },
+          {
+            text: 'Envoyer via WhatsApp',
+            onPress: async () => {
+              try {
+                const canOpen = await Linking.canOpenURL(whatsappUrl);
+                if (canOpen) {
+                  await Linking.openURL(whatsappUrl);
+                  onQuoteSent?.();
+                  onBack();
+                } else {
+                  Alert.alert(
+                    'WhatsApp non disponible',
+                    'WhatsApp n\'est pas installé sur cet appareil. Copiez le lien manuellement :\n\n' + quoteUrl,
+                    [
+                      {
+                        text: 'OK',
+                        onPress: () => {
+                          onQuoteSent?.();
+                          onBack();
+                        },
+                      },
+                    ]
+                  );
+                }
+              } catch (error) {
+                console.error('Erreur ouverture WhatsApp:', error);
+                Alert.alert('Erreur', 'Impossible d\'ouvrir WhatsApp');
+              }
             },
           },
         ]
