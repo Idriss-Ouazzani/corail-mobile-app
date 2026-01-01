@@ -362,11 +362,11 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   title: {
-    fontSize: 36,
-    fontWeight: '800',
+    fontSize: 48,
+    fontWeight: '300',
     color: '#ff6b47',
     marginTop: 8,
-    marginBottom: 16,
+    marginBottom: 66,
     letterSpacing: 1,
   },
   titleCompactWrapper: {
