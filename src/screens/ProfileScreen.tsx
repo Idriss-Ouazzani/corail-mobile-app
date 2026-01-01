@@ -22,7 +22,7 @@ export const ProfileScreen = ({ navigation }: any) => {
 
   const menuItems = [
     { icon: '👤', title: 'Informations personnelles', screen: 'EditProfile' },
-    { icon: '💳', title: 'Abonnement & Facturation', screen: 'Subscription' },
+    //     { icon: '💳', title: 'Abonnement & Facturation', screen: 'Subscription' },
     { icon: '👥', title: 'Mes Groupes', screen: 'Groups' },
     { icon: '🔔', title: 'Notifications', screen: 'Notifications' },
     { icon: '🌍', title: 'Langue & Région', screen: 'Settings' },
@@ -47,7 +47,7 @@ export const ProfileScreen = ({ navigation }: any) => {
                 <Text style={styles.avatarText}>HA</Text>
               </LinearGradient>
               <View style={styles.badge}>
-                <Text style={styles.badgeText}>⭐ Premium</Text>
+                <Text style={styles.badgeText}>✨ Gratuit</Text>
               </View>
             </View>
             
