@@ -153,13 +153,12 @@ export default function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
               </View>
               <Text style={styles.title}>Corail</Text>
               <View style={styles.taglineContainer}>
-                <View style={styles.taglineDot} />
                 <Text style={styles.tagline}>
                   Plus qu'une appli. Une indépendance.
                 </Text>
               </View>
               <View style={styles.freeTagContainer}>
-                <Text style={styles.freeTag}>Gratuit</Text>
+                <Text style={styles.freeTag}>100% gratuit</Text>
               </View>
               <Text style={styles.subtitle}>
                 {isSignUp ? 'Rejoignez la communauté VTC' : 'Connectez-vous à votre espace'}
@@ -173,7 +172,7 @@ export default function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
               <CoralLogo size={36} />
               <View style={styles.titleCompactWrapper}>
                 <Text style={styles.titleCompact}>Corail</Text>
-                <Text style={styles.taglineCompact}>Assistant VTC Gratuit</Text>
+                <Text style={styles.taglineCompact}>Assistant VTC 100% gratuit</Text>
               </View>
             </View>
           )}
@@ -365,7 +364,7 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 36,
     fontWeight: '800',
-    color: '#f1f5f9',
+    color: '#ff6b47',
     marginTop: 8,
     marginBottom: 16,
     letterSpacing: 1,
