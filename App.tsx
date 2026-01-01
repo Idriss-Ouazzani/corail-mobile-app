@@ -1422,6 +1422,57 @@ export default function App() {
               </View>
             )}
 
+
+            {/* Historique */}
+            {historyPublished.length > 0 && (
+              <View style={[styles.section, { marginTop: 16 }]}>
+                <Text style={[styles.sectionTitle, { color: '#64748b' }]}>
+                  <Ionicons name="time-outline" size={20} color="#64748b" /> Historique
+                </Text>
+                {historyPublished.map((ride) => (
+                  <TouchableOpacity
+                    key={ride.id}
+                    style={[styles.compactRideRow, { opacity: 0.6 }]}
+                    onPress={() => setSelectedRide(ride)}
+                    activeOpacity={0.7}
+                  >
+                    <View style={styles.compactRideLeft}>
+                      <View style={[styles.compactRideIconWrapper, { backgroundColor: 'rgba(100, 116, 139, 0.2)' }]}>
+                        <Ionicons name="time-outline" size={20} color="#64748b" />
+                      </View>
+                      <View style={styles.compactRideInfo}>
+                        <Text style={[styles.compactRideTime, { color: '#64748b' }]}>
+                          {new Date(ride.scheduled_at).toLocaleDateString('fr-FR', { 
+                            day: 'numeric', 
+                            month: 'short',
+                            hour: '2-digit',
+                            minute: '2-digit'
+                          })}
+                        </Text>
+                        <View style={styles.compactRideRoute}>
+                          <Ionicons name="location" size={12} color="#64748b" />
+                          <Text style={[styles.compactRideAddress, { color: '#64748b' }]} numberOfLines={1}>
+                            {ride.pickup_address}
+                          </Text>
+                        </View>
+                        <View style={styles.compactRideRoute}>
+                          <Ionicons name="flag" size={12} color="#64748b" />
+                          <Text style={[styles.compactRideAddress, { color: '#64748b' }]} numberOfLines={1}>
+                            {ride.dropoff_address}
+                          </Text>
+                        </View>
+                      </View>
+                    </View>
+                    <View style={styles.compactRideRight}>
+                      <Text style={[styles.compactRidePrice, { color: '#64748b' }]}>
+                        {(ride.price_cents / 100).toFixed(2)}€
+                      </Text>
+                      <Ionicons name="chevron-forward" size={20} color="#64748b" />
+                    </View>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            )}
             {publishedByMe.length === 0 && (
               <View style={styles.emptyState}>
                 <Ionicons name="megaphone-outline" size={64} color="#475569" />
