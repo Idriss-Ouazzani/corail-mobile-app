@@ -164,11 +164,6 @@ export default function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
               <Text style={styles.subtitle}>
                 {isSignUp ? 'Rejoignez la communauté VTC' : 'Connectez-vous à votre espace'}
               </Text>
-
-
-
-
-
               </Text>
             </View>
           )}
