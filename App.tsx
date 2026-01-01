@@ -1007,6 +1007,31 @@ export default function App() {
       return scheduledTime >= now;
     });
 
+    // 📜 HISTORIQUE: Courses passées (max 10, triées par date décroissante)
+    // Pour claimed: courses terminées dans le passé
+    const historyClaimed = claimedByMe.filter((ride) => {
+      if (ride.status !== 'COMPLETED') return false;
+      const scheduledTime = new Date(ride.scheduled_at).getTime();
+      return scheduledTime < Date.now();
+    }).sort((a, b) => new Date(b.scheduled_at).getTime() - new Date(a.scheduled_at).getTime()).slice(0, 10);
+
+    // Pour published: courses passées ou expirées
+    const historyPublished = publishedByMe.filter((ride) => {
+      if (ride.status === 'PUBLISHED') {
+        const scheduledTime = new Date(ride.scheduled_at).getTime();
+        return scheduledTime < Date.now(); // Publiées dont la date est passée
+      }
+      return ride.status === 'EXPIRED' || ride.status === 'COMPLETED';
+    }).sort((a, b) => new Date(b.scheduled_at).getTime() - new Date(a.scheduled_at).getTime()).slice(0, 10);
+
+    // Pour personal: courses passées (COMPLETED, EXPIRED, ou date passée)
+    const historyPersonal = personalByMe.filter((ride) => {
+      if (ride.status === 'COMPLETED' || ride.status === 'EXPIRED') return true;
+      const scheduledTime = new Date(ride.scheduled_at).getTime();
+      return scheduledTime < Date.now();
+    }).sort((a, b) => new Date(b.scheduled_at).getTime() - new Date(a.scheduled_at).getTime()).slice(0, 10);
+
+
     const totalCount = myRidesTab === 'claimed' ? claimedByMe.length : myRidesTab === 'published' ? publishedByMe.length : personalByMe.length;
 
     return (
@@ -1214,6 +1239,58 @@ export default function App() {
               </View>
             )}
 
+            {/* Historique */}
+            {historyClaimed.length > 0 && (
+              <View style={[styles.section, { marginTop: 16 }]}>
+                <Text style={[styles.sectionTitle, { color: '#64748b' }]}>
+                  <Ionicons name="time-outline" size={20} color="#64748b" /> Historique
+                </Text>
+                {historyClaimed.map((ride) => (
+                  <TouchableOpacity
+                    key={ride.id}
+                    style={[styles.compactRideRow, { opacity: 0.6 }]}
+                    onPress={() => setSelectedRide(ride)}
+                    activeOpacity={0.7}
+                  >
+                    <View style={styles.compactRideLeft}>
+                      <View style={[styles.compactRideIconWrapper, { backgroundColor: 'rgba(100, 116, 139, 0.2)' }]}>
+                        <Ionicons name="checkmark-done-outline" size={20} color="#64748b" />
+                      </View>
+                      <View style={styles.compactRideInfo}>
+                        <Text style={[styles.compactRideTime, { color: '#64748b' }]}>
+                          {new Date(ride.scheduled_at).toLocaleDateString('fr-FR', { 
+                            day: 'numeric', 
+                            month: 'short',
+                            hour: '2-digit',
+                            minute: '2-digit'
+                          })}
+                        </Text>
+                        <View style={styles.compactRideRoute}>
+                          <Ionicons name="location" size={12} color="#64748b" />
+                          <Text style={[styles.compactRideAddress, { color: '#64748b' }]} numberOfLines={1}>
+                            {ride.pickup_address}
+                          </Text>
+                        </View>
+                        <View style={styles.compactRideRoute}>
+                          <Ionicons name="flag" size={12} color="#64748b" />
+                          <Text style={[styles.compactRideAddress, { color: '#64748b' }]} numberOfLines={1}>
+                            {ride.dropoff_address}
+                          </Text>
+                        </View>
+                      </View>
+                    </View>
+                    
+                    <View style={styles.compactRideRight}>
+                      <Text style={[styles.compactRidePrice, { color: '#64748b' }]}>
+                        {(ride.price_cents / 100).toFixed(2)}€
+                      </Text>
+                      <Ionicons name="chevron-forward" size={20} color="#64748b" />
+                    </View>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            )}
+
             {claimedByMe.length === 0 && (
               <View style={styles.emptyState}>
                 <Ionicons name="hand-right-outline" size={64} color="#475569" />
@@ -1399,6 +1476,58 @@ export default function App() {
                       <View style={styles.compactRideInfo}>
                         <Text style={styles.compactRideTime}>
                           {new Date(ride.scheduled_at).toLocaleDateString('fr-FR', {
+
+            {/* Historique */}
+            {historyPublished.length > 0 && (
+              <View style={[styles.section, { marginTop: 16 }]}>
+                <Text style={[styles.sectionTitle, { color: '#64748b' }]}>
+                  <Ionicons name="time-outline" size={20} color="#64748b" /> Historique
+                </Text>
+                {historyPublished.map((ride) => (
+                  <TouchableOpacity
+                    key={ride.id}
+                    style={[styles.compactRideRow, { opacity: 0.6 }]}
+                    onPress={() => setSelectedRide(ride)}
+                    activeOpacity={0.7}
+                  >
+                    <View style={styles.compactRideLeft}>
+                      <View style={[styles.compactRideIconWrapper, { backgroundColor: 'rgba(100, 116, 139, 0.2)' }]}>
+                        <Ionicons name="time-outline" size={20} color="#64748b" />
+                      </View>
+                      <View style={styles.compactRideInfo}>
+                        <Text style={[styles.compactRideTime, { color: '#64748b' }]}>
+                          {new Date(ride.scheduled_at).toLocaleDateString('fr-FR', { 
+                            day: 'numeric', 
+                            month: 'short',
+                            hour: '2-digit',
+                            minute: '2-digit'
+                          })}
+                        </Text>
+                        <View style={styles.compactRideRoute}>
+                          <Ionicons name="location" size={12} color="#64748b" />
+                          <Text style={[styles.compactRideAddress, { color: '#64748b' }]} numberOfLines={1}>
+                            {ride.pickup_address}
+                          </Text>
+                        </View>
+                        <View style={styles.compactRideRoute}>
+                          <Ionicons name="flag" size={12} color="#64748b" />
+                          <Text style={[styles.compactRideAddress, { color: '#64748b' }]} numberOfLines={1}>
+                            {ride.dropoff_address}
+                          </Text>
+                        </View>
+                      </View>
+                    </View>
+                    
+                    <View style={styles.compactRideRight}>
+                      <Text style={[styles.compactRidePrice, { color: '#64748b' }]}>
+                        {(ride.price_cents / 100).toFixed(2)}€
+                      </Text>
+                      <Ionicons name="chevron-forward" size={20} color="#64748b" />
+                    </View>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            )}
                             day: 'numeric',
                             month: 'short',
                             hour: '2-digit',
@@ -1436,6 +1565,59 @@ export default function App() {
                       </TouchableOpacity>
                     </View>
                   </View>
+                ))}
+              </View>
+            )}
+
+
+            {/* Historique */}
+            {historyPersonal.length > 0 && (
+              <View style={[styles.section, { marginTop: 16 }]}>
+                <Text style={[styles.sectionTitle, { color: '#64748b' }]}>
+                  <Ionicons name="time-outline" size={20} color="#64748b" /> Historique
+                </Text>
+                {historyPersonal.map((ride) => (
+                  <TouchableOpacity
+                    key={ride.id}
+                    style={[styles.compactRideRow, { opacity: 0.6 }]}
+                    onPress={() => setSelectedRide(ride)}
+                    activeOpacity={0.7}
+                  >
+                    <View style={styles.compactRideLeft}>
+                      <View style={[styles.compactRideIconWrapper, { backgroundColor: 'rgba(100, 116, 139, 0.2)' }]}>
+                        <Ionicons name="lock-closed-outline" size={20} color="#64748b" />
+                      </View>
+                      <View style={styles.compactRideInfo}>
+                        <Text style={[styles.compactRideTime, { color: '#64748b' }]}>
+                          {new Date(ride.scheduled_at).toLocaleDateString('fr-FR', { 
+                            day: 'numeric', 
+                            month: 'short',
+                            hour: '2-digit',
+                            minute: '2-digit'
+                          })}
+                        </Text>
+                        <View style={styles.compactRideRoute}>
+                          <Ionicons name="location-outline" size={12} color="#64748b" />
+                          <Text style={[styles.compactRideAddress, { color: '#64748b' }]} numberOfLines={1}>
+                            {ride.pickup_address}
+                          </Text>
+                        </View>
+                        <View style={styles.compactRideRoute}>
+                          <Ionicons name="flag-outline" size={12} color="#64748b" />
+                          <Text style={[styles.compactRideAddress, { color: '#64748b' }]} numberOfLines={1}>
+                            {ride.dropoff_address}
+                          </Text>
+                        </View>
+                      </View>
+                    </View>
+                    
+                    <View style={styles.compactRideRight}>
+                      <Text style={[styles.compactRidePrice, { color: '#64748b' }]}>
+                        {(ride.price_cents / 100).toFixed(2)}€
+                      </Text>
+                      <Ionicons name="chevron-forward" size={20} color="#64748b" />
+                    </View>
+                  </TouchableOpacity>
                 ))}
               </View>
             )}
