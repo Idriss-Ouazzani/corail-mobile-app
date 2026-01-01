@@ -16,6 +16,7 @@ import {
   Keyboard,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
+import MaskedView from '@react-native-masked-view/masked-view';
 import { Ionicons } from '@expo/vector-icons';
 import { firebaseAuth } from '../services/firebase';
 import { apiClient } from '../services/api';
@@ -151,7 +152,17 @@ export default function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
               <View style={styles.logoContainer}>
                 <CoralLogo size={90} />
               </View>
-              <Text style={styles.title}>Corail</Text>
+              <MaskedView
+                maskElement={<Text style={styles.title}>Corail</Text>}
+              >
+                <LinearGradient
+                  colors={['#ff6b47', '#ff8a6b', '#ffb088']}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 0 }}
+                >
+                  <Text style={[styles.title, { opacity: 0 }]}>Corail</Text>
+                </LinearGradient>
+              </MaskedView>
               <View style={styles.taglineContainer}>
                 <Text style={styles.tagline}>
                   Plus qu'une appli. Une indépendance.
@@ -362,15 +373,15 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   title: {
-    fontSize: 42,
+    fontSize: 36,
     fontWeight: '700',
     color: '#ff6b47',
-    marginTop: 8,
+    marginTop: -4,
     marginBottom: 16,
     letterSpacing: 3,
-    textShadowColor: 'rgba(255, 107, 71, 0.4)',
+    textShadowColor: 'rgba(255, 107, 71, 0.3)',
     textShadowOffset: { width: 0, height: 2 },
-    textShadowRadius: 8,
+    textShadowRadius: 6,
   },
   titleCompactWrapper: {
     marginLeft: 12,
