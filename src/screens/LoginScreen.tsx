@@ -362,12 +362,15 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   title: {
-    fontSize: 48,
-    fontWeight: '300',
+    fontSize: 42,
+    fontWeight: '700',
     color: '#ff6b47',
     marginTop: 8,
-    marginBottom: 66,
-    letterSpacing: 1,
+    marginBottom: 16,
+    letterSpacing: 3,
+    textShadowColor: 'rgba(255, 107, 71, 0.4)',
+    textShadowOffset: { width: 0, height: 2 },
+    textShadowRadius: 8,
   },
   titleCompactWrapper: {
     marginLeft: 12,
@@ -496,7 +499,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#64748b',
     marginHorizontal: 16,
-    letterSpacing: 1,
+    letterSpacing: 3,
   },
   googleButton: {
     backgroundColor: '#fff',
