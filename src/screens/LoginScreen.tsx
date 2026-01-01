@@ -170,7 +170,7 @@ export default function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
               <CoralLogo size={36} />
               <View style={styles.titleCompactWrapper}>
                 <Text style={styles.titleCompact}>Corail</Text>
-                <Text style={styles.taglineCompact}>Communauté VTC</Text>
+                <Text style={styles.taglineCompact}>Assistant VTC Gratuit</Text>
               </View>
             </View>
           )}
