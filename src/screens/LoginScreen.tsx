@@ -158,11 +158,17 @@ export default function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
                   Plus qu'une appli. Une indépendance.
                 </Text>
               </View>
-              <Text style={styles.subtitle}>
               <View style={styles.freeTagContainer}>
                 <Text style={styles.freeTag}>Gratuit</Text>
               </View>
-                {isSignUp ? 'Rejoignez la communauté' : 'Connectez-vous à votre espace'}
+              <Text style={styles.subtitle}>
+                {isSignUp ? 'Rejoignez la communauté VTC' : 'Connectez-vous à votre espace'}
+              </Text>
+
+
+
+
+
               </Text>
             </View>
           )}
