@@ -159,6 +159,9 @@ export default function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
                 </Text>
               </View>
               <Text style={styles.subtitle}>
+              <View style={styles.freeTagContainer}>
+                <Text style={styles.freeTag}>✨ 100% GRATUIT ✨</Text>
+              </View>
                 {isSignUp ? 'Rejoignez la communauté' : 'Connectez-vous à votre espace'}
               </Text>
             </View>
@@ -402,6 +405,23 @@ const styles = StyleSheet.create({
     fontStyle: 'italic',
     textAlign: 'center',
     flex: 1,
+  },
+  freeTagContainer: {
+    marginTop: 16,
+    marginBottom: 8,
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    backgroundColor: 'rgba(16, 185, 129, 0.15)',
+    borderRadius: 20,
+    borderWidth: 2,
+    borderColor: '#10b981',
+  },
+  freeTag: {
+    fontSize: 16,
+    fontWeight: '800',
+    color: '#10b981',
+    textAlign: 'center',
+    letterSpacing: 1.5,
   },
   subtitle: {
     fontSize: 13,
