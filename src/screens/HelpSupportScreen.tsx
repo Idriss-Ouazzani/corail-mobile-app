@@ -6,7 +6,6 @@ import {
   StyleSheet,
   TouchableOpacity,
   Linking,
-  Alert,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
@@ -16,24 +15,12 @@ interface HelpSupportScreenProps {
 }
 
 export const HelpSupportScreen: React.FC<HelpSupportScreenProps> = ({ onBack }) => {
-  const handleContactSupport = () => {
-    Alert.alert('Contact Support', 'Vous allez être redirigé vers notre support');
-  };
-
   const handleOpenEmail = () => {
-    Linking.openURL('mailto:support@corail-app.com');
+    Linking.openURL('mailto:corail.platform@gmail.com?subject=Support Corail');
   };
 
-  const handleOpenPhone = () => {
-    Linking.openURL('tel:+33612345678');
-  };
-
-  const handleOpenFAQ = () => {
-    Alert.alert('FAQ', 'Ouverture de la FAQ en ligne...');
-  };
-
-  const handleOpenChat = () => {
-    Alert.alert('Chat', 'Lancement du chat en ligne...');
+  const handleOpenTelegram = () => {
+    Linking.openURL('https://t.me/corailapp');
   };
 
   return (
@@ -55,37 +42,37 @@ export const HelpSupportScreen: React.FC<HelpSupportScreenProps> = ({ onBack }) 
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Besoin d'aide ?</Text>
           <Text style={styles.sectionSubtitle}>
-            Notre équipe est là pour vous assister
+            Contactez-nous via vos canaux préférés
           </Text>
 
           <View style={styles.supportGrid}>
-            <TouchableOpacity
-              style={styles.supportCard}
-              onPress={handleOpenChat}
-              activeOpacity={0.7}
-            >
-              <LinearGradient
-                colors={['#ff6b47', '#ff8a6d']}
-                style={styles.supportCardGradient}
-              >
-                <Ionicons name="chatbubbles" size={28} color="#fff" />
-                <Text style={styles.supportCardTitle}>Chat en direct</Text>
-                <Text style={styles.supportCardSubtitle}>Réponse immédiate</Text>
-              </LinearGradient>
-            </TouchableOpacity>
-
             <TouchableOpacity
               style={styles.supportCard}
               onPress={handleOpenEmail}
               activeOpacity={0.7}
             >
               <LinearGradient
-                colors={['#0ea5e9', '#38bdf8']}
+                colors={['#ff6b47', '#ff8a6d']}
                 style={styles.supportCardGradient}
               >
                 <Ionicons name="mail" size={28} color="#fff" />
                 <Text style={styles.supportCardTitle}>Email</Text>
-                <Text style={styles.supportCardSubtitle}>Sous 24h</Text>
+                <Text style={styles.supportCardSubtitle}>Réponse rapide</Text>
+              </LinearGradient>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.supportCard}
+              onPress={handleOpenTelegram}
+              activeOpacity={0.7}
+            >
+              <LinearGradient
+                colors={['#0ea5e9', '#38bdf8']}
+                style={styles.supportCardGradient}
+              >
+                <Ionicons name="paper-plane" size={28} color="#fff" />
+                <Text style={styles.supportCardTitle}>Telegram</Text>
+                <Text style={styles.supportCardSubtitle}>Chat direct</Text>
               </LinearGradient>
             </TouchableOpacity>
           </View>
@@ -97,30 +84,30 @@ export const HelpSupportScreen: React.FC<HelpSupportScreenProps> = ({ onBack }) 
 
           <TouchableOpacity
             style={styles.menuItem}
-            onPress={handleOpenPhone}
+            onPress={handleOpenEmail}
             activeOpacity={0.7}
           >
             <View style={styles.menuIconWrapper}>
-              <Ionicons name="call" size={20} color="#10b981" />
+              <Ionicons name="mail" size={20} color="#ff6b47" />
             </View>
             <View style={{ flex: 1 }}>
-              <Text style={styles.menuTitle}>Téléphone</Text>
-              <Text style={styles.menuSubtitle}>+33 6 12 34 56 78</Text>
+              <Text style={styles.menuTitle}>Email</Text>
+              <Text style={styles.menuSubtitle}>corail.platform@gmail.com</Text>
             </View>
             <Ionicons name="chevron-forward" size={20} color="rgba(255, 255, 255, 0.3)" />
           </TouchableOpacity>
 
           <TouchableOpacity
             style={styles.menuItem}
-            onPress={handleOpenEmail}
+            onPress={handleOpenTelegram}
             activeOpacity={0.7}
           >
             <View style={styles.menuIconWrapper}>
-              <Ionicons name="mail" size={20} color="#0ea5e9" />
+              <Ionicons name="paper-plane" size={20} color="#0ea5e9" />
             </View>
             <View style={{ flex: 1 }}>
-              <Text style={styles.menuTitle}>Email</Text>
-              <Text style={styles.menuSubtitle}>support@corail-app.com</Text>
+              <Text style={styles.menuTitle}>Telegram</Text>
+              <Text style={styles.menuSubtitle}>@corailapp</Text>
             </View>
             <Ionicons name="chevron-forward" size={20} color="rgba(255, 255, 255, 0.3)" />
           </TouchableOpacity>
@@ -130,85 +117,41 @@ export const HelpSupportScreen: React.FC<HelpSupportScreenProps> = ({ onBack }) 
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Ressources</Text>
 
-          <TouchableOpacity
-            style={styles.menuItem}
-            onPress={handleOpenFAQ}
-            activeOpacity={0.7}
+          <View
+            style={[styles.menuItem, styles.menuItemDisabled]}
           >
             <View style={styles.menuIconWrapper}>
-              <Ionicons name="help-circle" size={20} color="#8b5cf6" />
+              <Ionicons name="help-circle" size={20} color="#64748b" />
             </View>
             <View style={{ flex: 1 }}>
-              <Text style={styles.menuTitle}>FAQ</Text>
-              <Text style={styles.menuSubtitle}>Questions fréquentes</Text>
+              <Text style={styles.menuTitleDisabled}>FAQ</Text>
+              <Text style={styles.menuSubtitleDisabled}>Bientôt disponible</Text>
             </View>
-            <Ionicons name="chevron-forward" size={20} color="rgba(255, 255, 255, 0.3)" />
-          </TouchableOpacity>
+          </View>
 
-          <TouchableOpacity
-            style={styles.menuItem}
-            onPress={() => Alert.alert('Guide', 'Ouverture du guide utilisateur...')}
-            activeOpacity={0.7}
+          <View
+            style={[styles.menuItem, styles.menuItemDisabled]}
           >
             <View style={styles.menuIconWrapper}>
-              <Ionicons name="book" size={20} color="#fbbf24" />
+              <Ionicons name="book" size={20} color="#64748b" />
             </View>
             <View style={{ flex: 1 }}>
-              <Text style={styles.menuTitle}>Guide d'utilisation</Text>
-              <Text style={styles.menuSubtitle}>Tutoriels et astuces</Text>
+              <Text style={styles.menuTitleDisabled}>Guide d'utilisation</Text>
+              <Text style={styles.menuSubtitleDisabled}>Bientôt disponible</Text>
             </View>
-            <Ionicons name="chevron-forward" size={20} color="rgba(255, 255, 255, 0.3)" />
-          </TouchableOpacity>
+          </View>
 
-          <TouchableOpacity
-            style={styles.menuItem}
-            onPress={() => Alert.alert('Vidéos', 'Ouverture des vidéos tutoriels...')}
-            activeOpacity={0.7}
+          <View
+            style={[styles.menuItem, styles.menuItemDisabled]}
           >
             <View style={styles.menuIconWrapper}>
-              <Ionicons name="play-circle" size={20} color="#ff6b47" />
+              <Ionicons name="play-circle" size={20} color="#64748b" />
             </View>
             <View style={{ flex: 1 }}>
-              <Text style={styles.menuTitle}>Vidéos tutoriels</Text>
-              <Text style={styles.menuSubtitle}>Apprenez visuellement</Text>
+              <Text style={styles.menuTitleDisabled}>Vidéos tutoriels</Text>
+              <Text style={styles.menuSubtitleDisabled}>Bientôt disponible</Text>
             </View>
-            <Ionicons name="chevron-forward" size={20} color="rgba(255, 255, 255, 0.3)" />
-          </TouchableOpacity>
-        </View>
-
-        {/* Légal */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Informations légales</Text>
-
-          <TouchableOpacity
-            style={styles.menuItem}
-            onPress={() => Alert.alert('CGU', 'Ouverture des Conditions Générales...')}
-            activeOpacity={0.7}
-          >
-            <View style={styles.menuIconWrapper}>
-              <Ionicons name="document-text" size={20} color="#64748b" />
-            </View>
-            <View style={{ flex: 1 }}>
-              <Text style={styles.menuTitle}>Conditions générales</Text>
-              <Text style={styles.menuSubtitle}>CGU & CGV</Text>
-            </View>
-            <Ionicons name="chevron-forward" size={20} color="rgba(255, 255, 255, 0.3)" />
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={styles.menuItem}
-            onPress={() => Alert.alert('Confidentialité', 'Ouverture de la politique...')}
-            activeOpacity={0.7}
-          >
-            <View style={styles.menuIconWrapper}>
-              <Ionicons name="shield-checkmark" size={20} color="#10b981" />
-            </View>
-            <View style={{ flex: 1 }}>
-              <Text style={styles.menuTitle}>Politique de confidentialité</Text>
-              <Text style={styles.menuSubtitle}>Protection de vos données</Text>
-            </View>
-            <Ionicons name="chevron-forward" size={20} color="rgba(255, 255, 255, 0.3)" />
-          </TouchableOpacity>
+          </View>
         </View>
 
         {/* App Info */}
@@ -308,6 +251,10 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.1)',
   },
+  menuItemDisabled: {
+    opacity: 0.4,
+    backgroundColor: 'rgba(255, 255, 255, 0.02)',
+  },
   menuIconWrapper: {
     width: 40,
     height: 40,
@@ -322,10 +269,21 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#f1f5f9',
   },
+  menuTitleDisabled: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#64748b',
+  },
   menuSubtitle: {
     fontSize: 12,
     color: '#64748b',
     marginTop: 2,
+  },
+  menuSubtitleDisabled: {
+    fontSize: 12,
+    color: '#475569',
+    marginTop: 2,
+    fontStyle: 'italic',
   },
   appInfo: {
     alignItems: 'center',

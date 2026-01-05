@@ -5,10 +5,10 @@ import {
   StyleSheet,
   ScrollView,
   RefreshControl,
-  ActivityIndicator,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { apiClient } from '../services/api';
+import { ActivityItemSkeleton } from './skeletons';
 
 interface ActivityFeedProps {
   limit?: number;
@@ -225,9 +225,12 @@ const ActivityFeed: React.FC<ActivityFeedProps> = ({ limit = 20 }) => {
 
   if (loading && !refreshing) {
     return (
-      <View style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}>
-        <ActivityIndicator size="large" color="#6366f1" />
-        <Text style={styles.loadingText}>Chargement de l'activité...</Text>
+      <View style={styles.container}>
+        <ActivityItemSkeleton />
+        <ActivityItemSkeleton />
+        <ActivityItemSkeleton />
+        <ActivityItemSkeleton />
+        <ActivityItemSkeleton />
       </View>
     );
   }

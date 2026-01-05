@@ -19,10 +19,11 @@ interface ToolsScreenProps {
   onOpenQRCode: () => void;
   onOpenPersonalRides: () => void;
   onOpenPlanning: () => void;
-  onCreateQuote: () => void;
+  onOpenQuotes: () => void;
+  onOpenVTCProfile: () => void;
 }
 
-export default function ToolsScreen({ onOpenQRCode, onOpenPersonalRides, onOpenPlanning, onCreateQuote }: ToolsScreenProps) {
+export default function ToolsScreen({ onOpenQRCode, onOpenPersonalRides, onOpenPlanning, onOpenQuotes, onOpenVTCProfile }: ToolsScreenProps) {
   return (
     <View style={styles.container}>
       <StatusBar barStyle="light-content" />
@@ -30,7 +31,7 @@ export default function ToolsScreen({ onOpenQRCode, onOpenPersonalRides, onOpenP
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
         {/* Header */}
         <View style={styles.header}>
-          <Text style={styles.headerTitle}>Outils</Text>
+          <Text style={styles.headerTitle}>Suivi</Text>
           <Text style={styles.headerSubtitle}>Outils professionnels pour chauffeurs VTC</Text>
         </View>
 
@@ -54,9 +55,9 @@ export default function ToolsScreen({ onOpenQRCode, onOpenPersonalRides, onOpenP
                 <View style={styles.toolIconContainer}>
                   <Ionicons name="qr-code" size={28} color="#fff" />
                 </View>
-                <View>
+                <View style={{ flex: 1 }}>
                   <Text style={styles.toolTitle}>QR Code Pro</Text>
-                  <Text style={styles.toolDescription}>Partagez vos coordonnées facilement</Text>
+                  <Text style={styles.toolDescription}>Partagez vos coordonnées</Text>
                 </View>
               </View>
               <Ionicons name="chevron-forward" size={24} color="rgba(255,255,255,0.8)" />
@@ -79,9 +80,9 @@ export default function ToolsScreen({ onOpenQRCode, onOpenPersonalRides, onOpenP
                 <View style={styles.toolIconContainer}>
                   <Ionicons name="add-circle" size={28} color="#fff" />
                 </View>
-                <View>
+                <View style={{ flex: 1 }}>
                   <Text style={styles.toolTitle}>Mes Courses</Text>
-                  <Text style={styles.toolDescription}>Enregistrez Uber, Bolt, Direct...</Text>
+                  <Text style={styles.toolDescription}>Gérez vos courses facilement</Text>
                 </View>
               </View>
               <Ionicons name="chevron-forward" size={24} color="rgba(255,255,255,0.8)" />
@@ -113,10 +114,10 @@ export default function ToolsScreen({ onOpenQRCode, onOpenPersonalRides, onOpenP
             </LinearGradient>
           </TouchableOpacity>
 
-          {/* Créer un devis */}
+          {/* Mes Devis */}
           <TouchableOpacity
             style={styles.toolButton}
-            onPress={onCreateQuote}
+            onPress={onOpenQuotes}
             activeOpacity={0.8}
           >
             <LinearGradient
@@ -130,8 +131,33 @@ export default function ToolsScreen({ onOpenQRCode, onOpenPersonalRides, onOpenP
                   <Ionicons name="document-text" size={28} color="#fff" />
                 </View>
                 <View>
-                  <Text style={styles.toolTitle}>Créer un devis</Text>
-                  <Text style={styles.toolDescription}>Envoyez un devis par WhatsApp</Text>
+                  <Text style={styles.toolTitle}>Mes Devis</Text>
+                  <Text style={styles.toolDescription}>Gérez vos devis VTC</Text>
+                </View>
+              </View>
+              <Ionicons name="chevron-forward" size={24} color="rgba(255,255,255,0.8)" />
+            </LinearGradient>
+          </TouchableOpacity>
+
+          {/* Ma Page Publique */}
+          <TouchableOpacity
+            style={styles.toolButton}
+            onPress={onOpenVTCProfile}
+            activeOpacity={0.8}
+          >
+            <LinearGradient
+              colors={['#0ea5e9', '#06b6d4']}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 0 }}
+              style={styles.toolGradient}
+            >
+              <View style={styles.toolLeft}>
+                <View style={styles.toolIconContainer}>
+                  <Ionicons name="globe-outline" size={28} color="#fff" />
+                </View>
+                <View>
+                  <Text style={styles.toolTitle}>Ma Page Publique</Text>
+                  <Text style={styles.toolDescription}>Créez votre vitrine VTC</Text>
                 </View>
               </View>
               <Ionicons name="chevron-forward" size={24} color="rgba(255,255,255,0.8)" />

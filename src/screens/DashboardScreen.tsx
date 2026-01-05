@@ -11,44 +11,51 @@ import {
   ScrollView,
   TouchableOpacity,
   RefreshControl,
-  ActivityIndicator,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { apiClient } from '../services/api';
 import * as NotificationService from '../services/notifications';
+import { DashboardSkeleton } from '../components/skeletons';
+import { GroupInvitationsBanner } from '../components/GroupInvitationsBanner';
 
 interface DashboardProps {
   userFullName: string;
   userCredits: number;
   userRides: any[]; // All marketplace rides for the user
+  pendingInvitationsCount?: number; // Nombre d'invitations en attente
   onNavigateToCourses: () => void;
   onNavigateToTools: () => void;
   onNavigateToActivity: () => void; // Navigate to Courses > Activity tab
   onNavigateToPlanning: () => void; // Navigate to Planning
   onOpenQRCode: () => void;
   onCreateRide: () => void; // Ouvrir formulaire création en mode 'create'
+  onRidePress: (ride: any) => void; // Ouvrir le détail d'une course
+  onPersonalRidePress: (ride: any) => void; // Ouvrir le détail d'une course personnelle
+  onOpenGroupInvitations?: () => void; // Ouvrir l'écran des invitations
 }
 
 export default function DashboardScreen({
   userFullName,
   userCredits,
   userRides,
+  pendingInvitationsCount = 0,
   onNavigateToCourses,
   onNavigateToTools,
   onNavigateToActivity,
   onNavigateToPlanning,
   onOpenQRCode,
   onCreateRide,
+  onRidePress,
+  onPersonalRidePress,
+  onOpenGroupInvitations,
 }: DashboardProps) {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [stats, setStats] = useState<any>(null);
   const [todayRevenue, setTodayRevenue] = useState(0);
   const [weekRevenue, setWeekRevenue] = useState(0);
   const [todayRides, setTodayRides] = useState(0);
   const [upcomingRides, setUpcomingRides] = useState<any[]>([]);
-  const [recentActivities, setRecentActivities] = useState<any[]>([]);
 
   useEffect(() => {
     loadDashboardData();
@@ -62,11 +69,10 @@ export default function DashboardScreen({
       let statsData = null;
       try {
         statsData = await apiClient.getPersonalRidesStats();
-        setStats(statsData);
       } catch (error: any) {
         console.warn('No personal rides stats yet (empty data)');
         // Initialiser avec des stats vides
-        setStats({
+        statsData = {
           totals: {
             total_rides: 0,
             completed_rides: 0,
@@ -74,7 +80,7 @@ export default function DashboardScreen({
             total_distance_km: 0,
           },
           by_source: {},
-        });
+        };
       }
 
       // Charger les courses à venir (SCHEDULED)
@@ -100,15 +106,6 @@ export default function DashboardScreen({
       
       if (todayRidesCount > 0) {
         await NotificationService.scheduleDailySummary(todayRidesCount);
-      }
-
-      // Charger les 3 dernières activités
-      try {
-        const activitiesData = await apiClient.getRecentActivity(3);
-        setRecentActivities(activitiesData || []);
-      } catch (error: any) {
-        console.warn('No recent activities found');
-        setRecentActivities([]);
       }
 
       // Calculer revenus du jour et de la semaine
@@ -137,104 +134,6 @@ export default function DashboardScreen({
     setRefreshing(false);
   };
 
-  const getActivityInfo = (activity: any) => {
-    const { action_type, pickup_address, dropoff_address } = activity;
-
-    switch (action_type) {
-      case 'RIDE_PUBLISHED_PUBLIC':
-        return {
-          icon: 'megaphone' as const,
-          color: '#0ea5e9',
-          title: 'Course publiée',
-        };
-      case 'RIDE_PUBLISHED_GROUP':
-        return {
-          icon: 'people' as const,
-          color: '#a855f7',
-          title: 'Course en groupe',
-        };
-      case 'RIDE_PUBLISHED_PERSONAL':
-        return {
-          icon: 'lock-closed' as const,
-          color: '#6366f1',
-          title: 'Course personnelle',
-        };
-      case 'RIDE_CLAIMED':
-        return {
-          icon: 'car-sport' as const,
-          color: '#ff6b47',
-          title: 'Course prise',
-        };
-      case 'RIDE_COMPLETED':
-        return {
-          icon: 'checkmark-circle' as const,
-          color: '#10b981',
-          title: 'Course terminée',
-        };
-      case 'RIDE_DELETED':
-        return {
-          icon: 'trash' as const,
-          color: '#ef4444',
-          title: 'Course supprimée',
-        };
-      case 'PERSONAL_RIDE_ADDED':
-        return {
-          icon: 'document-text' as const,
-          color: '#6366f1',
-          title: 'Course enregistrée',
-        };
-      case 'RIDE_PUBLISHED':
-        return {
-          icon: 'megaphone' as const,
-          color: '#0ea5e9',
-          title: 'Course publiée',
-        };
-      case 'RIDE_CREATED':
-        return {
-          icon: 'add-circle' as const,
-          color: '#10b981',
-          title: 'Course créée',
-        };
-      case 'RIDE_UPDATED':
-        return {
-          icon: 'create' as const,
-          color: '#f59e0b',
-          title: 'Course modifiée',
-        };
-      case 'RIDE_CANCELLED':
-        return {
-          icon: 'close-circle' as const,
-          color: '#ef4444',
-          title: 'Course annulée',
-        };
-      default:
-        // Pour les actions inconnues, rendre lisible
-        const readableTitle = action_type
-          .replace(/_/g, ' ')
-          .toLowerCase()
-          .replace(/\b\w/g, (l) => l.toUpperCase());
-        
-        return {
-          icon: 'information-circle' as const,
-          color: '#64748b',
-          title: readableTitle,
-        };
-    }
-  };
-
-  const formatRelativeTime = (dateString: string) => {
-    const date = new Date(dateString);
-    const now = new Date();
-    const diffMs = now.getTime() - date.getTime();
-    const diffMins = Math.floor(diffMs / 60000);
-    const diffHours = Math.floor(diffMs / 3600000);
-
-    if (diffMins < 1) return 'À l\'instant';
-    if (diffMins < 60) return `Il y a ${diffMins} min`;
-    if (diffHours < 24) return `Il y a ${diffHours}h`;
-    return 'Il y a 1 jour+';
-  };
-
   const getSourceIcon = (src: string) => {
     switch (src) {
       case 'UBER': return 'car';
@@ -247,16 +146,16 @@ export default function DashboardScreen({
 
   const getSourceLabel = (src: string) => {
     switch (src) {
-      case 'UBER': return 'Uber';
-      case 'BOLT': return 'Bolt';
+      case 'UBER': return 'Externe';
+      case 'BOLT': return 'Externe';
       case 'DIRECT_CLIENT': return 'Direct';
       case 'MARKETPLACE': return 'Corail';
       default: return 'Autre';
     }
   };
 
-  // Calculer les prochaines courses (CLAIMED du marketplace)
-  const claimedRides = userRides.filter((ride: any) => 
+  // Calculer les prochaines courses (CLAIMED du marketplace) - avec protection contre undefined
+  const claimedRides = (userRides || []).filter((ride: any) => 
     ride.status === 'CLAIMED' && 
     ride.picker_id && 
     new Date(ride.scheduled_at).getTime() > Date.now()
@@ -265,11 +164,7 @@ export default function DashboardScreen({
   ).slice(0, 3); // Max 3 courses
 
   if (loading && !refreshing) {
-    return (
-      <View style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}>
-        <ActivityIndicator size="large" color="#6366f1" />
-      </View>
-    );
+    return <DashboardSkeleton />;
   }
 
   return (
@@ -286,6 +181,12 @@ export default function DashboardScreen({
             <Text style={styles.userName}>{userFullName}</Text>
           </View>
         </View>
+
+        {/* Bannière invitations groupes */}
+        <GroupInvitationsBanner 
+          count={pendingInvitationsCount} 
+          onPress={() => onOpenGroupInvitations?.()} 
+        />
 
         {/* Revenus Cards */}
         <View style={styles.revenueSection}>
@@ -322,7 +223,12 @@ export default function DashboardScreen({
             
             {/* Courses marketplace réclamées */}
             {claimedRides.map((ride: any) => (
-              <View key={ride.id} style={styles.upcomingCourseCard}>
+              <TouchableOpacity 
+                key={ride.id} 
+                style={styles.upcomingCourseCard}
+                onPress={() => onRidePress(ride)}
+                activeOpacity={0.7}
+              >
                 <View style={styles.upcomingCourseHeader}>
                   <Ionicons name="calendar" size={16} color="#6366f1" />
                   <Text style={styles.upcomingCourseTime}>
@@ -352,12 +258,17 @@ export default function DashboardScreen({
                     {(ride.price_cents / 100).toFixed(2)}€
                   </Text>
                 )}
-              </View>
+              </TouchableOpacity>
             ))}
 
             {/* Courses personnelles planifiées */}
             {upcomingRides.map((ride) => (
-              <View key={ride.id} style={styles.upcomingCourseCard}>
+              <TouchableOpacity 
+                key={ride.id} 
+                style={styles.upcomingCourseCard}
+                onPress={() => onPersonalRidePress(ride)}
+                activeOpacity={0.7}
+              >
                 <View style={styles.upcomingCourseHeader}>
                   <Ionicons name="time" size={16} color="#6366f1" />
                   <Text style={styles.upcomingCourseTime}>
@@ -383,38 +294,8 @@ export default function DashboardScreen({
                     {(ride.price_cents / 100).toFixed(2)}€
                   </Text>
                 )}
-              </View>
+              </TouchableOpacity>
             ))}
-          </View>
-        )}
-
-        {/* Statistiques rapides */}
-        {stats && (
-          <View style={styles.statsSection}>
-            <Text style={styles.sectionTitle}>Aperçu rapide</Text>
-            <View style={styles.statsGrid}>
-              <View style={styles.statCard}>
-                <Ionicons name="car" size={24} color="#6366f1" />
-                <Text style={styles.statValue}>{stats.totals?.completed_rides || 0}</Text>
-                <Text style={styles.statLabel}>Courses</Text>
-              </View>
-
-              <View style={styles.statCard}>
-                <Ionicons name="speedometer" size={24} color="#10b981" />
-                <Text style={styles.statValue}>
-                  {stats.totals?.total_distance_km?.toFixed(0) || 0}
-                </Text>
-                <Text style={styles.statLabel}>km parcourus</Text>
-              </View>
-
-              <View style={styles.statCard}>
-                <Ionicons name="trending-up" size={24} color="#f59e0b" />
-                <Text style={styles.statValue}>
-                  {((stats.totals?.total_revenue_eur || 0) / (stats.totals?.completed_rides || 1)).toFixed(0)} €
-                </Text>
-                <Text style={styles.statLabel}>Prix moyen</Text>
-              </View>
-            </View>
           </View>
         )}
 
@@ -461,49 +342,6 @@ export default function DashboardScreen({
           </TouchableOpacity>
         </View>
 
-        {/* Activité récente */}
-        <View style={styles.activitySection}>
-          <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>Activité récente</Text>
-            <TouchableOpacity onPress={onNavigateToActivity} activeOpacity={0.7}>
-              <Text style={styles.viewMoreText}>
-                Voir plus <Ionicons name="chevron-forward" size={14} color="#6366f1" />
-              </Text>
-            </TouchableOpacity>
-          </View>
-          
-          {recentActivities.length > 0 ? (
-            <View style={styles.activityCard}>
-              {recentActivities.map((activity, index) => {
-                const info = getActivityInfo(activity);
-                return (
-                  <View key={activity.id} style={styles.activityItem}>
-                    <View style={[styles.activityIconContainer, { backgroundColor: info.color + '20' }]}>
-                      <Ionicons name={info.icon} size={18} color={info.color} />
-                    </View>
-                    <View style={styles.activityContent}>
-                      <Text style={styles.activityTitle}>{info.title}</Text>
-                      <Text style={styles.activitySubtext}>
-                        {formatRelativeTime(activity.created_at)}
-                      </Text>
-                    </View>
-                  </View>
-                );
-              })}
-            </View>
-          ) : (
-            <View style={styles.activityCard}>
-              <View style={styles.emptyActivityContainer}>
-                <Ionicons name="time-outline" size={40} color="#475569" />
-                <Text style={styles.emptyActivityText}>Aucune activité récente</Text>
-                <Text style={styles.emptyActivitySubtext}>
-                  Vos actions apparaîtront ici
-                </Text>
-              </View>
-            </View>
-          )}
-        </View>
-
         {/* Comment fonctionnent les crédits ? */}
         <View style={styles.creditsExplanationSection}>
           <View style={styles.creditsExplanationHeader}>
@@ -523,9 +361,9 @@ export default function DashboardScreen({
               <View style={styles.creditItem}>
                 <View style={styles.creditDot} />
                 <View style={styles.creditBadgeInline}>
-                  <Text style={styles.creditBadgeText}>+1</Text>
-                  <View style={styles.creditIconSmall}>
-                    <Text style={styles.creditIconSmallText}>C</Text>
+                  <Text style={styles.creditBadgeTextPositive}>+1</Text>
+                  <View style={styles.creditIconSmallPositive}>
+                    <Text style={styles.creditIconSmallTextPositive}>C</Text>
                   </View>
                   <Text style={styles.creditText}>à chaque course publiée</Text>
                 </View>
@@ -533,23 +371,12 @@ export default function DashboardScreen({
               <View style={styles.creditItem}>
                 <View style={styles.creditDot} />
                 <View style={styles.creditBadgeInline}>
-                  <Text style={styles.creditBadgeText}>+1</Text>
-                  <View style={styles.creditIconSmall}>
-                    <Text style={styles.creditIconSmallText}>C</Text>
+                  <Text style={styles.creditBadgeTextPositive}>+1</Text>
+                  <View style={styles.creditIconSmallPositive}>
+                    <Text style={styles.creditIconSmallTextPositive}>C</Text>
                   </View>
-                  <Text style={styles.creditBadgeText}>bonus</Text>
+                  <Text style={styles.creditBadgeTextPositive}>bonus</Text>
                   <Text style={styles.creditText}>si course terminée</Text>
-                </View>
-              </View>
-              <View style={styles.creditItem}>
-                <View style={styles.creditDot} />
-                <View style={styles.creditBadgeInline}>
-                  <Text style={styles.creditBadgeText}>5-10</Text>
-                  <View style={styles.creditIconSmall}>
-                    <Text style={styles.creditIconSmallText}>C</Text>
-                  </View>
-                  <Text style={styles.creditBadgeText}>/mois</Text>
-                  <Text style={styles.creditText}>avec Premium/Platinum</Text>
                 </View>
               </View>
             </View>
@@ -638,41 +465,12 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#64748b',
   },
-  statsSection: {
-    paddingHorizontal: 20,
-    marginBottom: 24,
-  },
   sectionTitle: {
     fontSize: 18,
     fontWeight: '700',
     color: '#e2e8f0',
     marginBottom: 12,
     letterSpacing: 0.3,
-  },
-  statsGrid: {
-    flexDirection: 'row',
-    gap: 12,
-  },
-  statCard: {
-    flex: 1,
-    backgroundColor: '#1e293b',
-    borderRadius: 16,
-    padding: 16,
-    borderWidth: 1,
-    borderColor: '#334155',
-    alignItems: 'center',
-  },
-  statValue: {
-    fontSize: 22,
-    fontWeight: '700',
-    color: '#e2e8f0',
-    marginTop: 8,
-    marginBottom: 4,
-  },
-  statLabel: {
-    fontSize: 11,
-    color: '#94a3b8',
-    textAlign: 'center',
   },
   sourceSection: {
     paddingHorizontal: 20,
@@ -717,10 +515,6 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#6366f1',
   },
-  activitySection: {
-    paddingHorizontal: 20,
-    marginBottom: 24,
-  },
   sectionHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -731,55 +525,6 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '600',
     color: '#6366f1',
-  },
-  activityCard: {
-    backgroundColor: '#1e293b',
-    borderRadius: 16,
-    padding: 16,
-    borderWidth: 1,
-    borderColor: '#334155',
-  },
-  activityItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 12,
-  },
-  activityIconContainer: {
-    width: 40,
-    height: 40,
-    borderRadius: 10,
-    backgroundColor: 'rgba(99, 102, 241, 0.1)',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 12,
-  },
-  activityContent: {
-    flex: 1,
-  },
-  activityTitle: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#e2e8f0',
-    marginBottom: 2,
-  },
-  activitySubtext: {
-    fontSize: 12,
-    color: '#64748b',
-  },
-  emptyActivityContainer: {
-    alignItems: 'center',
-    paddingVertical: 24,
-  },
-  emptyActivityText: {
-    marginTop: 12,
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#94a3b8',
-  },
-  emptyActivitySubtext: {
-    marginTop: 4,
-    fontSize: 12,
-    color: '#64748b',
   },
   upcomingSection: {
     paddingHorizontal: 20,
@@ -957,6 +702,11 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#ff6b47',
   },
+  creditBadgeTextPositive: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#10b981',
+  },
   creditIconSmall: {
     width: 15,
     height: 15,
@@ -967,10 +717,25 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  creditIconSmallPositive: {
+    width: 15,
+    height: 15,
+    borderRadius: 7.5,
+    backgroundColor: 'rgba(16, 185, 129, 0.2)',
+    borderWidth: 1,
+    borderColor: 'rgba(16, 185, 129, 0.4)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   creditIconSmallText: {
     fontSize: 8,
     fontWeight: '800',
     color: '#ff6b47',
+  },
+  creditIconSmallTextPositive: {
+    fontSize: 8,
+    fontWeight: '800',
+    color: '#10b981',
   },
   creditText: {
     fontSize: 12,

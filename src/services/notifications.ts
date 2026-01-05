@@ -6,6 +6,7 @@
 import * as Notifications from 'expo-notifications';
 import { Platform, Alert } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as PushTokenService from './pushTokens';
 
 // Configuration du comportement des notifications
 Notifications.setNotificationHandler({
@@ -313,13 +314,18 @@ export async function notifyBadgeEarned(badgeName: string, badgeDescription: str
 }
 
 /**
- * 7. Invitation à un groupe
+ * 7. Invitation à un groupe - LOCAL + PUSH
  */
-export async function notifyGroupInvitation(groupName: string, inviterName: string): Promise<void> {
+export async function notifyGroupInvitation(
+  inviteeUserId: string,
+  groupName: string, 
+  inviterName: string
+): Promise<void> {
   const prefs = await getNotificationPreferences();
   if (!prefs.enabled || !prefs.groupInvitations) return;
 
   try {
+    // Notification locale
     await Notifications.scheduleNotificationAsync({
       content: {
         title: '👥 Invitation groupe',
@@ -330,7 +336,15 @@ export async function notifyGroupInvitation(groupName: string, inviterName: stri
       trigger: { type: 'timeInterval', seconds: 1, repeats: false },
     });
 
-    console.log(`✅ Notification invitation groupe envoyée`);
+    // Push notification
+    await PushTokenService.sendPushToUser(
+      inviteeUserId,
+      '👥 Invitation groupe',
+      `${inviterName} vous a invité à rejoindre "${groupName}"`,
+      { type: 'group_invitation' }
+    );
+
+    console.log(`✅ Notifications invitation groupe envoyées (local + push)`);
   } catch (error) {
     console.error('❌ Erreur notification groupe:', error);
   }
@@ -373,13 +387,18 @@ export async function notifyCompleteRide(rideId: string, scheduledAt: string): P
 }
 
 /**
- * 9. Course réclamée (pour le créateur)
+ * 9. Course réclamée (pour le créateur) - LOCAL + PUSH
  */
-export async function notifyRideClaimed(pickupAddress: string, pickerName: string): Promise<void> {
+export async function notifyRideClaimed(
+  creatorUserId: string,
+  pickupAddress: string, 
+  pickerName: string
+): Promise<void> {
   const prefs = await getNotificationPreferences();
   if (!prefs.enabled) return;
 
   try {
+    // Notification locale (si l'app est ouverte)
     await Notifications.scheduleNotificationAsync({
       content: {
         title: '🎉 Course prise !',
@@ -390,9 +409,40 @@ export async function notifyRideClaimed(pickupAddress: string, pickerName: strin
       trigger: { type: 'timeInterval', seconds: 1, repeats: false },
     });
 
-    console.log('✅ Notification course réclamée envoyée');
+    // Push notification (si l'app est fermée/background)
+    await PushTokenService.sendPushToUser(
+      creatorUserId,
+      '🎉 Course prise !',
+      `${pickerName} a pris votre course (${pickupAddress})`,
+      { type: 'ride_claimed' }
+    );
+
+    console.log('✅ Notifications course réclamée envoyées (local + push)');
   } catch (error) {
     console.error('❌ Erreur notification course réclamée:', error);
+  }
+}
+
+/**
+ * 10. Course terminée par un chauffeur (pour le créateur) - PUSH
+ */
+export async function notifyRideCompletedToCreator(
+  creatorUserId: string,
+  pickupAddress: string,
+  dropoffAddress: string,
+  driverName: string
+): Promise<void> {
+  try {
+    await PushTokenService.sendPushToUser(
+      creatorUserId,
+      '✅ Course terminée',
+      `${driverName} a terminé la course: ${pickupAddress} → ${dropoffAddress}`,
+      { type: 'ride_completed_by_driver' }
+    );
+
+    console.log('✅ Push notification course terminée envoyée au créateur');
+  } catch (error) {
+    console.error('❌ Erreur notification course terminée:', error);
   }
 }
 

@@ -67,8 +67,8 @@ export default function ActivityHistoryList() {
 
   const getSourceLabel = (src: string) => {
     switch (src) {
-      case 'UBER': return 'Uber';
-      case 'BOLT': return 'Bolt';
+      case 'UBER': return 'Externe';
+      case 'BOLT': return 'Externe';
       case 'DIRECT_CLIENT': return 'Direct';
       case 'MARKETPLACE': return 'Corail';
       default: return 'Autre';

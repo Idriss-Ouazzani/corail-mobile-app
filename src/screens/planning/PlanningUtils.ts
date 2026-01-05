@@ -14,8 +14,8 @@ export const getEventColor = (eventType: string): string => {
 
 export const getEventIcon = (eventType: string, source?: string): string => {
   if (eventType === 'RIDE') {
-    if (source === 'UBER') return 'logo-uber';
-    if (source === 'BOLT') return 'flash';
+    if (source === 'UBER') return 'car-sport';
+    if (source === 'BOLT') return 'car-sport';
     if (source === 'DIRECT') return 'call';
     if (source === 'MARKETPLACE') return 'git-network';
     return 'car';
@@ -30,8 +30,8 @@ export const getEventIcon = (eventType: string, source?: string): string => {
 
 export const getEventLabel = (event: any): string => {
   if (event.event_type === 'RIDE') {
-    if (event.ride_source === 'UBER') return 'Uber';
-    if (event.ride_source === 'BOLT') return 'Bolt';
+    if (event.ride_source === 'UBER') return 'Course externe';
+    if (event.ride_source === 'BOLT') return 'Course externe';
     if (event.ride_source === 'DIRECT') return 'Course directe';
     if (event.ride_source === 'MARKETPLACE') return 'Corail Marketplace';
     return 'Course VTC';

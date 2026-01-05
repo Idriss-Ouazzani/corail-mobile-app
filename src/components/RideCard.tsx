@@ -8,9 +8,17 @@ interface RideCardProps {
   ride: Ride;
   onPress?: () => void;
   currentUserId?: string;
+  statusBadge?: string; // Texte du badge (ex: "PRISE", "PUBLIÉE")
+  statusBadgeColor?: string; // Couleur du badge
 }
 
-export const RideCard: React.FC<RideCardProps> = ({ ride, onPress, currentUserId = 'user2' }) => {
+export const RideCard: React.FC<RideCardProps> = ({ 
+  ride, 
+  onPress, 
+  currentUserId = 'user2',
+  statusBadge,
+  statusBadgeColor,
+}) => {
   const isMyRide = ride.creator_id === currentUserId;
   const formatPrice = (cents: number) => `${(cents / 100).toFixed(2)}€`;
   
@@ -73,13 +81,26 @@ export const RideCard: React.FC<RideCardProps> = ({ ride, onPress, currentUserId
         }
         style={[styles.gradient, isMyRide && styles.gradientMyRide]}
       >
-        {/* Small elegant badge for "Votre course" */}
-        {isMyRide && (
-          <View style={styles.myRideBadge}>
-            <Ionicons name="star" size={10} color="#000" />
-            <Text style={styles.myRideBadgeText}>Votre course</Text>
+        {/* Badges row */}
+        {(isMyRide || statusBadge) && (
+          <View style={styles.badgesRow}>
+            {/* Badge "Votre course" */}
+            {isMyRide && (
+              <View style={styles.myRideBadge}>
+                <Ionicons name="star" size={10} color="#000" />
+                <Text style={styles.myRideBadgeText}>Votre course</Text>
+              </View>
+            )}
+            
+            {/* Badge de statut (PRISE/PUBLIÉE) */}
+            {statusBadge && (
+              <View style={[styles.customStatusBadge, { backgroundColor: statusBadgeColor || '#6366f1' }]}>
+                <Text style={styles.customStatusBadgeText}>{statusBadge}</Text>
+              </View>
+            )}
           </View>
         )}
+        
         {/* Header */}
         <View style={styles.header}>
           <View style={styles.priceContainer}>
@@ -186,24 +207,42 @@ const styles = StyleSheet.create({
   gradientMyRide: {
     borderColor: 'rgba(251, 191, 36, 0.3)',
   },
-  // Small elegant badge
-  myRideBadge: {
+  // Badges row (top right)
+  badgesRow: {
     position: 'absolute',
     top: 12,
     right: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    zIndex: 10,
+  },
+  // Badge "Votre course"
+  myRideBadge: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#fbbf24',
     paddingHorizontal: 10,
     paddingVertical: 4,
     borderRadius: 12,
-    zIndex: 10,
   },
   myRideBadgeText: {
     fontSize: 10,
     fontWeight: '700',
     color: '#000',
     marginLeft: 4,
+  },
+  // Badge de statut personnalisé (PRISE/PUBLIÉE)
+  customStatusBadge: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 12,
+  },
+  customStatusBadgeText: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#fff',
+    textTransform: 'uppercase',
   },
   header: {
     flexDirection: 'row',

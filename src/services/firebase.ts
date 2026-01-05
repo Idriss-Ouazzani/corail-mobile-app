@@ -18,18 +18,27 @@ import {
 import * as Google from 'expo-auth-session/providers/google';
 import * as WebBrowser from 'expo-web-browser';
 import { Platform } from 'react-native';
+import Constants from 'expo-constants';
+
+// Charger les variables depuis expo-constants (fonctionne avec EAS Build)
+const FIREBASE_API_KEY = Constants.expoConfig?.extra?.firebaseApiKey;
+const FIREBASE_AUTH_DOMAIN = Constants.expoConfig?.extra?.firebaseAuthDomain;
+const FIREBASE_PROJECT_ID = Constants.expoConfig?.extra?.firebaseProjectId;
+const FIREBASE_STORAGE_BUCKET = Constants.expoConfig?.extra?.firebaseStorageBucket;
+const FIREBASE_MESSAGING_SENDER_ID = Constants.expoConfig?.extra?.firebaseMessagingSenderId;
+const FIREBASE_APP_ID = Constants.expoConfig?.extra?.firebaseAppId;
 
 // Nécessaire pour que le navigateur se ferme après l'authentification
 WebBrowser.maybeCompleteAuthSession();
 
-// Configuration Firebase
+// Configuration Firebase (depuis variables d'environnement)
 const firebaseConfig = {
-  apiKey: "AIzaSyA_a2hHGNOTKusVjTFLwYxaUVAhQdFZq-s",
-  authDomain: "corail-vtc.firebaseapp.com",
-  projectId: "corail-vtc",
-  storageBucket: "corail-vtc.firebasestorage.app",
-  messagingSenderId: "767162545254",
-  appId: "1:767162545254:web:28a4046932ec60e16729a7"
+  apiKey: FIREBASE_API_KEY,
+  authDomain: FIREBASE_AUTH_DOMAIN,
+  projectId: FIREBASE_PROJECT_ID,
+  storageBucket: FIREBASE_STORAGE_BUCKET,
+  messagingSenderId: FIREBASE_MESSAGING_SENDER_ID,
+  appId: FIREBASE_APP_ID,
 };
 
 // Initialiser Firebase

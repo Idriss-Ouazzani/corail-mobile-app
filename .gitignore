@@ -32,6 +32,11 @@ yarn-error.*
 .env*.local
 .env
 
+# Supabase Edge Functions
+supabase/.branches
+supabase/.temp
+supabase/functions/.env
+
 # typescript
 *.tsbuildinfo
 

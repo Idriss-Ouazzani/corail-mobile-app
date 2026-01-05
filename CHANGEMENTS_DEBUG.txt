@@ -1,0 +1,128 @@
+🔧 CHANGEMENTS APPLIQUÉS POUR LE DEBUG DES DEVIS
+================================================
+
+📅 Date : 1er janvier 2026
+🎯 Objectif : Comprendre pourquoi les devis ne s'affichent pas
+
+FICHIERS MODIFIÉS :
+------------------
+
+1. ✅ src/services/supabaseApi.ts
+   - Ajout de logs verbeux dans setUserId()
+   - Ajout de logs dans createQuote() pour afficher currentUserId
+   - Ajout de logs dans listQuotes() pour afficher currentUserId
+   - Correction des formats de retour pour toutes les fonctions quotes
+
+2. ✅ App.tsx
+   - Ajout de log pour afficher le User ID au moment de la connexion
+
+3. ✅ src/screens/MyQuotesScreen.tsx
+   - Logs déjà ajoutés précédemment (chargement, nombre de devis, etc.)
+   - Ajout d'export default pour cohérence
+
+4. ✅ src/screens/CreateRideScreen.tsx
+   - Logs déjà ajoutés précédemment (création de devis)
+
+5. ✅ src/screens/ToolsScreen.tsx
+   - Couleur du bouton "Mes Devis" changée en jaune/orange
+
+NOUVEAUX FICHIERS CRÉÉS :
+-------------------------
+
+1. ✅ supabase/migrations/010_debug_quotes_rls.sql
+   - Script pour vérifier et corriger les politiques RLS
+   - Crée une politique ultra-permissive pour debug
+   - Inclut des requêtes de test
+
+2. ✅ DEBUG_QUOTES.md
+   - Guide de debug initial
+
+3. ✅ FIXES_QUOTES.md
+   - Documentation des corrections appliquées
+
+4. ✅ DEBUG_QUOTES_URGENT.md
+   - Guide de debug complet étape par étape
+   - Checklist de vérification
+   - Solutions aux problèmes courants
+
+PROCHAINES ÉTAPES POUR VOUS :
+-----------------------------
+
+1. 🔴 URGENT : Redémarrer l'app avec cache propre
+   
+   cd /Users/idriss.ouazzani/Cursor/Corail-mobileapp
+   npm start -- --clear
+
+2. 📝 Suivre le guide DEBUG_QUOTES_URGENT.md
+
+3. 🔍 Noter TOUS les logs qui apparaissent dans la console Expo :
+   - Au démarrage (User ID, setUserId)
+   - À la création d'un devis (createQuote, currentUserId)
+   - Au chargement de "Mes Devis" (listQuotes, nombre de devis)
+
+4. 🗄️ Vérifier Supabase directement :
+   - Ouvrir Dashboard > Table Editor > quotes
+   - Vérifier si les devis existent
+   - Noter le driver_id
+
+5. 🔧 Si toujours pas de devis :
+   - Exécuter le script 010_debug_quotes_rls.sql dans Supabase SQL Editor
+   - Réessayer
+
+6. 🆘 Si rien ne fonctionne :
+   - M'envoyer les informations listées à la fin de DEBUG_QUOTES_URGENT.md
+
+LOGS À SURVEILLER :
+------------------
+
+✅ AU DÉMARRAGE :
+  - "✅ Utilisateur connecté: [email]"
+  - "✅ User ID: [id]"
+  - "🔑 setUserId appelé avec: [id]"
+  - "🔑 currentUserId est maintenant: [id]"
+
+✅ À LA CRÉATION D'UN DEVIS :
+  - "🔍 createQuote - currentUserId: [id]"
+  - "🔍 createQuote - quoteData: {...}"
+  - "✅ Quote created: quote-xxxxx"
+
+✅ AU CHARGEMENT DE "MES DEVIS" :
+  - "🔍 listQuotes - currentUserId: [id]"
+  - "🔍 Chargement des devis..."
+  - "📦 Réponse listQuotes: {...}"
+  - "📊 Nombre de devis: X"
+  - "✅ Loaded X quotes"
+
+❌ ERREURS POSSIBLES :
+  - "❌ createQuote - Pas de currentUserId !"
+  - "❌ listQuotes - Pas de currentUserId !"
+  - "User not authenticated"
+  - "PGRST116"
+
+PROBLÈMES POSSIBLES :
+--------------------
+
+A. currentUserId n'est pas défini
+   → Vérifier les logs de setUserId
+   → Redémarrer complètement l'app
+
+B. Politiques RLS trop restrictives
+   → Exécuter 010_debug_quotes_rls.sql
+   → Vérifier que la politique "quotes_all_access_policy" existe
+
+C. driver_id ≠ User ID
+   → Vérifier dans Supabase Table Editor
+   → Comparer avec les logs
+
+D. Format de réponse incorrect
+   → Devrait être { data: [...], error: null }
+   → Vérifier les logs "📦 Réponse listQuotes:"
+
+E. Les devis ne sont pas créés du tout
+   → Vérifier Table Editor > quotes
+   → Si vide, problème lors de l'insertion
+
+================================================
+FIN DU RAPPORT DE CHANGEMENTS
+================================================
+

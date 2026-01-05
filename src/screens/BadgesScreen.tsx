@@ -80,16 +80,16 @@ export const BadgesScreen: React.FC<BadgesScreenProps> = ({ onBack, currentUserI
     loadBadges();
   };
 
-  // Filtrer les badges
-  const filteredBadges = userBadges.filter((badge) => {
+  // Filtrer les badges (avec protection contre undefined)
+  const filteredBadges = (userBadges || []).filter((badge) => {
     if (filter === 'earned') return !!badge.earned_at;
     if (filter === 'locked') return !badge.earned_at;
     return true;
   });
 
-  // Stats
-  const earnedCount = userBadges.filter((b) => b.earned_at).length;
-  const totalCount = userBadges.length;
+  // Stats (avec protection contre undefined)
+  const earnedCount = userBadges?.filter((b) => b.earned_at).length || 0;
+  const totalCount = userBadges?.length || 0;
   const completionPercentage = totalCount > 0 ? Math.round((earnedCount / totalCount) * 100) : 0;
 
   // Grouper par rareté

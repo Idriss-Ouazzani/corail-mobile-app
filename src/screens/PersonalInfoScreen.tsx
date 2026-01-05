@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import {
   View,
   Text,
@@ -6,61 +6,36 @@ import {
   StyleSheet,
   TouchableOpacity,
   TextInput,
-  Alert,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
-import { firebaseAuth } from '../services/firebase';
-import { apiClient } from '../services/api';
 
 interface PersonalInfoScreenProps {
   onBack: () => void;
+  fullName?: string;
+  email?: string;
+  phone?: string;
+  siret?: string;
+  vtcCard?: string;
 }
 
-const PersonalInfoScreen: React.FC<PersonalInfoScreenProps> = ({ onBack }) => {
-  const [fullName, setFullName] = useState('');
-  const [email, setEmail] = useState('');
-  const [phone, setPhone] = useState('');
-  const [address, setAddress] = useState('');
-  const [siret, setSiret] = useState('');
-  const [isEditing, setIsEditing] = useState(false);
-  const [loading, setLoading] = useState(true);
-
-  // Charger les données utilisateur au montage
-  useEffect(() => {
-    loadUserData();
-  }, []);
-
-  const loadUserData = async () => {
-    try {
-      setLoading(true);
-      const currentUser = firebaseAuth.currentUser;
-      if (!currentUser) return;
-
-      // Charger les données depuis l'API
-      const response = await apiClient.getVerificationStatus();
-      
-      setFullName(response.full_name || '');
-      setEmail(response.email || currentUser.email || '');
-      setPhone(response.phone || '');
-      setSiret(response.siren || '');
-      // address n'est pas encore dans le backend, on garde vide pour l'instant
-    } catch (error) {
-      console.error('Erreur chargement données:', error);
-      // Fallback sur Firebase email
-      const currentUser = firebaseAuth.currentUser;
-      if (currentUser?.email) {
-        setEmail(currentUser.email);
-      }
-    } finally {
-      setLoading(false);
-    }
+const PersonalInfoScreen: React.FC<PersonalInfoScreenProps> = ({ 
+  onBack,
+  fullName = '',
+  email = '',
+  phone = '',
+  siret = '',
+  vtcCard = '',
+}) => {
+  // Les données sont passées en props depuis App.tsx (pas besoin de les recharger)
+  
+  // Générer les initiales depuis le nom
+  const getInitials = (name: string) => {
+    if (!name) return '??';
+    return name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
   };
-
-  const handleSave = () => {
-    Alert.alert('Succès', 'Informations mises à jour avec succès !');
-    setIsEditing(false);
-  };
+  
+  const initials = getInitials(fullName);
 
   return (
     <View style={styles.container}>
@@ -73,9 +48,7 @@ const PersonalInfoScreen: React.FC<PersonalInfoScreenProps> = ({ onBack }) => {
           <Ionicons name="arrow-back" size={24} color="#f1f5f9" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Informations personnelles</Text>
-        <TouchableOpacity onPress={() => setIsEditing(!isEditing)} style={styles.editButton}>
-          <Ionicons name={isEditing ? "close" : "create"} size={22} color="#ff6b47" />
-        </TouchableOpacity>
+        <View style={styles.editButton} />
       </LinearGradient>
 
       <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
@@ -86,13 +59,8 @@ const PersonalInfoScreen: React.FC<PersonalInfoScreenProps> = ({ onBack }) => {
               colors={['#ff6b47', '#ff8a6d']}
               style={styles.avatar}
             >
-              <Text style={styles.avatarText}>HA</Text>
+              <Text style={styles.avatarText}>{initials}</Text>
             </LinearGradient>
-            {isEditing && (
-              <TouchableOpacity style={styles.changePhotoButton}>
-                <Ionicons name="camera" size={16} color="#fff" />
-              </TouchableOpacity>
-            )}
           </View>
         </View>
 
@@ -105,10 +73,9 @@ const PersonalInfoScreen: React.FC<PersonalInfoScreenProps> = ({ onBack }) => {
               <Ionicons name="person" size={14} color="#0ea5e9" /> Nom complet
             </Text>
             <TextInput
-              style={[styles.input, !isEditing && styles.inputDisabled]}
-              value={fullName}
-              onChangeText={setFullName}
-              editable={isEditing}
+              style={[styles.input, styles.inputDisabled]}
+              value={fullName || 'Non renseigné'}
+              editable={false}
               placeholderTextColor="#64748b"
             />
           </View>
@@ -118,10 +85,9 @@ const PersonalInfoScreen: React.FC<PersonalInfoScreenProps> = ({ onBack }) => {
               <Ionicons name="mail" size={14} color="#10b981" /> Email
             </Text>
             <TextInput
-              style={[styles.input, !isEditing && styles.inputDisabled]}
-              value={email}
-              onChangeText={setEmail}
-              editable={isEditing}
+              style={[styles.input, styles.inputDisabled]}
+              value={email || 'Non renseigné'}
+              editable={false}
               keyboardType="email-address"
               placeholderTextColor="#64748b"
             />
@@ -132,25 +98,10 @@ const PersonalInfoScreen: React.FC<PersonalInfoScreenProps> = ({ onBack }) => {
               <Ionicons name="call" size={14} color="#fbbf24" /> Téléphone
             </Text>
             <TextInput
-              style={[styles.input, !isEditing && styles.inputDisabled]}
-              value={phone}
-              onChangeText={setPhone}
-              editable={isEditing}
+              style={[styles.input, styles.inputDisabled]}
+              value={phone || 'Non renseigné'}
+              editable={false}
               keyboardType="phone-pad"
-              placeholderTextColor="#64748b"
-            />
-          </View>
-
-          <View style={styles.field}>
-            <Text style={styles.label}>
-              <Ionicons name="location" size={14} color="#ff6b47" /> Adresse
-            </Text>
-            <TextInput
-              style={[styles.input, !isEditing && styles.inputDisabled]}
-              value={address}
-              onChangeText={setAddress}
-              editable={isEditing}
-              multiline
               placeholderTextColor="#64748b"
             />
           </View>
@@ -165,11 +116,22 @@ const PersonalInfoScreen: React.FC<PersonalInfoScreenProps> = ({ onBack }) => {
               <Ionicons name="business" size={14} color="#8b5cf6" /> SIRET
             </Text>
             <TextInput
-              style={[styles.input, !isEditing && styles.inputDisabled]}
-              value={siret}
-              onChangeText={setSiret}
-              editable={isEditing}
+              style={[styles.input, styles.inputDisabled]}
+              value={siret || 'Non renseigné'}
+              editable={false}
               keyboardType="numeric"
+              placeholderTextColor="#64748b"
+            />
+          </View>
+
+          <View style={styles.field}>
+            <Text style={styles.label}>
+              <Ionicons name="card" size={14} color="#ff6b47" /> Carte VTC
+            </Text>
+            <TextInput
+              style={[styles.input, styles.inputDisabled]}
+              value={vtcCard || 'Non renseigné'}
+              editable={false}
               placeholderTextColor="#64748b"
             />
           </View>
@@ -187,25 +149,6 @@ const PersonalInfoScreen: React.FC<PersonalInfoScreenProps> = ({ onBack }) => {
 
         <View style={{ height: 100 }} />
       </ScrollView>
-
-      {/* Save Button (only visible when editing) */}
-      {isEditing && (
-        <View style={styles.actionContainer}>
-          <TouchableOpacity
-            style={styles.actionButton}
-            onPress={handleSave}
-            activeOpacity={0.8}
-          >
-            <LinearGradient
-              colors={['#ff6b47', '#ff8a6d']}
-              style={styles.actionButtonGradient}
-            >
-              <Ionicons name="checkmark-circle" size={24} color="#fff" />
-              <Text style={styles.actionButtonText}>Enregistrer</Text>
-            </LinearGradient>
-          </TouchableOpacity>
-        </View>
-      )}
     </View>
   );
 };

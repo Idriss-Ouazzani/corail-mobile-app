@@ -49,20 +49,25 @@ export const GroupsScreen: React.FC<GroupsScreenProps> = ({ onBack, onSelectGrou
   const loadGroups = async () => {
     try {
       setLoading(true);
-      const response = await apiClient.listMyGroups();
+      console.log('🔄 GroupsScreen - Chargement des groupes...');
+      const groupsData = await apiClient.listGroups();
+      console.log('📦 GroupsScreen - Groupes reçus:', groupsData);
+      
       // Mapper les groupes de l'API au format local avec couleur et icône par défaut
-      const mappedGroups: Group[] = response.data.map((g: any, index: number) => ({
+      const mappedGroups: Group[] = groupsData.map((g: any, index: number) => ({
         id: g.id,
         name: g.name,
         description: g.description || '',
-        memberCount: 1, // TODO: récupérer le vrai nombre de membres via l'API
-        color: g.icon ? GROUP_COLORS[index % GROUP_COLORS.length] : GROUP_COLORS[0],
+        memberCount: g.memberCount || 0,
+        color: g.color || GROUP_COLORS[index % GROUP_COLORS.length],
         icon: g.icon || 'people',
       }));
+      
+      console.log('✅ GroupsScreen - Groupes mappés:', mappedGroups);
       setGroups(mappedGroups);
     } catch (error: any) {
-      console.error('Error loading groups:', error);
-      Alert.alert('Erreur', 'Impossible de charger les groupes');
+      console.error('❌ GroupsScreen - Erreur loading groups:', error);
+      Alert.alert('Erreur', 'Impossible de charger les groupes: ' + error.message);
       setGroups([]);
     } finally {
       setLoading(false);
@@ -75,15 +80,34 @@ export const GroupsScreen: React.FC<GroupsScreenProps> = ({ onBack, onSelectGrou
     setRefreshing(false);
   };
 
-  const handleCreateGroup = () => {
+  const handleCreateGroup = async () => {
     if (!newGroupName.trim()) {
       Alert.alert('Erreur', 'Veuillez entrer un nom de groupe');
       return;
     }
-    Alert.alert('Succès', 'Groupe créé avec succès !');
-    setShowCreateModal(false);
-    setNewGroupName('');
-    setNewGroupDesc('');
+
+    try {
+      setLoading(true);
+      await apiClient.createGroup({
+        name: newGroupName,
+        description: newGroupDesc,
+        icon: 'people',
+        is_public: false,
+      });
+      
+      Alert.alert('Succès', 'Groupe créé avec succès !');
+      setShowCreateModal(false);
+      setNewGroupName('');
+      setNewGroupDesc('');
+      
+      // Recharger la liste des groupes
+      await loadGroups();
+    } catch (error: any) {
+      console.error('Error creating group:', error);
+      Alert.alert('Erreur', 'Impossible de créer le groupe: ' + error.message);
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (

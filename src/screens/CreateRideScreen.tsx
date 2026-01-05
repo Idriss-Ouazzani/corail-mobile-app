@@ -9,11 +9,15 @@ import {
   Alert,
   Platform,
   Modal,
+  ActivityIndicator,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { apiClient } from '../services/api';
+import { AddressAutocomplete } from '../components/AddressAutocomplete';
+import { AddressSuggestion } from '../services/addressApi';
+import { calculateRoute } from '../services/routingApi';
 
 interface Group {
   id: string;
@@ -44,6 +48,8 @@ const VEHICLE_TYPES = [
 export const CreateRideScreen: React.FC<CreateRideScreenProps> = ({ onBack, onCreate, mode = 'publish' }) => {
   const [pickup, setPickup] = useState('');
   const [dropoff, setDropoff] = useState('');
+  const [pickupCoords, setPickupCoords] = useState<{ lat: number; lon: number } | null>(null);
+  const [dropoffCoords, setDropoffCoords] = useState<{ lat: number; lon: number } | null>(null);
   const [price, setPrice] = useState('');
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [showDatePicker, setShowDatePicker] = useState(false);
@@ -57,11 +63,54 @@ export const CreateRideScreen: React.FC<CreateRideScreenProps> = ({ onBack, onCr
   const [clientName, setClientName] = useState('');
   const [clientPhone, setClientPhone] = useState('');
   const [groups, setGroups] = useState<Group[]>([]);
+  const [generateQuote, setGenerateQuote] = useState(false); // Toggle pour générer un devis
+  const [showMoreOptions, setShowMoreOptions] = useState(false); // Toggle pour Plus d'options
+  const [calculatingRoute, setCalculatingRoute] = useState(false); // Calcul de l'itinéraire en cours
 
   // Charger les groupes de l'utilisateur au montage
   useEffect(() => {
     loadGroups();
   }, []);
+
+  // Désactiver le toggle si les champs client sont vidés
+  useEffect(() => {
+    if ((!clientName || !clientPhone) && generateQuote) {
+      setGenerateQuote(false);
+    }
+  }, [clientName, clientPhone]);
+
+  // Calculer automatiquement la distance et la durée quand les 2 adresses sont saisies
+  useEffect(() => {
+    const computeRoute = async () => {
+      if (pickupCoords && dropoffCoords) {
+        setCalculatingRoute(true);
+        try {
+          const routeDetails = await calculateRoute(
+            pickupCoords.lon,
+            pickupCoords.lat,
+            dropoffCoords.lon,
+            dropoffCoords.lat
+          );
+
+          if (routeDetails) {
+            // Pré-remplir automatiquement les champs
+            setDistance(routeDetails.distance_km.toString());
+            setDuration(routeDetails.duration_minutes.toString());
+            
+            console.log('✅ Itinéraire calculé:', routeDetails);
+          } else {
+            console.warn('⚠️ Impossible de calculer l\'itinéraire');
+          }
+        } catch (error) {
+          console.error('❌ Erreur calcul itinéraire:', error);
+        } finally {
+          setCalculatingRoute(false);
+        }
+      }
+    };
+
+    computeRoute();
+  }, [pickupCoords, dropoffCoords]);
 
   const loadGroups = async () => {
     try {
@@ -142,7 +191,7 @@ export const CreateRideScreen: React.FC<CreateRideScreenProps> = ({ onBack, onCr
     }
   };
 
-  const handleCreate = () => {
+  const handleCreate = async () => {
     if (!pickup || !dropoff || !price) {
       Alert.alert('Erreur', 'Veuillez remplir tous les champs obligatoires');
       return;
@@ -153,21 +202,72 @@ export const CreateRideScreen: React.FC<CreateRideScreenProps> = ({ onBack, onCr
       return;
     }
 
-    Alert.alert('Succès', 'Course créée avec succès !');
-    onCreate({
-      pickup_address: pickup,
-      dropoff_address: dropoff,
-      price_cents: parseFloat(price) * 100,
-      scheduled_at: formatDateForAPI(selectedDate),
-      visibility,
-      group_ids: selectedGroups.map(g => g.id),
-      vehicle_type: vehicleType,
-      distance_km: distance ? parseFloat(distance) : undefined,
-      duration_minutes: duration ? parseInt(duration) : undefined,
-      client_name: clientName || undefined,
-      client_phone: clientPhone || undefined,
-    });
-    onBack();
+    // Validation pour le devis
+    if (generateQuote && (!clientName || !clientPhone)) {
+      Alert.alert('Erreur', 'Le nom et le téléphone du client sont requis pour générer un devis');
+      return;
+    }
+
+    try {
+      let quoteId = null;
+      let quoteToken = null;
+
+      // Créer le devis d'abord si demandé
+      if (generateQuote && clientName && clientPhone) {
+        try {
+          const scheduledDate = new Date(selectedDate);
+          const quoteData = {
+            client_name: clientName,
+            client_phone: clientPhone,
+            pickup_address: pickup,
+            dropoff_address: dropoff,
+            scheduled_date: scheduledDate.toISOString().split('T')[0], // YYYY-MM-DD
+            scheduled_time: `${String(scheduledDate.getHours()).padStart(2, '0')}:${String(scheduledDate.getMinutes()).padStart(2, '0')}:00`, // HH:MM:SS
+            price_cents: parseFloat(price) * 100,
+            notes: distance ? `Distance: ${distance} km` : undefined,
+          };
+
+          const quote = await apiClient.createQuote(quoteData);
+          console.log('✅ Devis créé:', quote);
+          quoteId = quote.id;
+          quoteToken = quote.token;
+        } catch (quoteError: any) {
+          console.error('❌ Erreur création devis:', quoteError);
+          Alert.alert('Attention', 'Erreur lors de la création du devis, la course sera créée sans devis');
+        }
+      }
+
+      // Créer la course avec le quote_id si disponible
+      const rideData = {
+        pickup_address: pickup,
+        dropoff_address: dropoff,
+        price_cents: parseFloat(price) * 100,
+        scheduled_at: formatDateForAPI(selectedDate),
+        visibility,
+        group_ids: selectedGroups.map(g => g.id),
+        vehicle_type: vehicleType,
+        distance_km: distance ? parseFloat(distance) : undefined,
+        duration_minutes: duration ? parseInt(duration) : undefined,
+        client_name: clientName || undefined,
+        client_phone: clientPhone || undefined,
+        quote_id: quoteId,
+        quote_token: quoteToken,
+        quote_status: quoteId ? 'SENT' : undefined,
+      };
+
+      onCreate(rideData);
+
+      if (quoteId) {
+        Alert.alert('Succès', `Course et devis créés avec succès !\nLien du devis copié.`);
+      } else {
+        Alert.alert('Succès', 'Course créée avec succès !');
+      }
+
+      onBack();
+    } catch (error: any) {
+      console.error('❌ Erreur création course:', error);
+      Alert.alert('Erreur', 'Impossible de créer la course');
+    }
   };
 
   const toggleGroup = (group: Group) => {
@@ -203,31 +303,73 @@ export const CreateRideScreen: React.FC<CreateRideScreenProps> = ({ onBack, onCr
       <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
         {/* Pickup */}
         <View style={styles.section}>
-          <Text style={styles.label}>
-            <Ionicons name="location" size={16} color="#10b981" /> Point de départ
-          </Text>
-          <TextInput
-            style={styles.input}
+          <AddressAutocomplete
+            label="Point de départ"
             placeholder="Ex: Gare Toulouse-Matabiau"
-            placeholderTextColor="#64748b"
             value={pickup}
+            onSelectAddress={(address: AddressSuggestion) => {
+              setPickup(address.label);
+              setPickupCoords(address.coordinates);
+              console.log('📍 Adresse départ sélectionnée:', address.label, address.coordinates);
+            }}
             onChangeText={setPickup}
           />
         </View>
 
         {/* Dropoff */}
         <View style={styles.section}>
-          <Text style={styles.label}>
-            <Ionicons name="flag" size={16} color="#ff6b47" /> Point d'arrivée
-          </Text>
-          <TextInput
-            style={styles.input}
+          <AddressAutocomplete
+            label="Point d'arrivée"
             placeholder="Ex: Aéroport Toulouse-Blagnac"
-            placeholderTextColor="#64748b"
             value={dropoff}
+            onSelectAddress={(address: AddressSuggestion) => {
+              setDropoff(address.label);
+              setDropoffCoords(address.coordinates);
+              console.log('📍 Adresse arrivée sélectionnée:', address.label, address.coordinates);
+            }}
             onChangeText={setDropoff}
           />
         </View>
+
+        {/* Distance & Duration - Calculé automatiquement */}
+        {(pickupCoords && dropoffCoords) && (
+          <View style={styles.routeInfoSection}>
+            {calculatingRoute ? (
+              <View style={styles.routeInfoCalculating}>
+                <ActivityIndicator size="small" color="#10b981" />
+                <Text style={styles.routeInfoCalculatingText}>Calcul de l'itinéraire...</Text>
+              </View>
+            ) : (distance && duration) ? (
+              <View style={styles.routeInfoCard}>
+                <View style={styles.routeInfoHeader}>
+                  <Ionicons name="checkmark-circle" size={16} color="#10b981" />
+                  <Text style={styles.routeInfoBadge}>Calcul estimé</Text>
+                </View>
+                <View style={styles.routeInfoContent}>
+                  <View style={styles.routeInfoItem}>
+                    <View style={styles.routeInfoIconWrapper}>
+                      <Ionicons name="speedometer" size={20} color="#10b981" />
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.routeInfoLabel}>Distance</Text>
+                      <Text style={styles.routeInfoValue}>{distance} km</Text>
+                    </View>
+                  </View>
+                  <View style={styles.routeInfoDivider} />
+                  <View style={styles.routeInfoItem}>
+                    <View style={styles.routeInfoIconWrapper}>
+                      <Ionicons name="time" size={20} color="#10b981" />
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.routeInfoLabel}>Durée</Text>
+                      <Text style={styles.routeInfoValue}>{duration} min</Text>
+                    </View>
+                  </View>
+                </View>
+              </View>
+            ) : null}
+          </View>
+        )}
 
         {/* Price */}
         <View style={styles.section}>
@@ -279,75 +421,14 @@ export const CreateRideScreen: React.FC<CreateRideScreenProps> = ({ onBack, onCr
 
         </View>
 
-        {/* Vehicle Type */}
+        {/* Client Information & Quote */}
         <View style={styles.section}>
           <Text style={styles.label}>
-            <Ionicons name="car-sport" size={16} color="#ff6b47" /> Type de véhicule
-          </Text>
-          <View style={styles.vehicleTypeGrid}>
-            {VEHICLE_TYPES.map((vehicle) => {
-              const isSelected = vehicleType === vehicle.type;
-              return (
-                <TouchableOpacity
-                  key={vehicle.type}
-                  style={[
-                    styles.vehicleTypeChip,
-                    isSelected && { backgroundColor: vehicle.color + '20', borderColor: vehicle.color, borderWidth: 2 }
-                  ]}
-                  onPress={() => setVehicleType(vehicle.type)}
-                  activeOpacity={0.7}
-                >
-                  <Ionicons
-                    name={vehicle.icon as any}
-                    size={20}
-                    color={isSelected ? vehicle.color : '#64748b'}
-                  />
-                  <Text style={[styles.vehicleTypeText, isSelected && { color: vehicle.color, fontWeight: '700' }]}>
-                    {vehicle.label}
-                  </Text>
-                </TouchableOpacity>
-              );
-            })}
-          </View>
-        </View>
-
-        {/* Distance & Duration (Optional) */}
-        <View style={styles.section}>
-          <Text style={styles.label}>
-            <Ionicons name="information-circle" size={16} color="#64748b" /> Informations complémentaires (optionnel)
-          </Text>
-          <View style={styles.row}>
-            <View style={{ flex: 1, marginRight: 8 }}>
-              <TextInput
-                style={styles.input}
-                placeholder="Distance (km)"
-                placeholderTextColor="#64748b"
-                keyboardType="decimal-pad"
-                value={distance}
-                onChangeText={setDistance}
-              />
-            </View>
-            <View style={{ flex: 1, marginLeft: 8 }}>
-              <TextInput
-                style={styles.input}
-                placeholder="Durée (min)"
-                placeholderTextColor="#64748b"
-                keyboardType="number-pad"
-                value={duration}
-                onChangeText={setDuration}
-              />
-            </View>
-          </View>
-        </View>
-
-        {/* Client Information (Optional) */}
-        <View style={styles.section}>
-          <Text style={styles.label}>
-            <Ionicons name="person" size={16} color="#8b5cf6" /> Client (optionnel)
+            <Ionicons name="person" size={16} color="#8b5cf6" /> Client & Devis
           </Text>
           <TextInput
             style={styles.input}
-            placeholder="Nom du client"
+            placeholder="Nom du client (optionnel)"
             placeholderTextColor="#64748b"
             value={clientName}
             onChangeText={setClientName}
@@ -355,12 +436,151 @@ export const CreateRideScreen: React.FC<CreateRideScreenProps> = ({ onBack, onCr
           <View style={{ height: 12 }} />
           <TextInput
             style={styles.input}
-            placeholder="Téléphone du client"
+            placeholder="Téléphone du client (optionnel)"
             placeholderTextColor="#64748b"
             keyboardType="phone-pad"
             value={clientPhone}
             onChangeText={setClientPhone}
           />
+          
+          {/* Toggle Générer un devis */}
+          <TouchableOpacity
+            style={[
+              styles.quoteToggle,
+              (!clientName || !clientPhone) && styles.quoteToggleDisabled
+            ]}
+            onPress={() => {
+              if (!clientName || !clientPhone) {
+                Alert.alert(
+                  'Informations manquantes',
+                  'Veuillez renseigner le nom et le téléphone du client pour générer un devis'
+                );
+                return;
+              }
+              setGenerateQuote(!generateQuote);
+            }}
+            activeOpacity={0.7}
+          >
+            <View style={styles.quoteToggleLeft}>
+              <Ionicons 
+                name="document-text" 
+                size={20} 
+                color={(!clientName || !clientPhone) ? "#64748b" : "#f59e0b"} 
+              />
+              <View style={{ flex: 1 }}>
+                <Text style={[
+                  styles.quoteToggleTitle,
+                  (!clientName || !clientPhone) && styles.quoteToggleTitleDisabled
+                ]}>
+                  Générer un devis
+                </Text>
+                <Text style={[
+                  styles.quoteToggleSubtitle,
+                  (!clientName || !clientPhone) && styles.quoteToggleSubtitleDisabled
+                ]}>
+                  {(!clientName || !clientPhone) 
+                    ? 'Remplissez les infos client ci-dessus' 
+                    : 'Envoi automatique par WhatsApp'}
+                </Text>
+              </View>
+            </View>
+            <View style={[
+              styles.quoteToggleSwitchBox,
+              generateQuote && (clientName && clientPhone) && styles.quoteToggleSwitchActive,
+              (!clientName || !clientPhone) && styles.quoteToggleSwitchDisabled
+            ]}>
+              <View style={[
+                styles.quoteToggleThumb,
+                generateQuote && (clientName && clientPhone) && styles.quoteToggleThumbActive
+              ]} />
+            </View>
+          </TouchableOpacity>
+        </View>
+
+        {/* Plus d'options - Collapsible */}
+        <View style={styles.section}>
+          <TouchableOpacity
+            style={styles.moreOptionsHeader}
+            onPress={() => setShowMoreOptions(!showMoreOptions)}
+            activeOpacity={0.7}
+          >
+            <View style={styles.moreOptionsLeft}>
+              <Ionicons name="options" size={18} color="#94a3b8" />
+              <Text style={styles.moreOptionsTitle}>Plus d'options</Text>
+            </View>
+            <Ionicons
+              name={showMoreOptions ? 'chevron-up' : 'chevron-down'}
+              size={20}
+              color="#94a3b8"
+            />
+          </TouchableOpacity>
+
+          {showMoreOptions && (
+            <View style={styles.moreOptionsContent}>
+              {/* Vehicle Type */}
+              <View style={styles.moreOptionsSection}>
+                <Text style={styles.moreOptionsLabel}>
+                  <Ionicons name="car-sport" size={14} color="#ff6b47" /> Type de véhicule
+                </Text>
+                <View style={styles.vehicleTypeGrid}>
+                  {VEHICLE_TYPES.map((vehicle) => {
+                    const isSelected = vehicleType === vehicle.type;
+                    return (
+                      <TouchableOpacity
+                        key={vehicle.type}
+                        style={[
+                          styles.vehicleTypeChip,
+                          isSelected && { backgroundColor: vehicle.color + '20', borderColor: vehicle.color, borderWidth: 2 }
+                        ]}
+                        onPress={() => setVehicleType(vehicle.type)}
+                        activeOpacity={0.7}
+                      >
+                        <Ionicons
+                          name={vehicle.icon as any}
+                          size={18}
+                          color={isSelected ? vehicle.color : '#64748b'}
+                        />
+                        <Text style={[styles.vehicleTypeText, isSelected && { color: vehicle.color, fontWeight: '700' }]}>
+                          {vehicle.label}
+                        </Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
+              </View>
+
+              {/* Distance & Duration - Édition manuelle */}
+              <View style={[styles.moreOptionsSection, { marginBottom: 0 }]}>
+                <Text style={styles.moreOptionsLabel}>
+                  <Ionicons name="create" size={14} color="#64748b" /> Modifier distance et durée
+                </Text>
+                <View style={styles.row}>
+                  <View style={{ flex: 1, marginRight: 8 }}>
+                    <TextInput
+                      style={styles.input}
+                      placeholder="Distance (km)"
+                      placeholderTextColor="#64748b"
+                      keyboardType="decimal-pad"
+                      value={distance}
+                      onChangeText={setDistance}
+                      editable={!calculatingRoute}
+                    />
+                  </View>
+                  <View style={{ flex: 1, marginLeft: 8 }}>
+                    <TextInput
+                      style={styles.input}
+                      placeholder="Durée (min)"
+                      placeholderTextColor="#64748b"
+                      keyboardType="number-pad"
+                      value={duration}
+                      onChangeText={setDuration}
+                      editable={!calculatingRoute}
+                    />
+                  </View>
+                </View>
+              </View>
+            </View>
+          )}
         </View>
 
         {/* Visibility - Mode 'create' : PERSONAL par défaut + option publier */}
@@ -1016,6 +1236,190 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '700',
     color: '#fff',
+  },
+  // More Options Styles
+  moreOptionsHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: 'rgba(255, 255, 255, 0.03)',
+    borderRadius: 12,
+    padding: 14,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+  },
+  moreOptionsLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  moreOptionsTitle: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#94a3b8',
+  },
+  moreOptionsContent: {
+    marginTop: 16,
+    backgroundColor: 'rgba(255, 255, 255, 0.02)',
+    borderRadius: 12,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.05)',
+  },
+  moreOptionsSection: {
+    marginBottom: 16,
+  },
+  moreOptionsLabel: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#94a3b8',
+    marginBottom: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  // Quote Toggle Styles
+  quoteToggle: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: 'rgba(245, 158, 11, 0.1)',
+    borderRadius: 12,
+    padding: 14,
+    marginTop: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(245, 158, 11, 0.3)',
+  },
+  quoteToggleDisabled: {
+    backgroundColor: 'rgba(100, 116, 139, 0.1)',
+    borderColor: 'rgba(100, 116, 139, 0.2)',
+    opacity: 0.7,
+  },
+  quoteToggleLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    flex: 1,
+  },
+  quoteToggleTitle: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#f1f5f9',
+    marginBottom: 2,
+  },
+  quoteToggleTitleDisabled: {
+    color: '#94a3b8',
+  },
+  quoteToggleSubtitle: {
+    fontSize: 12,
+    color: '#94a3b8',
+  },
+  quoteToggleSubtitleDisabled: {
+    color: '#64748b',
+    fontStyle: 'italic',
+  },
+  quoteToggleSwitchBox: {
+    width: 50,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: '#334155',
+    padding: 2,
+    justifyContent: 'center',
+  },
+  quoteToggleSwitchActive: {
+    backgroundColor: '#f59e0b',
+  },
+  quoteToggleSwitchDisabled: {
+    backgroundColor: '#1e293b',
+  },
+  quoteToggleThumb: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: '#fff',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 2,
+    elevation: 2,
+  },
+  quoteToggleThumbActive: {
+    transform: [{ translateX: 22 }],
+  },
+  // Route Info Styles (Distance & Duration)
+  routeInfoSection: {
+    marginTop: -4,
+    marginBottom: 20,
+    paddingHorizontal: 20,
+  },
+  routeInfoCalculating: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(16, 185, 129, 0.1)',
+    borderRadius: 16,
+    padding: 16,
+    gap: 10,
+    borderWidth: 1,
+    borderColor: 'rgba(16, 185, 129, 0.2)',
+  },
+  routeInfoCalculatingText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#10b981',
+  },
+  routeInfoCard: {
+    backgroundColor: 'rgba(16, 185, 129, 0.08)',
+    borderRadius: 16,
+    padding: 14,
+    borderWidth: 1.5,
+    borderColor: 'rgba(16, 185, 129, 0.3)',
+  },
+  routeInfoHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 10,
+    gap: 6,
+  },
+  routeInfoBadge: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#10b981',
+  },
+  routeInfoContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  routeInfoItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    flex: 1,
+  },
+  routeInfoIconWrapper: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(16, 185, 129, 0.15)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  routeInfoLabel: {
+    fontSize: 11,
+    color: '#94a3b8',
+    marginBottom: 2,
+  },
+  routeInfoValue: {
+    fontSize: 17,
+    fontWeight: '700',
+    color: '#10b981',
+  },
+  routeInfoDivider: {
+    width: 1,
+    height: 40,
+    backgroundColor: 'rgba(16, 185, 129, 0.2)',
+    marginHorizontal: 12,
   },
 });
 

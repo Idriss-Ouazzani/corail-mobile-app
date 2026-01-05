@@ -11,7 +11,6 @@ import {
   ScrollView,
   TouchableOpacity,
   RefreshControl,
-  ActivityIndicator,
   Alert,
 } from 'react-native';
 import { Calendar } from 'react-native-calendars';
@@ -22,6 +21,7 @@ import { planningStyles as styles } from './planning/PlanningStyles';
 import DayView from './planning/DayView';
 import WeekView from './planning/WeekView';
 import EventModal from './planning/EventModal';
+import { PlanningEventSkeleton } from '../components/skeletons';
 
 interface PlanningEvent {
   id: string;
@@ -38,19 +38,42 @@ interface PlanningEvent {
 
 interface PlanningScreenProps {
   onBack: () => void;
+  onRidePress?: (rideId: string) => void; // Ouvrir le détail d'une course marketplace
+  onPersonalRidePress?: (rideId: string) => void; // Ouvrir le détail d'une course personnelle
 }
 
-export default function PlanningScreen({ onBack }: PlanningScreenProps) {
+export default function PlanningScreen({ onBack, onRidePress, onPersonalRidePress }: PlanningScreenProps) {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [events, setEvents] = useState<PlanningEvent[]>([]);
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
-  const [viewMode, setViewMode] = useState<'calendar' | 'day' | 'week'>('calendar');
+  const [viewMode, setViewMode] = useState<'calendar' | 'day' | 'week'>('week');
   const [selectedEvent, setSelectedEvent] = useState<PlanningEvent | null>(null);
 
   useEffect(() => {
     loadEvents();
   }, []);
+
+  // Gérer le clic sur un événement
+  const handleEventPress = (event: PlanningEvent) => {
+    // Si c'est une course (RIDE), ouvrir le détail complet
+    if (event.event_type === 'RIDE') {
+      // Extraire l'ID de la course (format: "marketplace-{id}" ou "personal-{id}")
+      const rideId = event.id.replace('marketplace-', '').replace('personal-', '');
+      
+      if (event.id.startsWith('marketplace-') && onRidePress) {
+        onRidePress(rideId);
+      } else if (event.id.startsWith('personal-') && onPersonalRidePress) {
+        onPersonalRidePress(rideId);
+      } else {
+        // Fallback : afficher le modal simple
+        setSelectedEvent(event);
+      }
+    } else {
+      // Pour les autres types d'événements, afficher le modal
+      setSelectedEvent(event);
+    }
+  };
 
   const loadEvents = async () => {
     try {
@@ -96,7 +119,7 @@ export default function PlanningScreen({ onBack }: PlanningScreenProps) {
         console.error('Error loading marketplace rides:', error);
       }
       
-      // Charger courses personnelles (Uber, Bolt, etc.)
+      // Charger courses personnelles
       let personalRidesAsEvents: PlanningEvent[] = [];
       try {
         const personalRides = await apiClient.listPersonalRides({});
@@ -198,8 +221,22 @@ export default function PlanningScreen({ onBack }: PlanningScreenProps) {
 
   if (loading) {
     return (
-      <View style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}>
-        <ActivityIndicator size="large" color="#ff6b47" />
+      <View style={styles.container}>
+        <LinearGradient colors={['#0f172a', '#1e293b']} style={styles.gradient}>
+          {/* Header */}
+          <View style={styles.header}>
+            <TouchableOpacity onPress={onBack} style={styles.backButton}>
+              <Ionicons name="arrow-back" size={24} color="#f1f5f9" />
+            </TouchableOpacity>
+            <Text style={styles.title}>Planning</Text>
+            <View style={{ width: 40 }} />
+          </View>
+          
+          {/* Skeletons */}
+          <ScrollView style={styles.content}>
+            <PlanningEventSkeleton />
+          </ScrollView>
+        </LinearGradient>
       </View>
     );
   }
@@ -293,7 +330,7 @@ export default function PlanningScreen({ onBack }: PlanningScreenProps) {
           selectedDate={selectedDate}
           events={events}
           onSelectDate={setSelectedDate}
-          onSelectEvent={setSelectedEvent}
+          onSelectEvent={handleEventPress}
           onPreviousWeek={goToPreviousWeek}
           onNextWeek={goToNextWeek}
           onToday={goToToday}
@@ -305,7 +342,7 @@ export default function PlanningScreen({ onBack }: PlanningScreenProps) {
         <DayView
           selectedDate={selectedDate}
           events={events}
-          onSelectEvent={setSelectedEvent}
+          onSelectEvent={handleEventPress}
           onPreviousDay={goToPreviousDay}
           onNextDay={goToNextDay}
         />

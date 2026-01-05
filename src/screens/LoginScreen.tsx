@@ -289,27 +289,31 @@ export default function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
               </LinearGradient>
             </TouchableOpacity>
 
-            {/* Séparateur "OU" */}
-            <View style={styles.dividerContainer}>
-              <View style={styles.dividerLine} />
-              <Text style={styles.dividerText}>OU</Text>
-              <View style={styles.dividerLine} />
-            </View>
-
-            {/* Bouton Google */}
-            <TouchableOpacity
-              style={[styles.googleButton, loading && styles.buttonDisabled]}
-              onPress={handleGoogleSignIn}
-              disabled={loading}
-              activeOpacity={0.8}
-            >
-              <View style={styles.googleButtonContent}>
-                <Ionicons name="logo-google" size={22} color="#ea4335" />
-                <Text style={styles.googleButtonText}>
-                  Continuer avec Google
-                </Text>
+            {/* Séparateur "OU" - Uniquement sur Web */}
+            {Platform.OS === 'web' && (
+              <View style={styles.dividerContainer}>
+                <View style={styles.dividerLine} />
+                <Text style={styles.dividerText}>OU</Text>
+                <View style={styles.dividerLine} />
               </View>
-            </TouchableOpacity>
+            )}
+
+            {/* Bouton Google - Uniquement sur Web */}
+            {Platform.OS === 'web' && (
+              <TouchableOpacity
+                style={[styles.googleButton, loading && styles.buttonDisabled]}
+                onPress={handleGoogleSignIn}
+                disabled={loading}
+                activeOpacity={0.8}
+              >
+                <View style={styles.googleButtonContent}>
+                  <Ionicons name="logo-google" size={22} color="#ea4335" />
+                  <Text style={styles.googleButtonText}>
+                    Continuer avec Google
+                  </Text>
+                </View>
+              </TouchableOpacity>
+            )}
 
             {/* Toggle connexion/inscription */}
             <View style={styles.toggleContainer}>

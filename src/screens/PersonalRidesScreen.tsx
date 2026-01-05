@@ -38,6 +38,9 @@ interface PersonalRide {
   notes?: string;
   status: string;
   created_at: string;
+  quote_id?: string | null;
+  quote_token?: string | null;
+  quote_status?: 'SENT' | 'VIEWED' | 'ACCEPTED' | 'REFUSED' | null;
 }
 
 interface Stats {
@@ -170,8 +173,8 @@ export default function PersonalRidesScreen({ onClose }: { onClose: () => void }
 
   const getSourceLabel = (src: string) => {
     switch (src) {
-      case 'UBER': return 'Uber';
-      case 'BOLT': return 'Bolt';
+      case 'UBER': return 'Externe';
+      case 'BOLT': return 'Externe';
       case 'DIRECT_CLIENT': return 'Client Direct';
       case 'MARKETPLACE': return 'Marketplace';
       case 'OTHER': return 'Autre';

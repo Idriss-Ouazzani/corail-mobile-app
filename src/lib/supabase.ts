@@ -3,13 +3,17 @@
  */
 
 import { createClient } from '@supabase/supabase-js';
+import Constants from 'expo-constants';
 
-// ⚠️ Vos credentials Supabase (safe pour commit - clé publique) gitleaks:allow
-const SUPABASE_URL = 'https://qeheawdjlwlkhnwbhqcg.supabase.co'; // gitleaks:allow
-const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFlaGVhd2RqbHdsa2hud2JocWNnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjcxMTY3NTMsImV4cCI6MjA4MjY5Mjc1M30.Eb9798W9FD92SNr4KI6W70heZ08hjwl0bbjeXHQU8ds'; // gitleaks:allow
+// Charger les variables depuis expo-constants (fonctionne avec EAS Build)
+const SUPABASE_URL = Constants.expoConfig?.extra?.supabaseUrl;
+const SUPABASE_ANON_KEY = Constants.expoConfig?.extra?.supabaseAnonKey;
 
 if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
-  console.warn('⚠️ Supabase credentials not configured!');
+  console.error('⚠️ Supabase credentials not configured!');
+  console.error('SUPABASE_URL:', SUPABASE_URL);
+  console.error('SUPABASE_ANON_KEY:', SUPABASE_ANON_KEY ? 'Present' : 'Missing');
+  throw new Error('Missing Supabase configuration. Please check your app.config.js');
 }
 
 export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {

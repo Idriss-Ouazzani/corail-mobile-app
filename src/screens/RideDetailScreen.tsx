@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -12,6 +12,7 @@ import {
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import type { Ride } from '../types';
+import { MapNavigationCard } from '../components/MapNavigationCard';
 
 interface RideDetailScreenProps {
   ride: Ride;
@@ -21,6 +22,14 @@ interface RideDetailScreenProps {
   onClaim?: () => void;
   onDelete?: () => void;
   onComplete?: () => void;
+  onConvertToPersonal?: () => void;
+}
+
+interface RouteInfo {
+  distance: string;
+  duration: string;
+  distanceMeters: number;
+  durationSeconds: number;
 }
 
 export const RideDetailScreen: React.FC<RideDetailScreenProps> = ({
@@ -31,19 +40,56 @@ export const RideDetailScreen: React.FC<RideDetailScreenProps> = ({
   onClaim,
   onDelete,
   onComplete,
+  onConvertToPersonal,
 }) => {
-  const isMyRide = ride.creator_id === currentUserId;
+  // Les courses personnelles utilisent driver_id, les courses marketplace utilisent creator_id
+  const isMyRide = ride.creator_id === currentUserId || (ride as any).driver_id === currentUserId;
   const isPicker = ride.picker_id === currentUserId;
   
-  // Les infos client sont visibles si :
-  // - Course PERSONAL (toujours visible)
-  // - OU si je suis le créateur
-  // - OU si j'ai pris la course (claimed)
+  const [routeInfo, setRouteInfo] = useState<RouteInfo | null>(null);
+  
   const canSeeClientInfo = 
     ride.visibility === 'PERSONAL' || 
     isMyRide || 
     isPicker;
+
+  // Calculer le temps restant avant la course
+  const getTimeUntilRide = () => {
+    const now = new Date();
+    const rideTime = new Date(ride.scheduled_at);
+    const diff = rideTime.getTime() - now.getTime();
+    
+    if (diff < 0) {
+      return 'Passée';
+    }
+    
+    const hours = Math.floor(diff / (1000 * 60 * 60));
+    const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+    const days = Math.floor(hours / 24);
+    
+    if (days > 0) {
+      return `Dans ${days}j ${hours % 24}h`;
+    } else if (hours > 0) {
+      return `Dans ${hours}h${minutes > 0 ? ` ${minutes}min` : ''}`;
+    } else if (minutes > 0) {
+      return `Dans ${minutes} min`;
+    } else {
+      return 'Imminent';
+    }
+  };
   
+  // Charger les infos de distance/durée depuis les données de la course
+  useEffect(() => {
+    if (ride.distance_km && ride.duration_minutes) {
+      setRouteInfo({
+        distance: `${ride.distance_km} km`,
+        duration: `${ride.duration_minutes} min`,
+        distanceMeters: ride.distance_km * 1000,
+        durationSeconds: ride.duration_minutes * 60,
+      });
+    }
+  }, [ride]);
+
   const handleDelete = () => {
     Alert.alert(
       'Supprimer la course',
@@ -58,6 +104,22 @@ export const RideDetailScreen: React.FC<RideDetailScreenProps> = ({
       ]
     );
   };
+
+  const handleConvertToPersonal = () => {
+    Alert.alert(
+      'M\'affecter cette course',
+      'Voulez-vous récupérer cette course en tant que course personnelle ?\n\n⚠️ Vous perdrez le crédit gagné lors de la publication (-1 crédit).',
+      [
+        { text: 'Annuler', style: 'cancel' },
+        {
+          text: 'Confirmer',
+          style: 'default',
+          onPress: () => onConvertToPersonal?.(),
+        },
+      ]
+    );
+  };
+  
   const formatPrice = (cents: number) => `${(cents / 100).toFixed(2)}€`;
   
   const formatDate = (dateString: string) => {
@@ -66,50 +128,23 @@ export const RideDetailScreen: React.FC<RideDetailScreenProps> = ({
       weekday: 'long',
       day: 'numeric', 
       month: 'long',
-      year: 'numeric',
       hour: '2-digit',
       minute: '2-digit'
     });
   };
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'PUBLISHED': return '#10b981';
-      case 'CLAIMED': return '#0ea5e9';
-      case 'COMPLETED': return '#6b7280';
-      case 'CANCELLED': return '#ef4444';
-      default: return '#6b7280';
-    }
-  };
-
-  const getStatusLabel = (status: string) => {
-    switch (status) {
-      case 'PUBLISHED': return 'Disponible';
-      case 'CLAIMED': return 'En cours';
-      case 'COMPLETED': return 'Terminée';
-      case 'CANCELLED': return 'Annulée';
-      default: return status;
-    }
-  };
-
-  const openInMaps = (type: 'google' | 'waze' | 'apple') => {
-    const pickup = encodeURIComponent(ride.pickup_address);
-    const dropoff = encodeURIComponent(ride.dropoff_address);
-    
-    let url = '';
-    switch (type) {
-      case 'google':
-        url = `https://www.google.com/maps/dir/${pickup}/${dropoff}`;
-        break;
-      case 'waze':
-        url = `https://waze.com/ul?ll=${pickup}&navigate=yes`;
-        break;
-      case 'apple':
-        url = `http://maps.apple.com/?saddr=${pickup}&daddr=${dropoff}`;
-        break;
-    }
-    
-    Linking.openURL(url).catch(() => Alert.alert('Erreur', 'Impossible d\'ouvrir l\'application'));
+  const formatShortDate = (dateString: string) => {
+    const date = new Date(dateString);
+    const day = date.toLocaleDateString('fr-FR', { 
+      weekday: 'short', 
+      day: 'numeric', 
+      month: 'short' 
+    });
+    const time = date.toLocaleTimeString('fr-FR', { 
+      hour: '2-digit', 
+      minute: '2-digit' 
+    });
+    return { day, time };
   };
 
   const handleShare = async () => {
@@ -123,39 +158,14 @@ export const RideDetailScreen: React.FC<RideDetailScreenProps> = ({
         `${ride.visibility === 'GROUP' ? '👥 Réservé au groupe\n' : '🌍 Public\n'}` +
         `\n✨ Téléchargez Corail VTC pour réserver !`;
 
-      const result = await Share.share({
-        message: message,
-        title: 'Course Corail VTC',
-      });
-
-      if (result.action === Share.sharedAction) {
-        if (result.activityType) {
-          // Partagé via une app spécifique
-          Alert.alert('Succès', 'Course partagée avec succès !');
-        } else {
-          // Partagé mais on ne sait pas via quelle app
-          Alert.alert('Succès', 'Course partagée avec succès !');
-        }
-      }
+      await Share.share({ message, title: 'Course Corail VTC' });
     } catch (error) {
       Alert.alert('Erreur', 'Impossible de partager la course');
     }
   };
 
-  const handleContactWhatsApp = () => {
-    // Numéro de téléphone fictif pour démo - à remplacer par le vrai numéro du créateur
-    const phoneNumber = '+33612345678';
-    const message = encodeURIComponent(
-      `Bonjour ${ride.creator?.full_name}, je suis intéressé par votre course : ${ride.pickup_address} → ${ride.dropoff_address}`
-    );
-    const url = `https://wa.me/${phoneNumber.replace('+', '')}?text=${message}`;
-    Linking.openURL(url).catch(() => Alert.alert('Erreur', 'WhatsApp n\'est pas installé'));
-  };
-
-  const handleContactPhone = () => {
-    const phoneNumber = '+33612345678'; // Numéro fictif pour démo
-    Linking.openURL(`tel:${phoneNumber}`).catch(() => Alert.alert('Erreur', 'Impossible d\'appeler'));
-  };
+  const timeUntil = getTimeUntilRide();
+  const dateInfo = formatShortDate(ride.scheduled_at);
 
   return (
     <View style={styles.container}>
@@ -181,30 +191,58 @@ export const RideDetailScreen: React.FC<RideDetailScreenProps> = ({
       </LinearGradient>
 
       <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
-        {/* Price & Status */}
-        <View style={styles.priceStatusSection}>
-          <LinearGradient
-            colors={['#ff6b47', '#ff8a6d']}
-            style={styles.priceCard}
-          >
-            <Ionicons name="wallet" size={28} color="#fff" style={{ opacity: 0.9 }} />
-            <View style={styles.priceContent}>
-              <Text style={styles.priceLabel}>Montant</Text>
-              <Text style={styles.priceValue}>{formatPrice(ride.price_cents)}</Text>
+        {/* Horaire + Prix en haut */}
+        <View style={styles.topSection}>
+          {/* Horaire avec countdown */}
+          <View style={styles.scheduleTopCard}>
+            <View style={styles.scheduleIconContainer}>
+              <Ionicons name="calendar-outline" size={28} color="#0ea5e9" />
             </View>
-          </LinearGradient>
+            <View style={styles.scheduleTopContent}>
+              <Text style={styles.scheduleTopDate}>{dateInfo.day}</Text>
+              <View style={styles.scheduleTimeRow}>
+                <Text style={styles.scheduleTopTime}>{dateInfo.time}</Text>
+                <View style={styles.scheduleCountdown}>
+                  <Ionicons name="time-outline" size={14} color="#10b981" />
+                  <Text style={styles.scheduleCountdownText}>{timeUntil}</Text>
+                </View>
+              </View>
+            </View>
+          </View>
 
-          {ride.status === 'PUBLISHED' && (
-            <View style={styles.statusCard}>
-              <View style={styles.statusDot} />
-              <Text style={styles.statusLabel}>Disponible maintenant</Text>
-            </View>
-          )}
+          {/* Prix réduit */}
+          <View style={styles.priceTopCard}>
+            <Text style={styles.priceTopLabel}>Montant</Text>
+            <Text style={styles.priceTopValue}>{formatPrice(ride.price_cents)}</Text>
+            {ride.visibility === 'PUBLIC' && (
+              <View style={styles.visibilityBadge}>
+                <Ionicons name="globe" size={10} color="#fff" />
+                <Text style={styles.visibilityBadgeText}>Public</Text>
+              </View>
+            )}
+            {ride.visibility === 'GROUP' && (
+              <View style={[styles.visibilityBadge, { backgroundColor: '#a855f7' }]}>
+                <Ionicons name="people" size={10} color="#fff" />
+                <Text style={styles.visibilityBadgeText}>Groupe</Text>
+              </View>
+            )}
+          </View>
         </View>
 
-        {/* Route */}
+        {/* Navigation */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Itinéraire</Text>
+          <Text style={styles.sectionTitle}>Navigation</Text>
+          <MapNavigationCard
+            pickupAddress={ride.pickup_address}
+            dropoffAddress={ride.dropoff_address}
+            distance={routeInfo?.distance}
+            duration={routeInfo?.duration}
+          />
+        </View>
+
+        {/* Adresses départ/arrivée */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Détails du trajet</Text>
           <View style={styles.routeCard}>
             {/* Departure */}
             <View style={styles.routePoint}>
@@ -230,52 +268,137 @@ export const RideDetailScreen: React.FC<RideDetailScreenProps> = ({
               </View>
             </View>
           </View>
-
-          {/* Navigation Options */}
-          <Text style={styles.navTitle}>Ouvrir dans :</Text>
-          <View style={styles.navButtons}>
-            <TouchableOpacity
-              style={styles.navButton}
-              onPress={() => openInMaps('google')}
-              activeOpacity={0.7}
-            >
-              <Ionicons name="map" size={20} color="#4285F4" />
-              <Text style={styles.navButtonText}>Google Maps</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={styles.navButton}
-              onPress={() => openInMaps('waze')}
-              activeOpacity={0.7}
-            >
-              <Ionicons name="navigate" size={20} color="#33CCFF" />
-              <Text style={styles.navButtonText}>Waze</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={styles.navButton}
-              onPress={() => openInMaps('apple')}
-              activeOpacity={0.7}
-            >
-              <Ionicons name="location" size={20} color="#007AFF" />
-              <Text style={styles.navButtonText}>Apple Plans</Text>
-            </TouchableOpacity>
-          </View>
         </View>
 
-        {/* Schedule */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Horaire</Text>
-          <View style={styles.scheduleCard}>
-            <Ionicons name="calendar" size={24} color="#0ea5e9" />
-            <Text style={styles.scheduleText}>{formatDate(ride.scheduled_at)}</Text>
+        {/* Devis si disponible - Déplacé avant client */}
+        {ride.quote_id && (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>📄 Devis associé</Text>
+            <View style={styles.quoteCard}>
+              <View style={styles.quoteHeader}>
+                <View style={styles.quoteIconContainer}>
+                  <Ionicons name="document-text" size={24} color="#f59e0b" />
+                </View>
+                <View style={styles.quoteInfo}>
+                  <Text style={styles.quoteRef}>Réf: {ride.quote_id.slice(0, 8).toUpperCase()}</Text>
+                  {ride.quote_status && (
+                    <View style={[styles.quoteStatusBadge, getQuoteStatusStyle(ride.quote_status)]}>
+                      <Text style={styles.quoteStatusText}>
+                        {getQuoteStatusLabel(ride.quote_status)}
+                      </Text>
+                    </View>
+                  )}
+                </View>
+              </View>
+              {ride.quote_token && (
+                <TouchableOpacity
+                  style={styles.quoteLink}
+                  onPress={() => {
+                    const url = `https://corail-quotes-web.vercel.app/q/${ride.quote_token}`;
+                    Linking.openURL(url);
+                  }}
+                  activeOpacity={0.7}
+                >
+                  <Ionicons name="open-outline" size={18} color="#0ea5e9" />
+                  <Text style={styles.quoteLinkText}>Voir le devis en ligne</Text>
+                  <Ionicons name="arrow-forward" size={16} color="#0ea5e9" />
+                </TouchableOpacity>
+              )}
+            </View>
           </View>
-        </View>
+        )}
 
-        {/* Client Information - Visible uniquement si PERSONAL OU si créateur/picker */}
+        {/* Pris par - Afficher qui a pris ma course */}
+        {isMyRide && ride.status === 'CLAIMED' && ride.picker && (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Course prise par</Text>
+            <View style={styles.pickerCard}>
+              {/* Infos du preneur + Boutons */}
+              <View style={styles.pickerHeader}>
+                <View style={styles.pickerIconContainer}>
+                  <Ionicons name="person-circle" size={40} color="#10b981" />
+                </View>
+                <View style={styles.pickerInfo}>
+                  <Text style={styles.pickerName}>{ride.picker.full_name}</Text>
+                  {ride.picker.rating !== undefined && (
+                    <View style={styles.pickerRatingRow}>
+                      <Ionicons name="star" size={14} color="#fbbf24" />
+                      <Text style={styles.pickerRatingText}>
+                        {ride.picker.rating.toFixed(1)}
+                      </Text>
+                      {ride.picker.total_reviews !== undefined && (
+                        <Text style={styles.pickerReviewsText}>
+                          ({ride.picker.total_reviews} avis)
+                        </Text>
+                      )}
+                    </View>
+                  )}
+                </View>
+              </View>
+
+              {/* Boutons de contact */}
+              <View style={styles.contactButtons}>
+                {/* Appeler */}
+                <TouchableOpacity
+                  style={styles.contactButton}
+                  onPress={() => {
+                    if (!ride.picker.phone) {
+                      Alert.alert('Numéro indisponible', 'Le numéro de téléphone n\'est pas renseigné');
+                      return;
+                    }
+                    Linking.openURL(`tel:${ride.picker.phone}`).catch(() =>
+                      Alert.alert('Erreur', 'Impossible d\'ouvrir l\'application téléphone')
+                    );
+                  }}
+                  activeOpacity={0.7}
+                  disabled={!ride.picker.phone}
+                >
+                  <LinearGradient
+                    colors={ride.picker.phone ? ['#0ea5e9', '#0284c7'] : ['#64748b', '#475569']}
+                    style={styles.contactButtonGradient}
+                  >
+                    <Ionicons name="call" size={18} color="#fff" />
+                    <Text style={styles.contactButtonText}>Appeler</Text>
+                  </LinearGradient>
+                </TouchableOpacity>
+
+                {/* WhatsApp */}
+                <TouchableOpacity
+                  style={styles.contactButton}
+                  onPress={() => {
+                    if (!ride.picker.phone) {
+                      Alert.alert('Numéro indisponible', 'Le numéro de téléphone n\'est pas renseigné');
+                      return;
+                    }
+                    const phone = ride.picker.phone?.replace(/[\s\-\(\)]/g, '');
+                    Linking.openURL(`whatsapp://send?phone=${phone}`).catch(() =>
+                      Alert.alert('Erreur', 'WhatsApp n\'est pas installé')
+                    );
+                  }}
+                  activeOpacity={0.7}
+                  disabled={!ride.picker.phone}
+                >
+                  <LinearGradient
+                    colors={ride.picker.phone ? ['#25D366', '#1DA851'] : ['#64748b', '#475569']}
+                    style={styles.contactButtonGradient}
+                  >
+                    <Ionicons name="logo-whatsapp" size={18} color="#fff" />
+                    <Text style={styles.contactButtonText}>Écrire</Text>
+                  </LinearGradient>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+        )}
+
+        {/* Client Information */}
         {canSeeClientInfo && (ride.client_name || ride.client_phone) && (
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Client</Text>
             <View style={styles.clientCard}>
-              <Ionicons name="person-circle" size={32} color="#8b5cf6" />
+              <View style={styles.clientIconContainer}>
+                <Ionicons name="person" size={28} color="#8b5cf6" />
+              </View>
               <View style={styles.clientInfo}>
                 {ride.client_name && (
                   <Text style={styles.clientName}>{ride.client_name}</Text>
@@ -284,10 +407,10 @@ export const RideDetailScreen: React.FC<RideDetailScreenProps> = ({
                   <TouchableOpacity
                     onPress={() => Linking.openURL(`tel:${ride.client_phone}`)}
                     activeOpacity={0.7}
+                    style={styles.clientPhoneButton}
                   >
-                    <Text style={styles.clientPhone}>
-                      <Ionicons name="call" size={14} color="#10b981" /> {ride.client_phone}
-                    </Text>
+                    <Ionicons name="call" size={16} color="#10b981" />
+                    <Text style={styles.clientPhone}>{ride.client_phone}</Text>
                   </TouchableOpacity>
                 )}
               </View>
@@ -323,65 +446,10 @@ export const RideDetailScreen: React.FC<RideDetailScreenProps> = ({
                 </View>
               )}
             </View>
-
-            {/* Contact Buttons (only if not my ride) */}
-            {!isMyRide && (
-              <View style={styles.contactButtons}>
-                <TouchableOpacity
-                  style={styles.contactButton}
-                  onPress={handleContactWhatsApp}
-                  activeOpacity={0.7}
-                >
-                  <LinearGradient
-                    colors={['#25D366', '#20BA5A']}
-                    style={styles.contactButtonGradient}
-                  >
-                    <Ionicons name="logo-whatsapp" size={20} color="#fff" />
-                    <Text style={styles.contactButtonText}>WhatsApp</Text>
-                  </LinearGradient>
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                  style={styles.contactButton}
-                  onPress={handleContactPhone}
-                  activeOpacity={0.7}
-                >
-                  <LinearGradient
-                    colors={['#0ea5e9', '#38bdf8']}
-                    style={styles.contactButtonGradient}
-                  >
-                    <Ionicons name="call" size={20} color="#fff" />
-                    <Text style={styles.contactButtonText}>Appeler</Text>
-                  </LinearGradient>
-                </TouchableOpacity>
-              </View>
-            )}
           </View>
         )}
 
-        {/* Tags */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Informations</Text>
-          <View style={styles.tags}>
-            {ride.visibility === 'PUBLIC' && (
-              <View style={[styles.tag, { backgroundColor: '#0ea5e9' }]}>
-                <Ionicons name="globe" size={14} color="#fff" />
-                <Text style={styles.tagText}>Public</Text>
-              </View>
-            )}
-            {ride.visibility === 'GROUP' && (
-              <View style={[styles.tag, { backgroundColor: '#a855f7' }]}>
-                <Ionicons name="people" size={14} color="#fff" />
-                <Text style={styles.tagText}>Groupe</Text>
-              </View>
-            )}
-          </View>
-        </View>
-
-        <View style={{ height: 100 }} />
-      </ScrollView>
-
-      {/* Action Buttons */}
+        {/* Action Buttons */}
       {!isMyRide && ride.status === 'PUBLISHED' && onClaim && (
         <View style={styles.actionContainer}>
           <View style={styles.creditsCostBanner}>
@@ -417,45 +485,140 @@ export const RideDetailScreen: React.FC<RideDetailScreenProps> = ({
         </View>
       )}
 
-      {/* Delete Button - Only for creator */}
-      {isMyRide && ride.status === 'PUBLISHED' && onDelete && (
-        <View style={styles.actionContainer}>
+      {/* Convert to Personal Button - S'affecter une course publiée */}
+      {isMyRide && !ride.picker_id && ride.status === 'PUBLISHED' && onConvertToPersonal && (
+        <View style={{ marginBottom: 16, marginHorizontal: 20 }}>
           <TouchableOpacity
-            style={styles.deleteButton}
-            onPress={handleDelete}
+            onPress={handleConvertToPersonal}
             activeOpacity={0.8}
           >
             <LinearGradient
-              colors={['#ef4444', '#dc2626']}
-              style={styles.actionButtonGradient}
+              colors={['#f59e0b', '#f97316']}
+              style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: 12,
+                paddingVertical: 18,
+                borderRadius: 16,
+                shadowColor: '#f59e0b',
+                shadowOffset: { width: 0, height: 4 },
+                shadowOpacity: 0.3,
+                shadowRadius: 8,
+                elevation: 8,
+              }}
             >
-              <Ionicons name="trash" size={24} color="#fff" />
-              <Text style={styles.actionButtonText}>Supprimer cette course</Text>
+              <Ionicons name="person-add" size={24} color="#fff" />
+              <Text style={{
+                fontSize: 17,
+                fontWeight: '700',
+                color: '#fff',
+              }}>
+                M'affecter cette course
+              </Text>
             </LinearGradient>
           </TouchableOpacity>
         </View>
       )}
 
-      {/* Complete Button - Only for picker with CLAIMED status */}
-      {isPicker && ride.status === 'CLAIMED' && onComplete && (
-        <View style={styles.actionContainer}>
+      {/* Delete Button */}
+      {isMyRide && onDelete && (ride.status === 'PUBLISHED' || ride.visibility === 'PERSONAL' || (ride as any).driver_id) && (
+        <View style={{ marginBottom: 16, marginHorizontal: 20 }}>
           <TouchableOpacity
-            style={styles.actionButton}
+            onPress={handleDelete}
+            activeOpacity={0.8}
+          >
+            <LinearGradient
+              colors={['#ef4444', '#dc2626']}
+              style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: 12,
+                paddingVertical: 18,
+                borderRadius: 16,
+                shadowColor: '#ef4444',
+                shadowOffset: { width: 0, height: 4 },
+                shadowOpacity: 0.3,
+                shadowRadius: 8,
+                elevation: 8,
+              }}
+            >
+              <Ionicons name="trash" size={24} color="#fff" />
+              <Text style={{
+                fontSize: 17,
+                fontWeight: '700',
+                color: '#fff',
+              }}>
+                Supprimer cette course
+              </Text>
+            </LinearGradient>
+          </TouchableOpacity>
+        </View>
+      )}
+
+      {/* Complete Button */}
+      {isPicker && ride.status === 'CLAIMED' && onComplete && (
+        <View style={{ marginBottom: 16, marginHorizontal: 20 }}>
+          <TouchableOpacity
             onPress={onComplete}
             activeOpacity={0.8}
           >
             <LinearGradient
               colors={['#10b981', '#059669']}
-              style={styles.actionButtonGradient}
+              style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: 12,
+                paddingVertical: 18,
+                borderRadius: 16,
+                shadowColor: '#10b981',
+                shadowOffset: { width: 0, height: 4 },
+                shadowOpacity: 0.3,
+                shadowRadius: 8,
+                elevation: 8,
+              }}
             >
               <Ionicons name="checkmark-circle" size={24} color="#fff" />
-              <Text style={styles.actionButtonText}>Terminer la course</Text>
+              <Text style={{
+                fontSize: 17,
+                fontWeight: '700',
+                color: '#fff',
+              }}>
+                Terminer la course
+              </Text>
             </LinearGradient>
           </TouchableOpacity>
         </View>
       )}
+
+      {/* Bottom spacing */}
+      <View style={{ height: 100 }} />
+    </ScrollView>
     </View>
   );
+};
+
+// Helper functions
+const getQuoteStatusLabel = (status: string) => {
+  switch (status) {
+    case 'SENT': return '📤 Envoyé';
+    case 'VIEWED': return '👁️ Vu par le client';
+    case 'ACCEPTED': return '✅ Accepté';
+    case 'REFUSED': return '❌ Refusé';
+    default: return status;
+  }
+};
+
+const getQuoteStatusStyle = (status: string) => {
+  switch (status) {
+    case 'SENT': return { backgroundColor: 'rgba(59, 130, 246, 0.2)' };
+    case 'VIEWED': return { backgroundColor: 'rgba(168, 85, 247, 0.2)' };
+    case 'ACCEPTED': return { backgroundColor: 'rgba(16, 185, 129, 0.2)' };
+    case 'REFUSED': return { backgroundColor: 'rgba(239, 68, 68, 0.2)' };
+    default: return { backgroundColor: 'rgba(100, 116, 139, 0.2)' };
+  }
 };
 
 const styles = StyleSheet.create({
@@ -485,14 +648,6 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#f1f5f9',
   },
-  myRideBadge: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: '#fbbf24',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
   myRideBadgeHeader: {
     width: 24,
     height: 24,
@@ -514,71 +669,234 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingHorizontal: 20,
   },
-  priceStatusSection: {
+  
+  // Top Section (Horaire + Prix)
+  topSection: {
     marginTop: 20,
-    marginBottom: 30,
+    marginBottom: 24,
+    gap: 12,
   },
-  priceCard: {
+  scheduleTopCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    borderRadius: 20,
-    padding: 24,
-    marginBottom: 12,
-    shadowColor: '#ff6b47',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 6,
-  },
-  priceContent: {
-    marginLeft: 16,
-    flex: 1,
-  },
-  priceLabel: {
-    fontSize: 14,
-    color: 'rgba(255, 255, 255, 0.9)',
-    marginBottom: 4,
-    fontWeight: '600',
-  },
-  priceValue: {
-    fontSize: 32,
-    fontWeight: '700',
-    color: '#fff',
-  },
-  statusCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'rgba(16, 185, 129, 0.15)',
+    backgroundColor: 'rgba(14, 165, 233, 0.1)',
     borderRadius: 16,
     padding: 16,
     borderWidth: 1,
-    borderColor: 'rgba(16, 185, 129, 0.3)',
+    borderColor: 'rgba(14, 165, 233, 0.3)',
   },
-  statusDot: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
-    backgroundColor: '#10b981',
-    marginRight: 12,
+  scheduleIconContainer: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: 'rgba(14, 165, 233, 0.15)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 14,
   },
-  statusLabel: {
+  scheduleTopContent: {
+    flex: 1,
+  },
+  scheduleTopDate: {
     fontSize: 15,
     fontWeight: '600',
+    color: '#94a3b8',
+    textTransform: 'capitalize',
+    marginBottom: 4,
+  },
+  scheduleTimeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  scheduleTopTime: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: '#f1f5f9',
+  },
+  scheduleCountdown: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(16, 185, 129, 0.15)',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 8,
+    gap: 4,
+  },
+  scheduleCountdownText: {
+    fontSize: 12,
+    fontWeight: '700',
     color: '#10b981',
   },
+  priceTopCard: {
+    backgroundColor: 'rgba(255, 107, 71, 0.1)',
+    borderRadius: 16,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 107, 71, 0.3)',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  priceTopLabel: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#94a3b8',
+  },
+  priceTopValue: {
+    fontSize: 24,
+    fontWeight: '700',
+    color: '#ff6b47',
+  },
+  visibilityBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#0ea5e9',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 8,
+    gap: 4,
+  },
+  visibilityBadgeText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#fff',
+  },
+
+  // Map Section
   section: {
-    marginBottom: 30,
+    marginBottom: 24,
   },
   sectionTitle: {
     fontSize: 18,
     fontWeight: '700',
     color: '#f1f5f9',
+    marginBottom: 12,
+  },
+  mapCard: {
+    borderRadius: 16,
+    overflow: 'hidden',
+    backgroundColor: '#1e293b',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+    height: 280,
+    position: 'relative',
+  },
+  mapBackground: {
+    width: '100%',
+    height: '100%',
+    backgroundColor: '#1e293b',
+  },
+  mapFallback: {
+    position: 'absolute',
+    width: '100%',
+    height: '100%',
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#1e293b',
+  },
+  mapBlur: {
+    width: '100%',
+    height: '100%',
+  },
+  mapNavigationOverlay: {
+    flex: 1,
+    padding: 20,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  mapNavigationTitle: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#f1f5f9',
+    marginBottom: 16,
+    textAlign: 'center',
+  },
+  mapNavButtons: {
+    flexDirection: 'row',
+    gap: 12,
     marginBottom: 16,
   },
+  mapNavButton: {
+    flex: 1,
+    alignItems: 'center',
+    backgroundColor: 'rgba(30, 41, 59, 0.8)',
+    borderRadius: 14,
+    padding: 14,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
+  },
+  mapNavLogoContainer: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 10,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.4,
+    shadowRadius: 8,
+    elevation: 10,
+    borderWidth: 2,
+    borderColor: 'rgba(255, 255, 255, 0.2)',
+  },
+  googleMapsIcon: {
+    width: '100%',
+    height: '100%',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  wazeIcon: {
+    width: '100%',
+    height: '100%',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  appleMapsIcon: {
+    width: '100%',
+    height: '100%',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  mapNavButtonText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#f1f5f9',
+    textAlign: 'center',
+  },
+  mapRouteInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(30, 41, 59, 0.9)',
+    borderRadius: 10,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
+  },
+  mapRouteInfoItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  mapRouteInfoText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#94a3b8',
+  },
+  mapRouteInfoSeparator: {
+    width: 1,
+    height: 12,
+    backgroundColor: '#475569',
+    marginHorizontal: 12,
+  },
+
+  // Route Card (Addresses)
   routeCard: {
     backgroundColor: 'rgba(30, 41, 59, 0.5)',
-    borderRadius: 20,
-    padding: 20,
+    borderRadius: 16,
+    padding: 18,
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.08)',
   },
@@ -587,11 +905,11 @@ const styles = StyleSheet.create({
     alignItems: 'flex-start',
   },
   routeDot: {
-    width: 14,
-    height: 14,
-    borderRadius: 7,
+    width: 12,
+    height: 12,
+    borderRadius: 6,
     marginTop: 4,
-    marginRight: 16,
+    marginRight: 14,
     shadowColor: '#10b981',
     shadowOffset: { width: 0, height: 0 },
     shadowOpacity: 0.8,
@@ -602,171 +920,137 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   routePointLabel: {
-    fontSize: 11,
+    fontSize: 10,
     color: '#64748b',
     fontWeight: '700',
     letterSpacing: 1,
-    marginBottom: 6,
+    marginBottom: 4,
   },
   routePointAddress: {
-    fontSize: 16,
+    fontSize: 14,
     color: '#f1f5f9',
     fontWeight: '600',
   },
   routeLine: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginLeft: 6,
-    marginVertical: 12,
+    marginLeft: 5,
+    marginVertical: 10,
   },
   routeLineDashed: {
     width: 2,
-    height: 40,
+    height: 30,
     backgroundColor: '#475569',
   },
   routeArrow: {
     marginLeft: 8,
   },
-  navTitle: {
-    fontSize: 14,
-    color: '#94a3b8',
-    fontWeight: '600',
-    marginTop: 20,
+
+  // Quote Card
+  quoteCard: {
+    backgroundColor: 'rgba(245, 158, 11, 0.1)',
+    borderRadius: 16,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(245, 158, 11, 0.3)',
+  },
+  quoteHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
     marginBottom: 12,
   },
-  navButtons: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
+  quoteIconContainer: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: 'rgba(245, 158, 11, 0.15)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
   },
-  navButton: {
+  quoteInfo: {
     flex: 1,
-    backgroundColor: 'rgba(255, 255, 255, 0.05)',
-    borderRadius: 14,
-    padding: 14,
-    alignItems: 'center',
-    marginHorizontal: 4,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.08)',
   },
-  navButtonText: {
-    fontSize: 11,
-    color: '#f1f5f9',
-    fontWeight: '600',
-    marginTop: 6,
-  },
-  scheduleCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'rgba(30, 41, 59, 0.5)',
-    borderRadius: 16,
-    padding: 18,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.08)',
-  },
-  scheduleText: {
+  quoteRef: {
     fontSize: 15,
-    color: '#f1f5f9',
-    fontWeight: '600',
-    marginLeft: 12,
-    flex: 1,
-  },
-  clientCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'rgba(139, 92, 246, 0.08)',
-    borderRadius: 16,
-    padding: 18,
-    borderWidth: 1,
-    borderColor: 'rgba(139, 92, 246, 0.2)',
-  },
-  clientInfo: {
-    marginLeft: 14,
-    flex: 1,
-  },
-  clientName: {
-    fontSize: 16,
     fontWeight: '700',
     color: '#f1f5f9',
     marginBottom: 6,
   },
-  clientPhone: {
+  quoteStatusBadge: {
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 8,
+    alignSelf: 'flex-start',
+  },
+  quoteStatusText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#f1f5f9',
+  },
+  quoteLink: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(245, 158, 11, 0.2)',
+  },
+  quoteLinkText: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#10b981',
-  },
-  creatorCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'rgba(255, 255, 255, 0.03)',
-    borderRadius: 18,
-    padding: 18,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.08)',
-  },
-  creatorCardMyRide: {
-    backgroundColor: 'rgba(251, 191, 36, 0.08)',
-    borderColor: 'rgba(251, 191, 36, 0.3)',
-  },
-  creatorAvatar: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    backgroundColor: '#ff6b47',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 16,
-  },
-  creatorAvatarMyRide: {
-    backgroundColor: '#fbbf24',
-  },
-  creatorInitials: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: '#000',
-  },
-  creatorInfo: {
+    color: '#0ea5e9',
     flex: 1,
   },
-  creatorName: {
-    fontSize: 16,
-    color: '#f1f5f9',
-    fontWeight: '700',
-    marginBottom: 4,
+
+  // Picker Card (Pris par)
+  pickerCard: {
+    backgroundColor: 'rgba(16, 185, 129, 0.06)',
+    borderRadius: 16,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(16, 185, 129, 0.2)',
   },
-  creatorNameMyRide: {
-    color: '#fbbf24',
-  },
-  creatorEmail: {
-    fontSize: 13,
-    color: '#64748b',
-    marginBottom: 6,
-  },
-  creatorRating: {
+  pickerHeader: {
     flexDirection: 'row',
     alignItems: 'center',
+    marginBottom: 14,
   },
-  creatorRatingText: {
-    fontSize: 13,
-    color: '#94a3b8',
-    marginLeft: 6,
-    fontWeight: '600',
+  pickerIconContainer: {
+    marginRight: 12,
   },
-  myRideIndicator: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: 'rgba(251, 191, 36, 0.15)',
-    justifyContent: 'center',
+  pickerInfo: {
+    flex: 1,
+  },
+  pickerName: {
+    fontSize: 17,
+    fontWeight: '700',
+    color: '#f1f5f9',
+    marginBottom: 4,
+  },
+  pickerRatingRow: {
+    flexDirection: 'row',
     alignItems: 'center',
+    gap: 4,
+  },
+  pickerRatingText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#fbbf24',
+  },
+  pickerReviewsText: {
+    fontSize: 12,
+    fontWeight: '500',
+    color: '#94a3b8',
+    marginLeft: 2,
   },
   contactButtons: {
     flexDirection: 'row',
-    marginTop: 12,
-    gap: 12,
+    gap: 10,
   },
   contactButton: {
     flex: 1,
-    borderRadius: 16,
+    borderRadius: 12,
     overflow: 'hidden',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
@@ -779,33 +1063,122 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     paddingVertical: 14,
-    paddingHorizontal: 20,
+    paddingHorizontal: 16,
+    gap: 8,
   },
   contactButtonText: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: '#fff',
-    marginLeft: 8,
-  },
-  tags: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-  },
-  tag: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderRadius: 12,
-    marginRight: 10,
-    marginBottom: 10,
-  },
-  tagText: {
-    fontSize: 13,
+    fontSize: 14,
     fontWeight: '700',
     color: '#fff',
-    marginLeft: 6,
   },
+
+  // Client Card
+  clientCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(139, 92, 246, 0.08)',
+    borderRadius: 16,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(139, 92, 246, 0.2)',
+  },
+  clientIconContainer: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: 'rgba(139, 92, 246, 0.15)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 14,
+  },
+  clientInfo: {
+    flex: 1,
+  },
+  clientName: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#f1f5f9',
+    marginBottom: 6,
+  },
+  clientPhoneButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  clientPhone: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#10b981',
+  },
+
+  // Creator Card
+  creatorCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.03)',
+    borderRadius: 16,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+  },
+  creatorCardMyRide: {
+    backgroundColor: 'rgba(251, 191, 36, 0.08)',
+    borderColor: 'rgba(251, 191, 36, 0.3)',
+  },
+  creatorAvatar: {
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+    backgroundColor: '#ff6b47',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 14,
+  },
+  creatorAvatarMyRide: {
+    backgroundColor: '#fbbf24',
+  },
+  creatorInitials: {
+    fontSize: 17,
+    fontWeight: '700',
+    color: '#000',
+  },
+  creatorInfo: {
+    flex: 1,
+  },
+  creatorName: {
+    fontSize: 15,
+    color: '#f1f5f9',
+    fontWeight: '700',
+    marginBottom: 4,
+  },
+  creatorNameMyRide: {
+    color: '#fbbf24',
+  },
+  creatorEmail: {
+    fontSize: 12,
+    color: '#64748b',
+    marginBottom: 6,
+  },
+  creatorRating: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  creatorRatingText: {
+    fontSize: 12,
+    color: '#94a3b8',
+    marginLeft: 6,
+    fontWeight: '600',
+  },
+  myRideIndicator: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: 'rgba(251, 191, 36, 0.15)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+
+  // Action Buttons
   actionContainer: {
     position: 'absolute',
     bottom: 0,
@@ -818,72 +1191,72 @@ const styles = StyleSheet.create({
   },
   creditsCostBanner: {
     backgroundColor: 'rgba(255, 107, 71, 0.08)',
-    borderRadius: 14,
-    padding: 12,
-    marginBottom: 12,
+    borderRadius: 12,
+    padding: 10,
+    marginBottom: 10,
     borderWidth: 1,
     borderColor: 'rgba(255, 107, 71, 0.2)',
     alignItems: 'center',
   },
   creditsCostIcon: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
+    width: 28,
+    height: 28,
+    borderRadius: 14,
     backgroundColor: 'rgba(255, 107, 71, 0.2)',
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 8,
+    marginBottom: 6,
   },
   creditsCostIconText: {
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: '700',
     color: '#ff6b47',
   },
   creditsCostText: {
-    fontSize: 13,
+    fontSize: 12,
     color: '#94a3b8',
     textAlign: 'center',
     marginBottom: 4,
   },
   creditsCostBalance: {
-    fontSize: 12,
+    fontSize: 11,
     color: '#64748b',
     fontWeight: '600',
   },
   actionButton: {
-    borderRadius: 18,
+    borderRadius: 16,
     overflow: 'hidden',
     shadowColor: '#ff6b47',
-    shadowOffset: { width: 0, height: 6 },
+    shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.4,
-    shadowRadius: 12,
-    elevation: 8,
+    shadowRadius: 8,
+    elevation: 6,
   },
   deleteButton: {
-    borderRadius: 18,
+    borderRadius: 16,
     overflow: 'hidden',
     shadowColor: '#ef4444',
-    shadowOffset: { width: 0, height: 6 },
+    shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.4,
-    shadowRadius: 12,
-    elevation: 8,
+    shadowRadius: 8,
+    elevation: 6,
   },
   actionButtonGradient: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 18,
+    paddingVertical: 16,
   },
   actionButtonText: {
-    fontSize: 17,
+    fontSize: 16,
     fontWeight: '700',
     color: '#fff',
-    marginLeft: 10,
+    marginLeft: 8,
   },
   creditIconInButton: {
-    width: 18,
-    height: 18,
-    borderRadius: 9,
+    width: 16,
+    height: 16,
+    borderRadius: 8,
     backgroundColor: 'rgba(255, 255, 255, 0.2)',
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.3)',
@@ -891,11 +1264,10 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   creditIconInButtonText: {
-    fontSize: 10,
+    fontSize: 9,
     fontWeight: '700',
     color: '#fff',
   },
 });
 
 export default RideDetailScreen;
-

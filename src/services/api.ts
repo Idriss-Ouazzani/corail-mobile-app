@@ -58,6 +58,10 @@ class ApiClient {
     return supabaseApi.listPersonalRides(filters);
   }
 
+  async getPersonalRide(rideId: string) {
+    return supabaseApi.getPersonalRide(rideId);
+  }
+
   async createPersonalRide(rideData: any) {
     return supabaseApi.createPersonalRide(rideData);
   }
@@ -72,6 +76,10 @@ class ApiClient {
 
   async getPersonalRidesStats() {
     return supabaseApi.getPersonalRidesStats();
+  }
+
+  async deletePersonalRide(personalRideId: string) {
+    return supabaseApi.deletePersonalRide(personalRideId);
   }
 
   // CREDITS
@@ -97,12 +105,15 @@ class ApiClient {
     return supabaseApi.createUser(userData);
   }
 
-  // GROUPS (stub pour compatibilité)
+  // GROUPS
   async listMyGroups() {
-    return { data: [] };
+    // Alias pour listGroups (pour compatibilité)
+    const groups = await this.listGroups();
+    return { data: groups };
   }
 
   async getGroup(groupId: string) {
+    // TODO: Implémenter si besoin
     return null;
   }
 
@@ -126,6 +137,56 @@ class ApiClient {
   // ACTIVITY
   async getRecentActivity(limit: number = 20) {
     return supabaseApi.getRecentActivity(limit);
+  }
+
+  // BADGES
+  async getAllBadges() {
+    return supabaseApi.getAllBadges();
+  }
+
+  async getUserBadges(userId: string) {
+    return supabaseApi.getUserBadges(userId);
+  }
+
+  // GROUPS
+  async listGroups() {
+    return supabaseApi.listGroups();
+  }
+
+  async createGroup(groupData: any) {
+    return supabaseApi.createGroup(groupData);
+  }
+
+  async getGroupMembers(groupId: string) {
+    return supabaseApi.getGroupMembers(groupId);
+  }
+
+  async inviteToGroup(params: { groupId: string; email?: string; phone?: string }) {
+    return supabaseApi.inviteToGroup(params);
+  }
+
+  async getMyGroupInvitations() {
+    return supabaseApi.getMyGroupInvitations();
+  }
+
+  async respondToInvitation(invitationId: string, accept: boolean) {
+    return supabaseApi.respondToInvitation(invitationId, accept);
+  }
+
+  async leaveGroup(groupId: string) {
+    return supabaseApi.leaveGroup(groupId);
+  }
+
+  async removeMemberFromGroup(groupId: string, userId: string) {
+    return supabaseApi.removeMemberFromGroup(groupId, userId);
+  }
+
+  async getGroupPendingInvitations(groupId: string) {
+    return supabaseApi.getGroupPendingInvitations(groupId);
+  }
+
+  async cancelGroupInvitation(invitationId: string) {
+    return supabaseApi.cancelGroupInvitation(invitationId);
   }
 
   // ADMIN
@@ -165,6 +226,44 @@ class ApiClient {
 
   async getQuoteByToken(token: string) {
     return supabaseApi.getQuoteByToken(token);
+  }
+
+  // VTC PUBLIC PROFILE
+  async getMyVTCProfile() {
+    return supabaseApi.getMyVTCProfile();
+  }
+
+  async createVTCProfile(data: any) {
+    return supabaseApi.createVTCProfile(data);
+  }
+
+  async updateVTCProfile(data: any) {
+    return supabaseApi.updateVTCProfile(data);
+  }
+
+  async deleteVTCProfile() {
+    return supabaseApi.deleteVTCProfile();
+  }
+
+  async updateUserPhoto(photoUrl: string) {
+    return supabaseApi.updateUserPhoto(photoUrl);
+  }
+
+  async convertPublishedToPersonal(rideId: string) {
+    return supabaseApi.convertPublishedToPersonal(rideId);
+  }
+
+  // RGPD
+  async requestDataExport() {
+    return supabaseApi.requestDataExport();
+  }
+
+  async deleteAccount() {
+    return supabaseApi.deleteAccount();
+  }
+
+  async acceptTerms() {
+    return supabaseApi.acceptTerms();
   }
 }
 

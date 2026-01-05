@@ -25,6 +25,15 @@ export const VerificationScreen: React.FC<VerificationScreenProps> = ({ onBack, 
   const [professionalCard, setProfessionalCard] = useState('');
   const [siren, setSiren] = useState('');
   const [loading, setLoading] = useState(false);
+  const [showDebug, setShowDebug] = useState(false);
+
+  // Debug: Informations utilisateur Firebase
+  const currentUser = firebaseAuth.currentUser;
+  const debugInfo = {
+    uid: currentUser?.uid || 'N/A',
+    email: currentUser?.email || 'N/A',
+    displayName: currentUser?.displayName || 'N/A',
+  };
 
   const handleSubmit = async () => {
     // Validation
@@ -81,8 +90,24 @@ export const VerificationScreen: React.FC<VerificationScreenProps> = ({ onBack, 
           <Ionicons name="arrow-back" size={24} color="#f1f5f9" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Vérification VTC</Text>
-        <View style={{ width: 40 }} />
+        <TouchableOpacity 
+          onPress={() => setShowDebug(!showDebug)} 
+          style={{ width: 40, height: 40, justifyContent: 'center', alignItems: 'center' }}
+        >
+          <Ionicons name="bug" size={20} color="#fbbf24" />
+        </TouchableOpacity>
       </LinearGradient>
+
+      {/* Debug Banner */}
+      {showDebug && (
+        <View style={styles.debugBanner}>
+          <Text style={styles.debugTitle}>🐛 DEBUG APK</Text>
+          <Text style={styles.debugText}>UID: {debugInfo.uid}</Text>
+          <Text style={styles.debugText}>Email: {debugInfo.email}</Text>
+          <Text style={styles.debugText}>Name: {debugInfo.displayName}</Text>
+          <Text style={styles.debugText}>Timestamp: {new Date().toISOString()}</Text>
+        </View>
+      )}
 
       <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
         {/* Info Banner */}
@@ -227,6 +252,25 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingHorizontal: 20,
     paddingTop: 20,
+  },
+  debugBanner: {
+    backgroundColor: '#fbbf24',
+    padding: 12,
+    marginHorizontal: 20,
+    marginTop: 10,
+    borderRadius: 8,
+  },
+  debugTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#0f172a',
+    marginBottom: 6,
+  },
+  debugText: {
+    fontSize: 11,
+    color: '#0f172a',
+    fontFamily: 'monospace',
+    marginBottom: 2,
   },
   infoBanner: {
     flexDirection: 'row',

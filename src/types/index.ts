@@ -41,6 +41,9 @@ export interface Ride {
   duration_minutes?: number
   client_name?: string
   client_phone?: string
+  quote_id?: string | null
+  quote_status?: 'SENT' | 'VIEWED' | 'ACCEPTED' | 'REFUSED' | null
+  quote_token?: string | null
   creator?: Partial<User>
   picker?: Partial<User>
 }
