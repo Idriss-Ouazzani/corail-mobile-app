@@ -9,6 +9,7 @@ import { firebaseAuth } from '../services/firebase';
 import { apiClient } from '../services/api';
 import { logger } from '../services/logger';
 import analytics from '../services/analytics';
+import { debugLogger } from '../utils/debugLogger';
 import type { User as FirebaseUser } from 'firebase/auth';
 
 // ============================================================================
@@ -79,6 +80,12 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     try {
       setVerificationLoading(true);
       
+      debugLogger.log('========== loadVerificationStatus START ==========');
+      debugLogger.log(`user object: ${user ? 'EXISTS' : 'NULL'}`);
+      debugLogger.log(`user.email: ${user?.email || 'N/A'}`);
+      debugLogger.log(`user.uid: ${user?.uid || 'N/A'}`);
+      debugLogger.log(`user.displayName: ${user?.displayName || 'N/A'}`);
+      
       console.log('🔍 [DEBUG APK] ============================================');
       console.log('🔍 [DEBUG APK] loadVerificationStatus START');
       console.log('🔍 [DEBUG APK] user object:', user ? 'EXISTS' : 'NULL');
@@ -108,8 +115,18 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         }
       }
       
+      debugLogger.log('Calling apiClient.getVerificationStatus()...');
       console.log('🔍 [DEBUG APK] Calling getVerificationStatus...');
+      
       const response = await apiClient.getVerificationStatus();
+      
+      debugLogger.log(`Response received: ${response ? 'YES' : 'NO'}`);
+      debugLogger.log(`response.verification_status: ${response?.verification_status}`);
+      debugLogger.log(`response.full_name: ${response?.full_name}`);
+      debugLogger.log(`response.email: ${response?.email}`);
+      debugLogger.log(`response.has_accepted_terms: ${response?.has_accepted_terms}`);
+      debugLogger.log(`response.is_admin: ${response?.is_admin}`);
+      
       console.log('🔍 [DEBUG APK] Response received:', response ? 'Yes' : 'No');
       console.log('🔍 [DEBUG APK] response.verification_status:', response?.verification_status);
       console.log('🔍 [DEBUG APK] response.full_name:', response?.full_name);
@@ -118,6 +135,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       console.log('📊 AuthContext - Données utilisateur BDD:', JSON.stringify(response, null, 2));
       
       const finalStatus = response.verification_status || 'UNVERIFIED';
+      debugLogger.log(`Final status computed: ${finalStatus}`);
       console.log('🔍 [DEBUG APK] Setting verificationStatus to:', finalStatus);
       
       setVerificationStatus(finalStatus);
@@ -143,6 +161,12 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         });
       }
     } catch (error: any) {
+      debugLogger.error('========== ERROR IN loadVerificationStatus ==========');
+      debugLogger.error(`Error message: ${error.message || 'Unknown'}`);
+      debugLogger.error(`Error name: ${error.name || 'Unknown'}`);
+      debugLogger.error(`Error code: ${error.code || 'Unknown'}`);
+      debugLogger.error('Setting verificationStatus to UNVERIFIED (catch block)');
+      
       console.error('❌ Erreur chargement statut vérification:', error);
       console.error('🔍 [DEBUG APK] loadVerificationStatus ERROR:', error.message);
       console.error('🔍 [DEBUG APK] Error stack:', error.stack);
@@ -150,6 +174,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       setVerificationStatus('UNVERIFIED');
       setIsAdmin(false);
     } finally {
+      debugLogger.log('loadVerificationStatus COMPLETE');
       setVerificationLoading(false);
     }
   };

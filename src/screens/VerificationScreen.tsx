@@ -8,11 +8,15 @@ import {
   TextInput,
   Alert,
   ActivityIndicator,
+  Modal,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { apiClient } from '../services/api';
 import { firebaseAuth } from '../services/firebase';
+import { supabase } from '../lib/supabase';
+import Constants from 'expo-constants';
+import { DebugLogsScreen } from './DebugLogsScreen';
 
 interface VerificationScreenProps {
   onBack: () => void;
@@ -28,15 +32,23 @@ export const VerificationScreen: React.FC<VerificationScreenProps> = ({ onBack, 
   const [siren, setSiren] = useState('');
   const [loading, setLoading] = useState(false);
   const [showDebug, setShowDebug] = useState(false);
+  const [showDebugLogs, setShowDebugLogs] = useState(false);
 
   // Debug: Informations utilisateur Firebase (depuis props OU firebaseAuth en fallback)
   const currentUser = user || firebaseAuth.currentUser;
+  
+  // Récupérer les variables d'environnement pour debug
+  const supabaseUrl = Constants.expoConfig?.extra?.supabaseUrl || 'N/A';
+  const firebaseProjectId = Constants.expoConfig?.extra?.firebaseProjectId || 'N/A';
+  
   const debugInfo = {
     uid: currentUser?.uid || 'N/A',
     email: currentUser?.email || 'N/A',
     displayName: currentUser?.displayName || 'N/A',
     source: user ? 'props' : 'firebaseAuth',
     verificationStatus: currentVerificationStatus || 'N/A',
+    supabaseUrl: supabaseUrl.substring(0, 30) + '...', // Tronquer pour l'affichage
+    firebaseProjectId: firebaseProjectId,
   };
 
   const handleSubmit = async () => {
@@ -105,15 +117,33 @@ export const VerificationScreen: React.FC<VerificationScreenProps> = ({ onBack, 
       {/* Debug Banner */}
       {showDebug && (
         <View style={styles.debugBanner}>
-          <Text style={styles.debugTitle}>🐛 DEBUG APK</Text>
+          <Text style={styles.debugTitle}>🐛 DEBUG APK - BUILD #8</Text>
           <Text style={styles.debugText}>Source: {debugInfo.source}</Text>
           <Text style={styles.debugText}>UID: {debugInfo.uid}</Text>
           <Text style={styles.debugText}>Email: {debugInfo.email}</Text>
           <Text style={styles.debugText}>Name: {debugInfo.displayName}</Text>
           <Text style={styles.debugText}>Status: {debugInfo.verificationStatus}</Text>
-          <Text style={styles.debugText}>Timestamp: {new Date().toISOString()}</Text>
+          <Text style={styles.debugText}>Supabase: {debugInfo.supabaseUrl}</Text>
+          <Text style={styles.debugText}>Firebase: {debugInfo.firebaseProjectId}</Text>
+          <Text style={styles.debugText}>Time: {new Date().toISOString().split('T')[1].substring(0, 8)}</Text>
+          
+          <TouchableOpacity 
+            style={styles.viewLogsButton} 
+            onPress={() => setShowDebugLogs(true)}
+          >
+            <Text style={styles.viewLogsButtonText}>📋 View Full Logs</Text>
+          </TouchableOpacity>
         </View>
       )}
+
+      {/* Debug Logs Modal */}
+      <Modal
+        visible={showDebugLogs}
+        animationType="slide"
+        onRequestClose={() => setShowDebugLogs(false)}
+      >
+        <DebugLogsScreen onClose={() => setShowDebugLogs(false)} />
+      </Modal>
 
       <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
         {/* Info Banner */}
@@ -277,6 +307,18 @@ const styles = StyleSheet.create({
     color: '#0f172a',
     fontFamily: 'monospace',
     marginBottom: 2,
+  },
+  viewLogsButton: {
+    backgroundColor: '#0f172a',
+    padding: 10,
+    borderRadius: 6,
+    marginTop: 10,
+    alignItems: 'center',
+  },
+  viewLogsButtonText: {
+    color: '#fbbf24',
+    fontWeight: '600',
+    fontSize: 13,
   },
   infoBanner: {
     flexDirection: 'row',
