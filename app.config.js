@@ -1,13 +1,18 @@
 /**
  * Configuration Expo dynamique avec variables d'environnement
- * Charge les variables .env pour les builds EAS
+ * Charge les variables .env UNIQUEMENT en local (pas pour les builds EAS)
  */
 
-// Charger les variables d'environnement depuis .env (local uniquement)
-require('dotenv').config();
+// Charger .env UNIQUEMENT en local (pas pendant les builds EAS)
+// En build EAS, les variables viennent des secrets EAS
+if (!process.env.EAS_BUILD) {
+  require('dotenv').config();
+  console.log('🔧 [app.config.js] Loading .env file (local dev)...');
+} else {
+  console.log('🔧 [app.config.js] Using EAS secrets (build environment)...');
+}
 
-// Debug: Afficher les variables d'environnement pendant le build
-console.log('🔧 [app.config.js] Loading environment variables...');
+// Debug: Afficher les variables d'environnement
 console.log('🔧 FIREBASE_API_KEY:', process.env.FIREBASE_API_KEY ? '✅ Present' : '❌ Missing');
 console.log('🔧 SUPABASE_URL:', process.env.SUPABASE_URL ? '✅ Present' : '❌ Missing');
 console.log('🔧 SUPABASE_ANON_KEY:', process.env.SUPABASE_ANON_KEY ? '✅ Present' : '❌ Missing');
