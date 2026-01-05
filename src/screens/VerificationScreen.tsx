@@ -18,9 +18,10 @@ interface VerificationScreenProps {
   onBack: () => void;
   onSuccess: () => void;
   user?: any; // Firebase user from context
+  currentVerificationStatus?: string; // Current verification status from context
 }
 
-export const VerificationScreen: React.FC<VerificationScreenProps> = ({ onBack, onSuccess, user }) => {
+export const VerificationScreen: React.FC<VerificationScreenProps> = ({ onBack, onSuccess, user, currentVerificationStatus }) => {
   const [fullName, setFullName] = useState('');
   const [phone, setPhone] = useState('');
   const [professionalCard, setProfessionalCard] = useState('');
@@ -35,6 +36,7 @@ export const VerificationScreen: React.FC<VerificationScreenProps> = ({ onBack, 
     email: currentUser?.email || 'N/A',
     displayName: currentUser?.displayName || 'N/A',
     source: user ? 'props' : 'firebaseAuth',
+    verificationStatus: currentVerificationStatus || 'N/A',
   };
 
   const handleSubmit = async () => {
@@ -108,6 +110,7 @@ export const VerificationScreen: React.FC<VerificationScreenProps> = ({ onBack, 
           <Text style={styles.debugText}>UID: {debugInfo.uid}</Text>
           <Text style={styles.debugText}>Email: {debugInfo.email}</Text>
           <Text style={styles.debugText}>Name: {debugInfo.displayName}</Text>
+          <Text style={styles.debugText}>Status: {debugInfo.verificationStatus}</Text>
           <Text style={styles.debugText}>Timestamp: {new Date().toISOString()}</Text>
         </View>
       )}
