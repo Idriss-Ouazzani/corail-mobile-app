@@ -17,9 +17,10 @@ import { firebaseAuth } from '../services/firebase';
 interface VerificationScreenProps {
   onBack: () => void;
   onSuccess: () => void;
+  user?: any; // Firebase user from context
 }
 
-export const VerificationScreen: React.FC<VerificationScreenProps> = ({ onBack, onSuccess }) => {
+export const VerificationScreen: React.FC<VerificationScreenProps> = ({ onBack, onSuccess, user }) => {
   const [fullName, setFullName] = useState('');
   const [phone, setPhone] = useState('');
   const [professionalCard, setProfessionalCard] = useState('');
@@ -27,12 +28,13 @@ export const VerificationScreen: React.FC<VerificationScreenProps> = ({ onBack, 
   const [loading, setLoading] = useState(false);
   const [showDebug, setShowDebug] = useState(false);
 
-  // Debug: Informations utilisateur Firebase
-  const currentUser = firebaseAuth.currentUser;
+  // Debug: Informations utilisateur Firebase (depuis props OU firebaseAuth en fallback)
+  const currentUser = user || firebaseAuth.currentUser;
   const debugInfo = {
     uid: currentUser?.uid || 'N/A',
     email: currentUser?.email || 'N/A',
     displayName: currentUser?.displayName || 'N/A',
+    source: user ? 'props' : 'firebaseAuth',
   };
 
   const handleSubmit = async () => {
@@ -102,6 +104,7 @@ export const VerificationScreen: React.FC<VerificationScreenProps> = ({ onBack, 
       {showDebug && (
         <View style={styles.debugBanner}>
           <Text style={styles.debugTitle}>🐛 DEBUG APK</Text>
+          <Text style={styles.debugText}>Source: {debugInfo.source}</Text>
           <Text style={styles.debugText}>UID: {debugInfo.uid}</Text>
           <Text style={styles.debugText}>Email: {debugInfo.email}</Text>
           <Text style={styles.debugText}>Name: {debugInfo.displayName}</Text>

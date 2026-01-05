@@ -79,9 +79,13 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     try {
       setVerificationLoading(true);
       
+      console.log('🔍 [DEBUG APK] ============================================');
       console.log('🔍 [DEBUG APK] loadVerificationStatus START');
+      console.log('🔍 [DEBUG APK] user object:', user ? 'EXISTS' : 'NULL');
       console.log('🔍 [DEBUG APK] user.email:', user?.email);
       console.log('🔍 [DEBUG APK] user.uid:', user?.uid);
+      console.log('🔍 [DEBUG APK] user.displayName:', user?.displayName);
+      console.log('🔍 [DEBUG APK] ============================================');
       
       // S'assurer que l'utilisateur existe dans Supabase avec son email Firebase
       if (user?.email) {

@@ -12,9 +12,12 @@ import type { Ride } from '../types';
 let currentUserId: string | null = null;
 
 export const setUserId = (userId: string) => {
-  console.log('🔑 setUserId appelé avec:', userId);
+  console.log('🔍 [DEBUG APK] ============================================');
+  console.log('🔍 [DEBUG APK] setUserId() called');
+  console.log('🔍 [DEBUG APK] New userId:', userId);
   currentUserId = userId;
-  console.log('🔑 currentUserId est maintenant:', currentUserId);
+  console.log('🔍 [DEBUG APK] currentUserId updated to:', currentUserId);
+  console.log('🔍 [DEBUG APK] ============================================');
 };
 
 export const clearAuth = () => {
@@ -69,13 +72,23 @@ export const addCreditsSecure = async (
 // ============================================================================
 
 export const getVerificationStatus = async () => {
-  if (!currentUserId) throw new Error('User not authenticated');
+  console.log('🔍 [DEBUG APK] getVerificationStatus() called');
+  console.log('🔍 [DEBUG APK] currentUserId =', currentUserId);
+  
+  if (!currentUserId) {
+    console.error('🔍 [DEBUG APK] ERROR: currentUserId is null!');
+    throw new Error('User not authenticated');
+  }
 
+  console.log('🔍 [DEBUG APK] Querying Supabase users table with id:', currentUserId);
   const { data, error } = await supabase
     .from('users')
     .select('*')
     .eq('id', currentUserId)
     .single();
+  
+  console.log('🔍 [DEBUG APK] Supabase query result - data:', data ? 'EXISTS' : 'NULL');
+  console.log('🔍 [DEBUG APK] Supabase query result - error:', error ? error.message : 'NONE');
 
   if (error) {
     // User doesn't exist yet, create it automatically

@@ -301,6 +301,7 @@ function AppContent() {
   if (verificationStatus === 'UNVERIFIED') {
     return (
       <VerificationScreen
+        user={user}
         onBack={async () => {
           await signOut();
         }}
