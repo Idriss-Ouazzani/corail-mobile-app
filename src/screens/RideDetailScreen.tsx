@@ -46,6 +46,16 @@ export const RideDetailScreen: React.FC<RideDetailScreenProps> = ({
   const isMyRide = ride.creator_id === currentUserId || (ride as any).driver_id === currentUserId;
   const isPicker = ride.picker_id === currentUserId;
   
+  // 🔍 Debug logs pour contact buttons
+  console.log('🔍 [RideDetailScreen] Debug contact buttons:', {
+    rideId: ride.id,
+    isPicker,
+    picker_id: ride.picker_id,
+    currentUserId,
+    creator_phone: ride.creator?.phone,
+    has_creator_phone: !!ride.creator?.phone,
+  });
+  
   const [routeInfo, setRouteInfo] = useState<RouteInfo | null>(null);
   
   const canSeeClientInfo = 

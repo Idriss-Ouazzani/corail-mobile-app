@@ -374,6 +374,7 @@ export function renderModalScreens(props: ModalScreensProps): JSX.Element | null
   if (selectedPersonalRide && !showPublishModal) {
     return (
       <RideDetailScreen
+        key={`personal-${selectedPersonalRide.id}-${selectedPersonalRide.status}`}
         ride={selectedPersonalRide}
         currentUserId={currentUserId}
         userCredits={userCredits}
@@ -402,6 +403,7 @@ export function renderModalScreens(props: ModalScreensProps): JSX.Element | null
   if (selectedRide) {
     return (
       <RideDetailScreen
+        key={`${selectedRide.id}-${selectedRide.picker_id}-${selectedRide.status}`}
         ride={selectedRide}
         currentUserId={currentUserId}
         userCredits={userCredits}

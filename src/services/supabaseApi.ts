@@ -239,7 +239,7 @@ export const getRide = async (rideId: string): Promise<Ride> => {
     .select(`
       *,
       creator:users!rides_creator_id_fkey(id, full_name, email, rating, total_reviews, phone),
-      picker:users!rides_picker_id_fkey(id, full_name, email, phone)
+      picker:users!rides_picker_id_fkey(id, full_name, email, phone, rating, total_reviews)
     `)
     .eq('id', rideId)
     .single();
