@@ -404,14 +404,24 @@ export const RideDetailScreen: React.FC<RideDetailScreenProps> = ({
                   <Text style={styles.clientName}>{ride.client_name}</Text>
                 )}
                 {ride.client_phone && (
-                  <TouchableOpacity
-                    onPress={() => Linking.openURL(`tel:${ride.client_phone}`)}
-                    activeOpacity={0.7}
-                    style={styles.clientPhoneButton}
-                  >
-                    <Ionicons name="call" size={16} color="#10b981" />
-                    <Text style={styles.clientPhone}>{ride.client_phone}</Text>
-                  </TouchableOpacity>
+                  <View style={styles.contactButtonsRow}>
+                    <TouchableOpacity
+                      onPress={() => Linking.openURL(`tel:${ride.client_phone}`)}
+                      activeOpacity={0.7}
+                      style={styles.clientContactButton}
+                    >
+                      <Ionicons name="call" size={18} color="#fff" />
+                      <Text style={styles.clientContactButtonText}>Appeler</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      onPress={() => Linking.openURL(`https://wa.me/${ride.client_phone?.replace(/[^0-9]/g, '')}`)}
+                      activeOpacity={0.7}
+                      style={[styles.clientContactButton, styles.clientWhatsappButton]}
+                    >
+                      <Ionicons name="logo-whatsapp" size={18} color="#fff" />
+                      <Text style={styles.clientContactButtonText}>WhatsApp</Text>
+                    </TouchableOpacity>
+                  </View>
                 )}
               </View>
             </View>
@@ -439,6 +449,27 @@ export const RideDetailScreen: React.FC<RideDetailScreenProps> = ({
                     {(ride.creator.rating / 10).toFixed(1)} ({ride.creator.total_reviews} avis)
                   </Text>
                 </View>
+                {/* Contact buttons for creator (only if you picked the ride) */}
+                {isPicker && ride.creator.phone && (
+                  <View style={[styles.contactButtonsRow, { marginTop: 10 }]}>
+                    <TouchableOpacity
+                      onPress={() => Linking.openURL(`tel:${ride.creator.phone}`)}
+                      activeOpacity={0.7}
+                      style={styles.clientContactButton}
+                    >
+                      <Ionicons name="call" size={18} color="#fff" />
+                      <Text style={styles.clientContactButtonText}>Appeler</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      onPress={() => Linking.openURL(`https://wa.me/${ride.creator.phone?.replace(/[^0-9]/g, '')}`)}
+                      activeOpacity={0.7}
+                      style={[styles.clientContactButton, styles.clientWhatsappButton]}
+                    >
+                      <Ionicons name="logo-whatsapp" size={18} color="#fff" />
+                      <Text style={styles.clientContactButtonText}>WhatsApp</Text>
+                    </TouchableOpacity>
+                  </View>
+                )}
               </View>
               {isMyRide && (
                 <View style={styles.myRideIndicator}>
@@ -1109,6 +1140,36 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600',
     color: '#10b981',
+  },
+  contactButtonsRow: {
+    flexDirection: 'row',
+    gap: 8,
+    marginTop: 8,
+  },
+  clientContactButton: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    backgroundColor: '#10b981',
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    borderRadius: 10,
+    shadowColor: '#10b981',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    elevation: 4,
+  },
+  clientWhatsappButton: {
+    backgroundColor: '#25d366',
+    shadowColor: '#25d366',
+  },
+  clientContactButtonText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#fff',
   },
 
   // Creator Card
