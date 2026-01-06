@@ -339,6 +339,24 @@ export const claimRide = async (rideId: string) => {
 export const completeRide = async (rideId: string) => {
   if (!currentUserId) throw new Error('User not authenticated');
 
+  // Récupérer la course pour vérifier la date
+  const { data: ride, error: fetchError } = await supabase
+    .from('rides')
+    .select('scheduled_at')
+    .eq('id', rideId)
+    .single();
+
+  if (fetchError) throw new Error(fetchError.message);
+  if (!ride) throw new Error('Course non trouvée');
+
+  // Vérifier que la date est passée
+  const now = new Date();
+  const scheduledAt = new Date(ride.scheduled_at);
+  if (scheduledAt > now) {
+    throw new Error('Impossible de terminer une course future. Attendez la date prévue.');
+  }
+
+  // Mettre à jour le statut
   const { data, error } = await supabase
     .from('rides')
     .update({
@@ -371,13 +389,44 @@ export const completeRide = async (rideId: string) => {
 export const deleteRide = async (rideId: string) => {
   if (!currentUserId) throw new Error('User not authenticated');
 
-  const { error } = await supabase
+  // Récupérer la course pour vérifier son statut
+  const { data: ride, error: fetchError } = await supabase
+    .from('rides')
+    .select('*')
+    .eq('id', rideId)
+    .eq('creator_id', currentUserId)
+    .single();
+
+  if (fetchError) throw new Error(fetchError.message);
+  if (!ride) throw new Error('Course non trouvée ou vous n\'êtes pas le créateur');
+
+  // Supprimer la course
+  const { error: deleteError } = await supabase
     .from('rides')
     .delete()
     .eq('id', rideId)
-    .eq('creator_id', currentUserId); // Only creator can delete
+    .eq('creator_id', currentUserId);
 
-  if (error) throw new Error(error.message);
+  if (deleteError) throw new Error(deleteError.message);
+
+  // Si la course n'avait pas été prise (PUBLISHED), rembourser le crédit
+  if (ride.status === 'PUBLISHED') {
+    await addCreditsSecure(-1, 'OTHER', {
+      ride_id: rideId,
+      description: 'Refund for deleting unpicked ride',
+    });
+    console.log('💰 Crédit remboursé après suppression course non prise');
+  }
+
+  // Log activity
+  await supabase.from('activity_log').insert({
+    user_id: currentUserId,
+    action_type: 'RIDE_DELETED',
+    description: `Deleted ride (${ride.status})`,
+    ride_id: rideId,
+  });
+
+  return { success: true, refunded: ride.status === 'PUBLISHED' };
 };
 
 // ============================================================================
@@ -616,10 +665,30 @@ export const deletePersonalRide = async (personalRideId: string) => {
 
 /**
  * Terminer une course personnelle
+ * (seulement si la date est passée)
  */
 export const completePersonalRide = async (personalRideId: string) => {
   if (!currentUserId) throw new Error('User not authenticated');
 
+  // Récupérer la course pour vérifier la date
+  const { data: ride, error: fetchError } = await supabase
+    .from('personal_rides')
+    .select('scheduled_at')
+    .eq('id', personalRideId)
+    .eq('driver_id', currentUserId)
+    .single();
+
+  if (fetchError) throw new Error(fetchError.message);
+  if (!ride) throw new Error('Course non trouvée');
+
+  // Vérifier que la date est passée
+  const now = new Date();
+  const scheduledAt = new Date(ride.scheduled_at);
+  if (scheduledAt > now) {
+    throw new Error('Impossible de terminer une course future. Attendez la date prévue.');
+  }
+
+  // Mettre à jour le statut
   const { data, error } = await supabase
     .from('personal_rides')
     .update({
@@ -627,7 +696,7 @@ export const completePersonalRide = async (personalRideId: string) => {
       completed_at: new Date().toISOString(),
     })
     .eq('id', personalRideId)
-    .eq('driver_id', currentUserId) // Ensure user owns the ride
+    .eq('driver_id', currentUserId)
     .select()
     .single();
 

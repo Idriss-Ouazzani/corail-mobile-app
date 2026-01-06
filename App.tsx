@@ -606,10 +606,13 @@ function AppContent() {
             setSelectedPersonalRide(null);
           }}
           onPublished={async () => {
+            // Petit délai pour laisser la DB se mettre à jour
+            await new Promise(resolve => setTimeout(resolve, 500));
             // Recharger les données (rides + crédits)
             await loadRides();
             await loadPersonalRides();
             await loadCredits();
+            console.log('💰 Crédits rechargés après publication course perso');
           }}
         />
       </LinearGradient>

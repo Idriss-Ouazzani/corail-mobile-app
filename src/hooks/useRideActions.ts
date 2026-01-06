@@ -45,9 +45,9 @@ export function useRideActions(props: UseRideActionsProps) {
     try {
       console.log('🗑️ Suppression de la course:', rideId);
       
-      // Supprimer de la base de données
-      await apiClient.deleteRide(rideId);
-      console.log('✅ Course supprimée avec succès');
+      // Supprimer de la base de données (remboursement automatique si PUBLISHED)
+      const result = await apiClient.deleteRide(rideId);
+      console.log('✅ Course supprimée avec succès', result);
       
       // 📊 Analytics: Track ride deleted (non-blocking)
       try {
@@ -60,9 +60,13 @@ export function useRideActions(props: UseRideActionsProps) {
         console.warn('⚠️ Analytics error (non-blocking):', analyticsError);
       }
       
-      // Recharger les données
+      // Petit délai pour laisser l'Edge Function terminer
+      await new Promise(resolve => setTimeout(resolve, 500));
+      
+      // Recharger les données (rides + crédits si remboursé)
       await loadRides();
-      console.log('✅ Rides rechargés après suppression');
+      await loadCredits();
+      console.log('✅ Rides et crédits rechargés après suppression');
       
       toast.rideDeleted();
     } catch (error: any) {
@@ -73,7 +77,7 @@ export function useRideActions(props: UseRideActionsProps) {
       toast.error('Erreur', error.message || 'Impossible de supprimer la course');
       throw error; // Propager l'erreur pour que le composant puisse gérer
     }
-  }, [loadRides]);
+  }, [loadRides, loadCredits]);
 
   /**
    * Terminer une course (marquer comme complétée)
@@ -179,10 +183,14 @@ export function useRideActions(props: UseRideActionsProps) {
         ride.scheduled_at
       );
       
+      // Petit délai pour laisser l'Edge Function terminer
+      await new Promise(resolve => setTimeout(resolve, 500));
+      
       // Recharger les crédits et les rides
       await loadCredits();
       await loadRides();
       await loadPersonalRides();
+      console.log('💰 Crédits rechargés après claim');
       
       // Recharger la course spécifique pour voir les infos client mises à jour
       const updatedRide = await apiClient.getRide(ride.id);

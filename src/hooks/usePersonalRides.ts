@@ -57,12 +57,19 @@ export function usePersonalRides(currentUserId: string | null) {
 
   const publishPersonalRide = useCallback(async (
     rideId: string, 
-    options: { visibility: string; vehicle_type: string }
+    options: { visibility: string; vehicle_type: string },
+    loadCredits?: () => Promise<void>
   ) => {
     try {
       console.log('📤 Publication course personnelle:', rideId);
       await apiClient.publishPersonalRide(rideId, options);
       await loadPersonalRides();
+      
+      // Recharger les crédits si la fonction est fournie
+      if (loadCredits) {
+        await loadCredits();
+        console.log('💰 Crédits rechargés après publication');
+      }
       
       Alert.alert('Succès', 'Course publiée ! +1 crédit');
       return true;
