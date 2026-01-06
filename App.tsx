@@ -302,7 +302,6 @@ function AppContent() {
     return (
       <VerificationScreen
         user={user}
-        currentVerificationStatus={verificationStatus}
         onBack={async () => {
           await signOut();
         }}

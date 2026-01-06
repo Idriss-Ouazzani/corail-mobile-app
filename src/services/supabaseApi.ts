@@ -4,7 +4,6 @@
  */
 
 import { supabase } from '../lib/supabase';
-import { debugLogger } from '../utils/debugLogger';
 import type { Ride } from '../types';
 
 // ============================================================================
@@ -13,16 +12,7 @@ import type { Ride } from '../types';
 let currentUserId: string | null = null;
 
 export const setUserId = (userId: string) => {
-  debugLogger.log(`========== setUserId() called ==========`);
-  debugLogger.log(`New userId: ${userId}`);
-  
-  console.log('🔍 [DEBUG APK] ============================================');
-  console.log('🔍 [DEBUG APK] setUserId() called');
-  console.log('🔍 [DEBUG APK] New userId:', userId);
   currentUserId = userId;
-  debugLogger.log(`currentUserId updated to: ${currentUserId}`);
-  console.log('🔍 [DEBUG APK] currentUserId updated to:', currentUserId);
-  console.log('🔍 [DEBUG APK] ============================================');
 };
 
 export const clearAuth = () => {
@@ -77,40 +67,15 @@ export const addCreditsSecure = async (
 // ============================================================================
 
 export const getVerificationStatus = async () => {
-  debugLogger.log('========== getVerificationStatus() START ==========');
-  debugLogger.log(`currentUserId: ${currentUserId || 'NULL'}`);
-  
-  console.log('🔍 [DEBUG APK] getVerificationStatus() called');
-  console.log('🔍 [DEBUG APK] currentUserId =', currentUserId);
-  
   if (!currentUserId) {
-    debugLogger.error('ERROR: currentUserId is null!');
-    console.error('🔍 [DEBUG APK] ERROR: currentUserId is null!');
     throw new Error('User not authenticated');
   }
 
-  debugLogger.log(`Querying Supabase users table with id: ${currentUserId}`);
-  console.log('🔍 [DEBUG APK] Querying Supabase users table with id:', currentUserId);
-  
   const { data, error } = await supabase
     .from('users')
     .select('*')
     .eq('id', currentUserId)
     .single();
-  
-  debugLogger.log(`Supabase query completed`);
-  debugLogger.log(`data: ${data ? 'EXISTS' : 'NULL'}`);
-  debugLogger.log(`error: ${error ? error.message : 'NONE'}`);
-  
-  if (data) {
-    debugLogger.log(`data.id: ${data.id}`);
-    debugLogger.log(`data.email: ${data.email}`);
-    debugLogger.log(`data.verification_status: ${data.verification_status}`);
-    debugLogger.log(`data.has_accepted_terms: ${data.has_accepted_terms}`);
-  }
-  
-  console.log('🔍 [DEBUG APK] Supabase query result - data:', data ? 'EXISTS' : 'NULL');
-  console.log('🔍 [DEBUG APK] Supabase query result - error:', error ? error.message : 'NONE');
 
   if (error) {
     // User doesn't exist yet, create it automatically

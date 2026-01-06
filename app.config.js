@@ -7,15 +7,7 @@
 // En build EAS, les variables viennent des secrets EAS
 if (!process.env.EAS_BUILD) {
   require('dotenv').config();
-  console.log('🔧 [app.config.js] Loading .env file (local dev)...');
-} else {
-  console.log('🔧 [app.config.js] Using EAS secrets (build environment)...');
 }
-
-// Debug: Afficher les variables d'environnement
-console.log('🔧 FIREBASE_API_KEY:', process.env.FIREBASE_API_KEY ? '✅ Present' : '❌ Missing');
-console.log('🔧 SUPABASE_URL:', process.env.SUPABASE_URL ? '✅ Present' : '❌ Missing');
-console.log('🔧 SUPABASE_ANON_KEY:', process.env.SUPABASE_ANON_KEY ? '✅ Present' : '❌ Missing');
 
 module.exports = {
   expo: {

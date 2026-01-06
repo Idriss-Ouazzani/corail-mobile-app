@@ -9,7 +9,6 @@ import { firebaseAuth } from '../services/firebase';
 import { apiClient } from '../services/api';
 import { logger } from '../services/logger';
 import analytics from '../services/analytics';
-import { debugLogger } from '../utils/debugLogger';
 import type { User as FirebaseUser } from 'firebase/auth';
 
 // ============================================================================
@@ -80,20 +79,6 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     try {
       setVerificationLoading(true);
       
-      debugLogger.log('========== loadVerificationStatus START ==========');
-      debugLogger.log(`user object: ${user ? 'EXISTS' : 'NULL'}`);
-      debugLogger.log(`user.email: ${user?.email || 'N/A'}`);
-      debugLogger.log(`user.uid: ${user?.uid || 'N/A'}`);
-      debugLogger.log(`user.displayName: ${user?.displayName || 'N/A'}`);
-      
-      console.log('🔍 [DEBUG APK] ============================================');
-      console.log('🔍 [DEBUG APK] loadVerificationStatus START');
-      console.log('🔍 [DEBUG APK] user object:', user ? 'EXISTS' : 'NULL');
-      console.log('🔍 [DEBUG APK] user.email:', user?.email);
-      console.log('🔍 [DEBUG APK] user.uid:', user?.uid);
-      console.log('🔍 [DEBUG APK] user.displayName:', user?.displayName);
-      console.log('🔍 [DEBUG APK] ============================================');
-      
       // S'assurer que l'utilisateur existe dans Supabase avec son email Firebase
       if (user?.email) {
         console.log('🔍 Vérification utilisateur Supabase pour:', user.email);
@@ -115,28 +100,9 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         }
       }
       
-      debugLogger.log('Calling apiClient.getVerificationStatus()...');
-      console.log('🔍 [DEBUG APK] Calling getVerificationStatus...');
-      
       const response = await apiClient.getVerificationStatus();
       
-      debugLogger.log(`Response received: ${response ? 'YES' : 'NO'}`);
-      debugLogger.log(`response.verification_status: ${response?.verification_status}`);
-      debugLogger.log(`response.full_name: ${response?.full_name}`);
-      debugLogger.log(`response.email: ${response?.email}`);
-      debugLogger.log(`response.has_accepted_terms: ${response?.has_accepted_terms}`);
-      debugLogger.log(`response.is_admin: ${response?.is_admin}`);
-      
-      console.log('🔍 [DEBUG APK] Response received:', response ? 'Yes' : 'No');
-      console.log('🔍 [DEBUG APK] response.verification_status:', response?.verification_status);
-      console.log('🔍 [DEBUG APK] response.full_name:', response?.full_name);
-      console.log('🔍 [DEBUG APK] response.email:', response?.email);
-      
-      console.log('📊 AuthContext - Données utilisateur BDD:', JSON.stringify(response, null, 2));
-      
       const finalStatus = response.verification_status || 'UNVERIFIED';
-      debugLogger.log(`Final status computed: ${finalStatus}`);
-      console.log('🔍 [DEBUG APK] Setting verificationStatus to:', finalStatus);
       
       setVerificationStatus(finalStatus);
       setUserFullName(response.full_name || '');
@@ -148,41 +114,25 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       setIsAdmin(response.is_admin === true || response.is_admin === 'true');
       setHasAcceptedTerms(response.has_accepted_terms === true || response.has_accepted_terms === 'true');
       
-      console.log('✅ AuthContext - Données chargées - Nom:', response.full_name, '| Email:', response.email, '| Tél:', response.phone, '| VTC:', response.professional_card_number || response.vtc_card_number, '| Photo:', response.photo_url ? 'Oui' : 'Non');
-      console.log('🔍 [DEBUG APK] loadVerificationStatus SUCCESS - Status:', finalStatus);
-      debugLogger.log(`loadVerificationStatus SUCCESS - Status: ${finalStatus}`);
-      
       // 📊 Analytics: Set user properties (wrapped in try/catch to prevent breaking the auth flow)
       if (user) {
         try {
-          debugLogger.log('Setting analytics user properties...');
           await analytics.setUserProperties({
             userId: user.uid,
             isAdmin: response.is_admin === true || response.is_admin === 'true',
             verificationStatus: response.verification_status || 'UNVERIFIED',
             totalCredits: 0, // Will be updated by AppDataContext
           });
-          debugLogger.log('Analytics user properties set successfully');
         } catch (analyticsError: any) {
-          debugLogger.error(`Analytics error (non-blocking): ${analyticsError.message}`);
           console.warn('⚠️ Analytics error (non-blocking):', analyticsError);
         }
       }
     } catch (error: any) {
-      debugLogger.error('========== ERROR IN loadVerificationStatus ==========');
-      debugLogger.error(`Error message: ${error.message || 'Unknown'}`);
-      debugLogger.error(`Error name: ${error.name || 'Unknown'}`);
-      debugLogger.error(`Error code: ${error.code || 'Unknown'}`);
-      debugLogger.error('Setting verificationStatus to UNVERIFIED (catch block)');
-      
       console.error('❌ Erreur chargement statut vérification:', error);
-      console.error('🔍 [DEBUG APK] loadVerificationStatus ERROR:', error.message);
-      console.error('🔍 [DEBUG APK] Error stack:', error.stack);
       // Par défaut, si l'utilisateur n'existe pas, on considère qu'il n'est pas vérifié
       setVerificationStatus('UNVERIFIED');
       setIsAdmin(false);
     } finally {
-      debugLogger.log('loadVerificationStatus COMPLETE');
       setVerificationLoading(false);
     }
   };
