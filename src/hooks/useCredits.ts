@@ -16,16 +16,18 @@ export function useCredits(currentUserId: string | null) {
     
     try {
       setLoading(true);
-      console.log('💰 Chargement crédits...');
+      console.log('💰 [useCredits] Chargement crédits pour:', currentUserId);
       const response = await apiClient.getCredits();
       // getCredits() retourne { credits: number }
       const balance = typeof response === 'object' && response?.credits !== undefined 
         ? response.credits 
         : (typeof response === 'number' ? response : 0);
+      
+      console.log('💰 [useCredits] Ancien state:', credits, '→ Nouveau state:', balance);
       setCredits(balance);
-      console.log('✅ Crédits chargés:', balance);
+      console.log('✅ [useCredits] State mis à jour avec:', balance);
     } catch (err: any) {
-      console.error('❌ Erreur chargement crédits:', err);
+      console.error('❌ [useCredits] Erreur chargement crédits:', err);
     } finally {
       setLoading(false);
     }

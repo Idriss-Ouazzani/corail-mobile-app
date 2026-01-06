@@ -734,17 +734,23 @@ export const completePersonalRide = async (personalRideId: string) => {
 export const getCredits = async () => {
   if (!currentUserId) throw new Error('User not authenticated');
 
-  console.log('📊 [getCredits] Appel RPC get_user_credits pour:', currentUserId);
+  console.log('📊 [getCredits] Lecture directe depuis users.credits pour:', currentUserId);
+  
+  // Lire directement depuis users.credits (pas de cache)
   const { data, error } = await supabase
-    .rpc('get_user_credits', { p_user_id: currentUserId });
+    .from('users')
+    .select('credits')
+    .eq('id', currentUserId)
+    .single();
 
   if (error) {
-    console.error('❌ [getCredits] Erreur RPC:', error);
+    console.error('❌ [getCredits] Erreur lecture:', error);
     throw new Error(error.message);
   }
 
-  console.log('📊 [getCredits] Résultat RPC:', data);
-  return { credits: data || 0 };
+  const credits = data?.credits || 0;
+  console.log('📊 [getCredits] Crédits actuels en DB:', credits);
+  return { credits };
 };
 
 // ============================================================================

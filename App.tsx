@@ -146,6 +146,11 @@ function AppContent() {
     userGroups,
     loadGroups,
   } = useAppData();
+
+  // 🔍 Debug: Tracer les changements de crédits
+  React.useEffect(() => {
+    console.log('🎯 [App.tsx] userCredits a changé:', userCredits);
+  }, [userCredits]);
   
   // 🧭 Utiliser le contexte de navigation
   const {
@@ -606,10 +611,10 @@ function AppContent() {
             setSelectedPersonalRide(null);
           }}
           onPublished={async () => {
-            // Petit délai pour laisser la DB se mettre à jour
-            console.log('⏳ [PublishModal] Attente 1000ms...');
-            await new Promise(resolve => setTimeout(resolve, 1000));
-            // Recharger les données (rides + crédits)
+            // Délai pour laisser l'Edge Function terminer ET la DB se propager
+            console.log('⏳ [PublishModal] Attente 1500ms...');
+            await new Promise(resolve => setTimeout(resolve, 1500));
+            // Recharger les données (rides + crédits) - FORCE REFRESH
             console.log('🔄 [PublishModal] Rechargement rides...');
             await loadRides();
             console.log('🔄 [PublishModal] Rechargement courses perso...');
