@@ -184,13 +184,16 @@ export function useRideActions(props: UseRideActionsProps) {
       );
       
       // Petit délai pour laisser l'Edge Function terminer
-      await new Promise(resolve => setTimeout(resolve, 500));
+      console.log('⏳ Attente 1000ms avant rechargement...');
+      await new Promise(resolve => setTimeout(resolve, 1000));
       
       // Recharger les crédits et les rides
+      console.log('🔄 Rechargement crédits...');
       await loadCredits();
+      console.log('🔄 Rechargement rides...');
       await loadRides();
       await loadPersonalRides();
-      console.log('💰 Crédits rechargés après claim');
+      console.log('✅ Tout rechargé après claim');
       
       // Recharger la course spécifique pour voir les infos client mises à jour
       const updatedRide = await apiClient.getRide(ride.id);

@@ -607,12 +607,16 @@ function AppContent() {
           }}
           onPublished={async () => {
             // Petit délai pour laisser la DB se mettre à jour
-            await new Promise(resolve => setTimeout(resolve, 500));
+            console.log('⏳ [PublishModal] Attente 1000ms...');
+            await new Promise(resolve => setTimeout(resolve, 1000));
             // Recharger les données (rides + crédits)
+            console.log('🔄 [PublishModal] Rechargement rides...');
             await loadRides();
+            console.log('🔄 [PublishModal] Rechargement courses perso...');
             await loadPersonalRides();
+            console.log('🔄 [PublishModal] Rechargement crédits...');
             await loadCredits();
-            console.log('💰 Crédits rechargés après publication course perso');
+            console.log('✅ [PublishModal] Tout rechargé !');
           }}
         />
       </LinearGradient>

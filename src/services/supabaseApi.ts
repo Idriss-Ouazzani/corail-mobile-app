@@ -315,10 +315,17 @@ export const claimRide = async (rideId: string) => {
   if (rideError) throw new Error(rideError.message);
 
   // Deduct credit (via secure Edge Function)
-  await addCreditsSecure(-1, 'RIDE_CLAIMED', {
-    ride_id: rideId,
-    description: 'Claimed ride from marketplace',
-  });
+  console.log('🔵 AVANT déduction crédit (claimRide)');
+  try {
+    await addCreditsSecure(-1, 'RIDE_CLAIMED', {
+      ride_id: rideId,
+      description: 'Claimed ride from marketplace',
+    });
+    console.log('✅ Crédit déduit avec succès');
+  } catch (creditError: any) {
+    console.error('❌ Erreur déduction crédit:', creditError);
+    throw creditError; // Re-throw pour que l'appelant sache qu'il y a eu un problème
+  }
 
   // Add activity log
   await supabase.from('activity_log').insert({
@@ -558,10 +565,17 @@ export const publishPersonalRide = async (
   if (createError) throw new Error(createError.message);
 
   // 3. Ajouter +1 crédit pour la publication (via secure Edge Function)
-  await addCreditsSecure(1, 'RIDE_PUBLISHED', {
-    ride_id: newRide.id,
-    description: `Published personal ride ${personalRideId} to marketplace`,
-  });
+  console.log('🔵 AVANT ajout crédit (publishPersonalRide)');
+  try {
+    await addCreditsSecure(1, 'RIDE_PUBLISHED', {
+      ride_id: newRide.id,
+      description: `Published personal ride ${personalRideId} to marketplace`,
+    });
+    console.log('✅ Crédit ajouté avec succès');
+  } catch (creditError: any) {
+    console.error('❌ Erreur ajout crédit:', creditError);
+    throw creditError;
+  }
 
   // 4. Supprimer la course personnelle (elle est maintenant publiée)
   const { error: deleteError } = await supabase
@@ -720,11 +734,16 @@ export const completePersonalRide = async (personalRideId: string) => {
 export const getCredits = async () => {
   if (!currentUserId) throw new Error('User not authenticated');
 
+  console.log('📊 [getCredits] Appel RPC get_user_credits pour:', currentUserId);
   const { data, error } = await supabase
     .rpc('get_user_credits', { p_user_id: currentUserId });
 
-  if (error) throw new Error(error.message);
+  if (error) {
+    console.error('❌ [getCredits] Erreur RPC:', error);
+    throw new Error(error.message);
+  }
 
+  console.log('📊 [getCredits] Résultat RPC:', data);
   return { credits: data || 0 };
 };
 
