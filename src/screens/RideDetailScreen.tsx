@@ -594,7 +594,7 @@ export const RideDetailScreen: React.FC<RideDetailScreenProps> = ({
       )}
 
       {/* Bottom spacing */}
-      <View style={{ height: 100 }} />
+      <View style={{ height: 40 }} />
     </ScrollView>
     </View>
   );
@@ -1180,14 +1180,13 @@ const styles = StyleSheet.create({
 
   // Action Buttons
   actionContainer: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    padding: 20,
+    marginTop: 8,
+    marginBottom: 16,
+    marginHorizontal: 20,
     backgroundColor: '#0f172a',
     borderTopWidth: 1,
     borderTopColor: 'rgba(255, 255, 255, 0.1)',
+    paddingTop: 16,
   },
   creditsCostBanner: {
     backgroundColor: 'rgba(255, 107, 71, 0.08)',
