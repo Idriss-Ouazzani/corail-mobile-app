@@ -386,11 +386,12 @@ export const GroupDetailScreen: React.FC<GroupDetailScreenProps> = ({ group, onB
         animationType="slide"
         onRequestClose={() => setShowInviteModal(false)}
       >
-        <KeyboardAvoidingView 
-          style={styles.modalOverlay}
-          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        >
-          <View style={styles.modalContent}>
+        <View style={styles.modalOverlay}>
+          <KeyboardAvoidingView 
+            behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+            style={{ flex: 1, justifyContent: 'center' }}
+          >
+            <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>Inviter un membre</Text>
               <TouchableOpacity onPress={() => setShowInviteModal(false)}>
@@ -436,7 +437,8 @@ export const GroupDetailScreen: React.FC<GroupDetailScreenProps> = ({ group, onB
               </LinearGradient>
             </TouchableOpacity>
           </View>
-        </KeyboardAvoidingView>
+          </KeyboardAvoidingView>
+        </View>
       </Modal>
     </View>
   );

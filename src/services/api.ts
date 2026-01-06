@@ -82,6 +82,10 @@ class ApiClient {
     return supabaseApi.deletePersonalRide(personalRideId);
   }
 
+  async completePersonalRide(personalRideId: string) {
+    return supabaseApi.completePersonalRide(personalRideId);
+  }
+
   // CREDITS
   async getCredits() {
     return supabaseApi.getCredits();

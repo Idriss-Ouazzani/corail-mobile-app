@@ -275,7 +275,7 @@ export const createRide = async (rideData: {
   if (rideError) throw new Error(rideError.message);
 
   // Add credit (via secure Edge Function)
-  await addCreditsSecure(1, 'PUBLISH_RIDE', {
+  await addCreditsSecure(1, 'RIDE_PUBLISHED', {
     ride_id: ride.id,
     description: 'Published ride on marketplace',
   });
@@ -315,7 +315,7 @@ export const claimRide = async (rideId: string) => {
   if (rideError) throw new Error(rideError.message);
 
   // Deduct credit (via secure Edge Function)
-  await addCreditsSecure(-1, 'CLAIM_RIDE', {
+  await addCreditsSecure(-1, 'RIDE_CLAIMED', {
     ride_id: rideId,
     description: 'Claimed ride from marketplace',
   });
@@ -352,7 +352,7 @@ export const completeRide = async (rideId: string) => {
   if (error) throw new Error(error.message);
 
   // Bonus credit for completing (via secure Edge Function)
-  await addCreditsSecure(1, 'COMPLETE_RIDE_BONUS', {
+  await addCreditsSecure(1, 'RIDE_COMPLETED', {
     ride_id: rideId,
     description: 'Bonus for completing ride',
   });
@@ -509,7 +509,7 @@ export const publishPersonalRide = async (
   if (createError) throw new Error(createError.message);
 
   // 3. Ajouter +1 crédit pour la publication (via secure Edge Function)
-  await addCreditsSecure(1, 'PUBLISH_RIDE', {
+  await addCreditsSecure(1, 'RIDE_PUBLISHED', {
     ride_id: newRide.id,
     description: `Published personal ride ${personalRideId} to marketplace`,
   });
@@ -612,6 +612,36 @@ export const deletePersonalRide = async (personalRideId: string) => {
   });
 
   return { success: true };
+};
+
+/**
+ * Terminer une course personnelle
+ */
+export const completePersonalRide = async (personalRideId: string) => {
+  if (!currentUserId) throw new Error('User not authenticated');
+
+  const { data, error } = await supabase
+    .from('personal_rides')
+    .update({
+      status: 'COMPLETED',
+      completed_at: new Date().toISOString(),
+    })
+    .eq('id', personalRideId)
+    .eq('driver_id', currentUserId) // Ensure user owns the ride
+    .select()
+    .single();
+
+  if (error) throw new Error(error.message);
+
+  // Log activity
+  await supabase.from('activity_log').insert({
+    user_id: currentUserId,
+    action_type: 'RIDE_COMPLETED',
+    description: 'Completed personal ride',
+    ride_id: personalRideId,
+  });
+
+  return data;
 };
 
 // ============================================================================
@@ -1413,7 +1443,7 @@ export const convertPublishedToPersonal = async (rideId: string) => {
     }
 
     // 4. Retirer le crédit gagné lors de la publication (via Edge Function sécurisée)
-    await addCreditsSecure(-1, 'CONVERT_TO_PERSONAL', {
+    await addCreditsSecure(-1, 'OTHER', {
       ride_id: rideId,
       description: 'Converted published ride back to personal',
     });
@@ -1659,6 +1689,7 @@ export const supabaseApi = {
   createPersonalRide,
   publishPersonalRide,
   deletePersonalRide,
+  completePersonalRide,
   getPersonalRidesStats,
   getCredits,
   getAllBadges,
