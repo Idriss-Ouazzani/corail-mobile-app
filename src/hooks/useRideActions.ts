@@ -49,12 +49,16 @@ export function useRideActions(props: UseRideActionsProps) {
       await apiClient.deleteRide(rideId);
       console.log('✅ Course supprimée avec succès');
       
-      // 📊 Analytics: Track ride deleted
-      await analytics.trackRideDeleted({
-        rideId: rideId,
-        visibility: visibility,
-        reason: 'user_action',
-      });
+      // 📊 Analytics: Track ride deleted (non-blocking)
+      try {
+        await analytics.trackRideDeleted({
+          rideId: rideId,
+          visibility: visibility,
+          reason: 'user_action',
+        });
+      } catch (analyticsError) {
+        console.warn('⚠️ Analytics error (non-blocking):', analyticsError);
+      }
       
       // Recharger les données
       await loadRides();
@@ -82,21 +86,24 @@ export function useRideActions(props: UseRideActionsProps) {
       await apiClient.completeRide(rideId);
       console.log('✅ Course terminée avec succès');
       
-      // 📊 Analytics: Track ride completed
-      await analytics.trackRideCompleted({
-        rideId: rideId,
-        priceCents: priceCents,
-        distanceKm: distanceKm,
-        durationMinutes: durationMinutes,
-        bonusEarned: 1,
-      });
-      
-      // 📊 Analytics: Track credit earned (bonus)
-      await analytics.trackCreditEarned({
-        amount: 1,
-        reason: 'ride_completed',
-        newBalance: userCredits + 1,
-      });
+      // 📊 Analytics: Track ride completed (non-blocking)
+      try {
+        await analytics.trackRideCompleted({
+          rideId: rideId,
+          priceCents: priceCents,
+          distanceKm: distanceKm,
+          durationMinutes: durationMinutes,
+          bonusEarned: 1,
+        });
+        
+        await analytics.trackCreditEarned({
+          amount: 1,
+          reason: 'ride_completed',
+          newBalance: userCredits + 1,
+        });
+      } catch (analyticsError) {
+        console.warn('⚠️ Analytics error (non-blocking):', analyticsError);
+      }
       
       // Recharger les crédits et les rides
       await loadCredits();
@@ -130,21 +137,24 @@ export function useRideActions(props: UseRideActionsProps) {
       console.log('✅ Course réclamée avec succès');
       haptic.success();
       
-      // 📊 Analytics: Track ride claimed
-      await analytics.trackRideClaimed({
-        rideId: ride.id,
-        visibility: ride.visibility || 'PUBLIC',
-        priceCents: ride.price_cents,
-        creditsSpent: 1,
-        timeToClaimSeconds: Math.floor((claimStartTime - new Date(ride.created_at).getTime()) / 1000),
-      });
-      
-      // 📊 Analytics: Track credit spent
-      await analytics.trackCreditSpent({
-        amount: 1,
-        reason: 'ride_claimed',
-        newBalance: userCredits - 1,
-      });
+      // 📊 Analytics: Track ride claimed (non-blocking)
+      try {
+        await analytics.trackRideClaimed({
+          rideId: ride.id,
+          visibility: ride.visibility || 'PUBLIC',
+          priceCents: ride.price_cents,
+          creditsSpent: 1,
+          timeToClaimSeconds: Math.floor((claimStartTime - new Date(ride.created_at).getTime()) / 1000),
+        });
+        
+        await analytics.trackCreditSpent({
+          amount: 1,
+          reason: 'ride_claimed',
+          newBalance: userCredits - 1,
+        });
+      } catch (analyticsError) {
+        console.warn('⚠️ Analytics error (non-blocking):', analyticsError);
+      }
       
       // 🔔 Notifier le créateur que sa course a été prise (PUSH)
       if (claimedRide.creator_id && claimedRide.creator_id !== currentUserId) {
@@ -221,13 +231,17 @@ export function useRideActions(props: UseRideActionsProps) {
         haptic.success();
         console.log('✅ Course personnelle créée avec succès:', response);
         
-        // 📊 Analytics: Track personal ride created
-        await analytics.trackPersonalRideCreated({
-          rideId: response.id,
-          source: 'OTHER',
-          priceCents: ride.price_cents,
-          hasQuote: !!ride.quote_id,
-        });
+        // 📊 Analytics: Track personal ride created (non-blocking)
+        try {
+          await analytics.trackPersonalRideCreated({
+            rideId: response.id,
+            source: 'OTHER',
+            priceCents: ride.price_cents,
+            hasQuote: !!ride.quote_id,
+          });
+        } catch (analyticsError) {
+          console.warn('⚠️ Analytics error (non-blocking):', analyticsError);
+        }
         
         // 🔔 Planifier notification de rappel 1h avant
         await NotificationService.scheduleRideReminder(
@@ -257,22 +271,25 @@ export function useRideActions(props: UseRideActionsProps) {
         
         console.log('✅ Course marketplace créée avec succès:', response);
         
-        // 📊 Analytics: Track ride published
-        await analytics.trackRidePublished({
-          rideId: response.id,
-          visibility: ride.visibility,
-          vehicleType: ride.vehicle_type,
-          priceCents: ride.price_cents,
-          distanceKm: ride.distance_km,
-          creditsEarned: 1,
-        });
-        
-        // 📊 Analytics: Track credit earned
-        await analytics.trackCreditEarned({
-          amount: 1,
-          reason: 'ride_published',
-          newBalance: userCredits + 1,
-        });
+        // 📊 Analytics: Track ride published (non-blocking)
+        try {
+          await analytics.trackRidePublished({
+            rideId: response.id,
+            visibility: ride.visibility,
+            vehicleType: ride.vehicle_type,
+            priceCents: ride.price_cents,
+            distanceKm: ride.distance_km,
+            creditsEarned: 1,
+          });
+          
+          await analytics.trackCreditEarned({
+            amount: 1,
+            reason: 'ride_published',
+            newBalance: userCredits + 1,
+          });
+        } catch (analyticsError) {
+          console.warn('⚠️ Analytics error (non-blocking):', analyticsError);
+        }
         
         // Recharger les données (rides + crédits)
         await loadRides();

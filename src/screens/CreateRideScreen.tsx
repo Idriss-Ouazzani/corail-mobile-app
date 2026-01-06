@@ -163,7 +163,8 @@ export const CreateRideScreen: React.FC<CreateRideScreenProps> = ({ onBack, onCr
     // Sur Android, fermer automatiquement après sélection ou annulation
     if (Platform.OS === 'android') {
       setShowDatePicker(false);
-      if (selected) {
+      // event.type peut être "set" (OK) ou "dismissed" (Cancel)
+      if (event.type === 'set' && selected) {
         setSelectedDate(selected);
       }
     } else if (selected) {
@@ -176,7 +177,8 @@ export const CreateRideScreen: React.FC<CreateRideScreenProps> = ({ onBack, onCr
     // Sur Android, fermer automatiquement après sélection ou annulation
     if (Platform.OS === 'android') {
       setShowTimePicker(false);
-      if (selected) {
+      // event.type peut être "set" (OK) ou "dismissed" (Cancel)
+      if (event.type === 'set' && selected) {
         const newDate = new Date(selectedDate);
         newDate.setHours(selected.getHours());
         newDate.setMinutes(selected.getMinutes());
@@ -777,30 +779,39 @@ export const CreateRideScreen: React.FC<CreateRideScreenProps> = ({ onBack, onCr
         </TouchableOpacity>
       </View>
 
-      {/* Date Picker Modal */}
-      <Modal
-        visible={showDatePicker}
-        transparent={true}
-        animationType="slide"
-        onRequestClose={() => setShowDatePicker(false)}
-      >
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Sélectionner la date</Text>
-              <TouchableOpacity onPress={() => setShowDatePicker(false)}>
-                <Ionicons name="close-circle" size={28} color="#64748b" />
-              </TouchableOpacity>
-            </View>
-            <DateTimePicker
-              value={selectedDate}
-              mode="date"
-              display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-              onChange={onDateChange}
-              minimumDate={new Date()}
-              textColor="#fff"
-            />
-            {Platform.OS === 'ios' && (
+      {/* Date Picker - Android utilise le dialog natif directement, iOS utilise un Modal custom */}
+      {showDatePicker && Platform.OS === 'android' && (
+        <DateTimePicker
+          value={selectedDate}
+          mode="date"
+          display="default"
+          onChange={onDateChange}
+          minimumDate={new Date()}
+        />
+      )}
+      {showDatePicker && Platform.OS === 'ios' && (
+        <Modal
+          visible={showDatePicker}
+          transparent={true}
+          animationType="slide"
+          onRequestClose={() => setShowDatePicker(false)}
+        >
+          <View style={styles.modalOverlay}>
+            <View style={styles.modalContent}>
+              <View style={styles.modalHeader}>
+                <Text style={styles.modalTitle}>Sélectionner la date</Text>
+                <TouchableOpacity onPress={() => setShowDatePicker(false)}>
+                  <Ionicons name="close-circle" size={28} color="#64748b" />
+                </TouchableOpacity>
+              </View>
+              <DateTimePicker
+                value={selectedDate}
+                mode="date"
+                display="spinner"
+                onChange={onDateChange}
+                minimumDate={new Date()}
+                textColor="#fff"
+              />
               <TouchableOpacity
                 style={styles.modalButton}
                 onPress={() => setShowDatePicker(false)}
@@ -812,34 +823,42 @@ export const CreateRideScreen: React.FC<CreateRideScreenProps> = ({ onBack, onCr
                   <Text style={styles.modalButtonText}>Valider</Text>
                 </LinearGradient>
               </TouchableOpacity>
-            )}
-          </View>
-        </View>
-      </Modal>
-
-      {/* Time Picker Modal */}
-      <Modal
-        visible={showTimePicker}
-        transparent={true}
-        animationType="slide"
-        onRequestClose={() => setShowTimePicker(false)}
-      >
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Sélectionner l'heure</Text>
-              <TouchableOpacity onPress={() => setShowTimePicker(false)}>
-                <Ionicons name="close-circle" size={28} color="#64748b" />
-              </TouchableOpacity>
             </View>
-            <DateTimePicker
-              value={selectedDate}
-              mode="time"
-              display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-              onChange={onTimeChange}
-              textColor="#fff"
-            />
-            {Platform.OS === 'ios' && (
+          </View>
+        </Modal>
+      )}
+
+      {/* Time Picker - Android utilise le dialog natif directement, iOS utilise un Modal custom */}
+      {showTimePicker && Platform.OS === 'android' && (
+        <DateTimePicker
+          value={selectedDate}
+          mode="time"
+          display="default"
+          onChange={onTimeChange}
+        />
+      )}
+      {showTimePicker && Platform.OS === 'ios' && (
+        <Modal
+          visible={showTimePicker}
+          transparent={true}
+          animationType="slide"
+          onRequestClose={() => setShowTimePicker(false)}
+        >
+          <View style={styles.modalOverlay}>
+            <View style={styles.modalContent}>
+              <View style={styles.modalHeader}>
+                <Text style={styles.modalTitle}>Sélectionner l'heure</Text>
+                <TouchableOpacity onPress={() => setShowTimePicker(false)}>
+                  <Ionicons name="close-circle" size={28} color="#64748b" />
+                </TouchableOpacity>
+              </View>
+              <DateTimePicker
+                value={selectedDate}
+                mode="time"
+                display="spinner"
+                onChange={onTimeChange}
+                textColor="#fff"
+              />
               <TouchableOpacity
                 style={styles.modalButton}
                 onPress={() => setShowTimePicker(false)}
@@ -851,10 +870,10 @@ export const CreateRideScreen: React.FC<CreateRideScreenProps> = ({ onBack, onCr
                   <Text style={styles.modalButtonText}>Valider</Text>
                 </LinearGradient>
               </TouchableOpacity>
-            )}
+            </View>
           </View>
-        </View>
-      </Modal>
+        </Modal>
+      )}
     </View>
   );
 };
