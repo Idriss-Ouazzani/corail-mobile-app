@@ -121,6 +121,7 @@ interface ModalScreensProps {
   handleCompleteRide: (rideId: string, priceCents: number, distanceKm?: number, durationMinutes?: number) => Promise<void>;
   loadPersonalRides: () => Promise<void>;
   loadRides: () => Promise<void>;
+  loadCredits: () => Promise<void>;
 }
 
 /**
@@ -189,6 +190,7 @@ export function renderModalScreens(props: ModalScreensProps): JSX.Element | null
     handleCompleteRide,
     loadPersonalRides,
     loadRides,
+    loadCredits,
   } = props;
 
   // 👤 Personal Info Screen
@@ -449,9 +451,15 @@ export function renderModalScreens(props: ModalScreensProps): JSX.Element | null
             toast.success('Course convertie', 'La course est maintenant dans vos courses personnelles');
             logger.info('Course convertie en personnelle', { rideId: selectedRide.id });
             
-            // Recharger les données (marketplace + personnelles)
+            // Délai pour laisser l'Edge Function + DB se propager
+            console.log('⏳ [convertToPersonal] Attente 1500ms...');
+            await new Promise(resolve => setTimeout(resolve, 1500));
+            
+            // Recharger les données (marketplace + personnelles + CRÉDITS)
             setSelectedRide(null);
-            await Promise.all([loadRides(), loadPersonalRides()]);
+            console.log('🔄 [convertToPersonal] Rechargement de toutes les données...');
+            await Promise.all([loadRides(), loadPersonalRides(), loadCredits()]);
+            console.log('✅ [convertToPersonal] Tout rechargé !');
           } catch (error: any) {
             const toast = require('../services/toast').toast;
             const logger = require('../services/logger').logger;

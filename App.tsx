@@ -437,6 +437,7 @@ function AppContent() {
     handleCompleteRide,
     loadPersonalRides,
     loadRides,
+    loadCredits,
   });
   if (modalScreen !== null) return modalScreen;
 
