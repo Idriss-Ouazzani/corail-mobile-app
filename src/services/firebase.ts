@@ -28,6 +28,19 @@ const FIREBASE_STORAGE_BUCKET = Constants.expoConfig?.extra?.firebaseStorageBuck
 const FIREBASE_MESSAGING_SENDER_ID = Constants.expoConfig?.extra?.firebaseMessagingSenderId;
 const FIREBASE_APP_ID = Constants.expoConfig?.extra?.firebaseAppId;
 
+// Validation des variables Firebase
+console.log('🔥 [Firebase Init] Checking Firebase config...');
+console.log('🔥 API_KEY:', FIREBASE_API_KEY ? '✅ Present' : '❌ Missing');
+console.log('🔥 AUTH_DOMAIN:', FIREBASE_AUTH_DOMAIN ? '✅ Present' : '❌ Missing');
+console.log('🔥 PROJECT_ID:', FIREBASE_PROJECT_ID ? '✅ Present' : '❌ Missing');
+console.log('🔥 APP_ID:', FIREBASE_APP_ID ? '✅ Present' : '❌ Missing');
+
+if (!FIREBASE_API_KEY || !FIREBASE_AUTH_DOMAIN || !FIREBASE_PROJECT_ID || !FIREBASE_APP_ID) {
+  console.error('❌ [Firebase Init] Missing Firebase configuration!');
+  console.error('❌ This will cause authentication to fail.');
+  throw new Error('Firebase configuration is incomplete. Check your app.config.js and EAS secrets.');
+}
+
 // Nécessaire pour que le navigateur se ferme après l'authentification
 WebBrowser.maybeCompleteAuthSession();
 
@@ -41,9 +54,16 @@ const firebaseConfig = {
   appId: FIREBASE_APP_ID,
 };
 
+console.log('🔥 [Firebase Init] Initializing Firebase with config:', {
+  projectId: FIREBASE_PROJECT_ID,
+  authDomain: FIREBASE_AUTH_DOMAIN,
+});
+
 // Initialiser Firebase
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
+
+console.log('🔥 [Firebase Init] Firebase initialized successfully!');
 
 /**
  * Service d'authentification Firebase

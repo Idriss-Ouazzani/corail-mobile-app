@@ -150,15 +150,23 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       
       console.log('✅ AuthContext - Données chargées - Nom:', response.full_name, '| Email:', response.email, '| Tél:', response.phone, '| VTC:', response.professional_card_number || response.vtc_card_number, '| Photo:', response.photo_url ? 'Oui' : 'Non');
       console.log('🔍 [DEBUG APK] loadVerificationStatus SUCCESS - Status:', finalStatus);
+      debugLogger.log(`loadVerificationStatus SUCCESS - Status: ${finalStatus}`);
       
-      // 📊 Analytics: Set user properties
+      // 📊 Analytics: Set user properties (wrapped in try/catch to prevent breaking the auth flow)
       if (user) {
-        await analytics.setUserProperties({
-          userId: user.uid,
-          isAdmin: response.is_admin === true || response.is_admin === 'true',
-          verificationStatus: response.verification_status || 'UNVERIFIED',
-          totalCredits: 0, // Will be updated by AppDataContext
-        });
+        try {
+          debugLogger.log('Setting analytics user properties...');
+          await analytics.setUserProperties({
+            userId: user.uid,
+            isAdmin: response.is_admin === true || response.is_admin === 'true',
+            verificationStatus: response.verification_status || 'UNVERIFIED',
+            totalCredits: 0, // Will be updated by AppDataContext
+          });
+          debugLogger.log('Analytics user properties set successfully');
+        } catch (analyticsError: any) {
+          debugLogger.error(`Analytics error (non-blocking): ${analyticsError.message}`);
+          console.warn('⚠️ Analytics error (non-blocking):', analyticsError);
+        }
       }
     } catch (error: any) {
       debugLogger.error('========== ERROR IN loadVerificationStatus ==========');
