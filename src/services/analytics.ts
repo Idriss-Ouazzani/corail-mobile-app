@@ -25,9 +25,10 @@ try {
 // CONFIGURATION
 // ============================================================================
 
-// @ts-ignore - __DEV__ is a global variable in React Native
-const ENABLED = !__DEV__; // Désactivé en dev (Expo Go ne supporte pas les modules natifs)
-// ⚠️ Analytics sera actif en PRODUCTION après un build natif (npx expo prebuild)
+// ⚠️ DÉSACTIVÉ TEMPORAIREMENT : Firebase Analytics nécessite une config native complexe
+// Pour l'instant, on garde juste les logs en dev. On réactivera plus tard si besoin.
+const ENABLED = false; // Complètement désactivé pour éviter les crashes
+// TODO: Réactiver après avoir configuré google-services.json pour Android/iOS
 
 // ============================================================================
 // ÉVÉNEMENTS BUSINESS - Rides
