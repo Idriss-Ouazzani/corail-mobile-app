@@ -242,3 +242,5 @@ Remplace simplement les `<Image>` par :
 3. `npx expo start --clear`
 4. Teste !
 
+
+

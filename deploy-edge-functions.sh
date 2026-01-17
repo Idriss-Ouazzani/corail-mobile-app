@@ -120,3 +120,5 @@ echo ""
 echo -e "${YELLOW}📚 Documentation complète : EDGE_FUNCTION_DEPLOYMENT.md${NC}"
 echo ""
 
+
+

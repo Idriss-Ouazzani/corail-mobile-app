@@ -188,3 +188,5 @@ Aucun changement ! L'UI reste **exactement** la même :
 **Linter** : ✅ Aucune erreur
 **Backup** : ✅ `RideDetailScreen.tsx.backup_clean`
 
+
+

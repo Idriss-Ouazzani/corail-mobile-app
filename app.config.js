@@ -26,8 +26,14 @@ module.exports = {
     ios: {
       supportsTablet: true,
       bundleIdentifier: 'com.corail.vtcmarketplace',
+      buildNumber: '1',
       config: {
         usesNonExemptEncryption: false,
+      },
+      infoPlist: {
+        NSCameraUsageDescription: 'Cette app a besoin d\'accéder à la caméra pour prendre des photos de profil.',
+        NSPhotoLibraryUsageDescription: 'Cette app a besoin d\'accéder à vos photos pour sélectionner des images.',
+        NSPhotoLibraryAddUsageDescription: 'Cette app a besoin de sauvegarder des photos dans votre galerie.',
       },
     },
     android: {
@@ -36,6 +42,16 @@ module.exports = {
         backgroundColor: '#0c4a6e',
       },
       package: 'com.corail.vtcmarketplace',
+      versionCode: 1,
+      permissions: [
+        'INTERNET',
+        'ACCESS_NETWORK_STATE',
+        'VIBRATE',
+        'RECEIVE_BOOT_COMPLETED',
+        'CAMERA',
+        'READ_EXTERNAL_STORAGE',
+        'WRITE_EXTERNAL_STORAGE',
+      ],
     },
     web: {
       favicon: './assets/favicon.png',
@@ -60,6 +76,19 @@ module.exports = {
     plugins: [
       '@react-native-community/datetimepicker',
       'expo-web-browser',
+      [
+        'expo-build-properties',
+        {
+          android: {
+            // Version minimale Android 8.0 (API 26) - recommandé pour Play Store
+            // Si tu veux vraiment supporter Android 6, change minSdkVersion à 23
+            // Mais attention : Expo SDK 54 supporte Android 7+ par défaut
+            minSdkVersion: 26, // Android 8.0 - minimum pour Play Store
+            compileSdkVersion: 35, // Requis par les dépendances androidx.activity
+            targetSdkVersion: 35, // Requis par le Play Store (minimum API 35)
+          },
+        },
+      ],
     ],
   },
 };

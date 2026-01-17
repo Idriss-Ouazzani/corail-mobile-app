@@ -102,3 +102,5 @@ IS 'Retourne l''URL publique de la photo de profil d''un VTC (ou NULL si pas de 
 -- ⚠️  Le bucket et les policies doivent être créés via l'UI Supabase
 -- ============================================================================
 
+
+

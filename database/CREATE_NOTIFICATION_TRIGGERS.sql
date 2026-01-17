@@ -226,3 +226,5 @@ COMMENT ON FUNCTION notify_ride_claimed IS 'Notifie le créateur quand sa course
 COMMENT ON FUNCTION notify_ride_completed IS 'Notifie le créateur quand une course est terminée';
 COMMENT ON FUNCTION notify_group_invitation IS 'Notifie un utilisateur quand il est invité à un groupe';
 
+
+

@@ -316,3 +316,5 @@ function generateQueryVariants(query: string): string[] {
 **Status** : ✅ Ready to Test  
 **Issue** : Fix "Gare Toulouse" ne trouve rien
 
+
+

@@ -257,3 +257,5 @@ ORDER BY tablename;
 
 COMMENT ON FUNCTION current_user_id IS 'Helper temporaire pour RLS - À remplacer par JWT Firebase';
 
+
+

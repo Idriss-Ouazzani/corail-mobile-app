@@ -34,3 +34,5 @@ Relance l'app et le preview fonctionnera ! 🎉
 
 `expo-image` est beaucoup plus robuste que `React Native Image` et gère parfaitement les URLs Supabase.
 
+
+

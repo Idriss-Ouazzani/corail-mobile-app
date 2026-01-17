@@ -31,3 +31,5 @@ SELECT slug, view_count, last_viewed_at
 FROM vtc_profiles 
 WHERE slug = 'poochi';
 
+
+

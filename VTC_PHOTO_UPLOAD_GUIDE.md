@@ -292,3 +292,5 @@ Oui, mais je recommande plutôt une photo de toi (crédibilité + confiance pour
 
 **Tu veux que je t'aide à setup le bucket Supabase Storage maintenant ?** 🚀
 
+
+

@@ -47,3 +47,5 @@ WHERE slug = 'poochi';
 
 -- ✅ Si is_public = true, la page devrait fonctionner !
 
+
+

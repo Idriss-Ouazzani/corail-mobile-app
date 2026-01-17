@@ -86,3 +86,5 @@ Vercel va rebuild et la route `/vtc/[slug]` sera live ! 🎉
 
 Tout est prêt ! 🚀
 
+
+

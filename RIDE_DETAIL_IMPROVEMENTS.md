@@ -251,3 +251,5 @@ Affichage :
 **Status** : ✅ Production Ready  
 **Impact** : Page détails course complètement refonte
 
+
+

@@ -22,3 +22,5 @@ SELECT id, email, has_accepted_terms, terms_accepted_at
 FROM public.users 
 LIMIT 10;
 
+
+

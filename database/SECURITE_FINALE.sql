@@ -234,3 +234,5 @@ COMMENT ON TABLE vtc_profiles IS '🌐 PUBLIC - Annuaire VTC + page publique doi
 COMMENT ON TABLE quotes IS '✅ RLS activé - Formulaire public peut créer des devis';
 COMMENT ON TABLE rides IS '🌐 PUBLIC - Marketplace accessible à tous';
 
+
+

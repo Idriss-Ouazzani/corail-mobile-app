@@ -29,3 +29,5 @@ WHERE tablename = 'vtc_profiles';
 
 -- Si rowsecurity = false, c'est bon ! ✅
 
+
+

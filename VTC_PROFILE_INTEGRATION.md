@@ -208,3 +208,5 @@ ORDER BY view_count DESC;
 
 **🎉 Une fois intégré, les VTC pourront partager leur profil public et attirer de nouveaux clients sans qu'ils installent l'app !**
 
+
+

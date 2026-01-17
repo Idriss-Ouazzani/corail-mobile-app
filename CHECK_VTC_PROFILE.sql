@@ -20,3 +20,5 @@ ORDER BY created_at DESC;
 -- 3. Vérifier si is_public est bien true
 -- La page ne s'affiche que si is_public = true !
 
+
+

@@ -71,3 +71,5 @@ const url = `https://corail-quotes-web.vercel.app/vtc/${slug.toLowerCase()}`;
 
 Maintenant le lien pointe vers le bon endpoint VTC et fonctionne correctement ! 🎉
 
+
+

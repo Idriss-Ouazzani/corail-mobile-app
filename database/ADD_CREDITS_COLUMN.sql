@@ -50,3 +50,5 @@ CREATE TRIGGER trigger_update_user_credits
     FOR EACH ROW
     EXECUTE FUNCTION update_user_credits();
 
+
+

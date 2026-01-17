@@ -317,3 +317,5 @@ COMMENT ON TABLE vtc_profiles IS 'RLS PERMISSIF - Annuaire public VTC';
 COMMENT ON TABLE quotes IS 'RLS PERMISSIF - Formulaire public';
 COMMENT ON TABLE rides IS 'RLS PERMISSIF - Marketplace public';
 
+
+

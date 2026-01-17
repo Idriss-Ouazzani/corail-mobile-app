@@ -181,3 +181,5 @@ L'app fonctionne parfaitement avec la nouvelle section navigation !
 
 **Teste maintenant** : `npx expo start --clear` 🚀
 
+
+

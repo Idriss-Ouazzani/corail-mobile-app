@@ -23,3 +23,5 @@ FROM credits_ledger
 GROUP BY transaction_type
 ORDER BY count DESC;
 
+
+

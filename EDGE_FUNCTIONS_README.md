@@ -339,3 +339,5 @@ CREATE EXTENSION IF NOT EXISTS pg_net;
 
 Les utilisateurs recevront des notifications push en temps réel, même si l'application est complètement fermée, sans aucune intervention manuelle de votre part.
 
+
+

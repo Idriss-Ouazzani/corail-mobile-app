@@ -15,3 +15,5 @@ FROM information_schema.table_constraints
 WHERE table_name = 'vtc_profiles' 
 AND constraint_name LIKE '%user_id%';
 
+
+

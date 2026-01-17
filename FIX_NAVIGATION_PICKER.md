@@ -242,3 +242,5 @@ C'est le plus important et le plus simple (15 min). 🚀
 
 Ensuite on fait les autres corrections une par une.
 
+
+

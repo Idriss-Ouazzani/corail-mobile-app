@@ -9,12 +9,12 @@ app.use(express.static('public'));
 
 // Route pour servir index.html
 app.get('/', (req, res) => {
-  res.sendFile(path.join(__dirname, 'public', 'index.html'));
+  res.sendFile(path.join(__dirname, '..', 'public', 'index.html'));
 });
 
 // Route catch-all pour servir index.html sur toutes les routes
 app.get('*', (req, res) => {
-  res.sendFile(path.join(__dirname, 'public', 'index.html'));
+  res.sendFile(path.join(__dirname, '..', 'public', 'index.html'));
 });
 
 app.listen(port, () => {

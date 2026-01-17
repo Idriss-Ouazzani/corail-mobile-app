@@ -38,3 +38,5 @@ COMMENT ON COLUMN vtc_profiles.amenities IS '√âquipements disponibles dans le v√
 -- FIN DU SCRIPT
 -- ============================================================================
 
+
+

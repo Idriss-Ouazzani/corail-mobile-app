@@ -82,3 +82,5 @@ ORDER BY policyname;
 -- Si ce n'est pas le cas, les images ne seront pas accessibles !
 -- ============================================================================
 
+
+

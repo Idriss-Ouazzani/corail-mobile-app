@@ -84,3 +84,5 @@ IS 'Les photos de profil sont publiques pour être affichées sur la page VTC';
 COMMENT ON FUNCTION get_vtc_profile_photo_url(UUID) 
 IS 'Retourne l''URL publique de la photo de profil d''un VTC (ou NULL si pas de photo)';
 
+
+

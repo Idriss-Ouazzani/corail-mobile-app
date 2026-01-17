@@ -403,3 +403,5 @@ CREATE TABLE notification_logs (
 
 Les utilisateurs recevront des notifications push en temps réel, même si l'application est fermée, sans aucune intervention manuelle.
 
+
+

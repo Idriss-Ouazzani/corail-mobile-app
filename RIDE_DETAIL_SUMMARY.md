@@ -164,3 +164,5 @@ GOOGLE_MAPS_API_KEY=AIzaSyD...votre_clé...
 **Performance** : Optimisé avec fallbacks ✅  
 **UX** : Moderne, claire, intuitive ✅
 
+
+

@@ -434,3 +434,5 @@ Créer un backend Node.js/Express qui gère toute la logique Supabase de manièr
 
 Les données sensibles (email, téléphone, carte pro, crédits) sont actuellement accessibles par n'importe qui avec un minimum de connaissances techniques.
 
+
+

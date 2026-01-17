@@ -220,3 +220,5 @@ Le bouton est maintenant dans l'app, fonctionnel, et prêt à être testé !
 
 **Besoin d'aide ?** Ouvre `VTC_PROFILES_COMPLETE.md` pour la vue d'ensemble complète.
 
+
+

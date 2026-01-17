@@ -68,3 +68,5 @@ WHERE tablename = 'push_tokens';
 
 COMMENT ON TABLE public.push_tokens IS 'Stocke les tokens de notifications push Expo pour envoyer des notifications aux utilisateurs';
 
+
+

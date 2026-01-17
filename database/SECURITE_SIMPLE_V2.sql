@@ -135,3 +135,5 @@ COMMENT ON TABLE vtc_profiles IS '🌐 PUBLIC - Annuaire VTC accessible à tous'
 COMMENT ON TABLE quotes IS '🌐 PUBLIC - Formulaire de devis accessible à tous';
 COMMENT ON TABLE rides IS '🌐 PUBLIC - Marketplace accessible à tous';
 
+
+
