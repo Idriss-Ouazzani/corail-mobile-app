@@ -84,201 +84,199 @@ export const NotificationSettings: React.FC = () => {
 
   if (loading) {
     return (
-      <View style={styles.container}>
+      <View style={styles.loadingContainer}>
         <Text style={styles.loadingText}>Chargement...</Text>
       </View>
     );
   }
 
   return (
-    <ScrollView style={styles.container}>
-      {/* En-tête */}
-      <View style={styles.header}>
-        <Ionicons name="notifications" size={48} color="#FF6B47" />
-        <Text style={styles.title}>Notifications</Text>
-        <Text style={styles.subtitle}>
-          {scheduledCount} notification{scheduledCount > 1 ? 's' : ''} planifiée{scheduledCount > 1 ? 's' : ''}
-        </Text>
+    <ScrollView style={styles.container} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+      {/* Intro */}
+      <View style={styles.intro}>
+        <Ionicons name="notifications-outline" size={24} color="#0ea5e9" />
+        <View style={styles.introTextBlock}>
+          <Text style={styles.introText}>
+            Choisissez les alertes que vous souhaitez recevoir. Les notifications « Nouvelles annonces » vous préviennent lorsqu'une course est publiée sur la marketplace ou dans vos groupes.
+          </Text>
+          <Text style={styles.introSubtext}>
+            {scheduledCount} notification{scheduledCount > 1 ? 's' : ''} planifiée{scheduledCount > 1 ? 's' : ''}
+          </Text>
+        </View>
       </View>
 
       {/* Activer/Désactiver tout */}
       <View style={styles.section}>
+        <Text style={styles.sectionTitle}>Général</Text>
         <View style={styles.settingRow}>
           <View style={styles.settingLeft}>
-            <Ionicons name="notifications-outline" size={24} color="#FF6B47" />
+            <View style={styles.settingIconWrapper}>
+              <Ionicons name="notifications-outline" size={20} color="#0ea5e9" />
+            </View>
             <View style={styles.settingText}>
               <Text style={styles.settingTitle}>Activer les notifications</Text>
-              <Text style={styles.settingDescription}>
-                Désactiver toutes les notifications
-              </Text>
+              <Text style={styles.settingDescription}>Désactiver pour couper toutes les alertes</Text>
             </View>
           </View>
           <Switch
             value={prefs.enabled}
             onValueChange={(value) => updatePreference('enabled', value)}
-            trackColor={{ false: '#E5E7EB', true: '#FF6B47' }}
-            thumbColor="#FFFFFF"
+            trackColor={{ false: '#334155', true: '#0ea5e9' }}
+            thumbColor="#fff"
           />
         </View>
       </View>
 
-      {/* Paramètres individuels */}
       {prefs.enabled && (
         <>
-          {/* Courses */}
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>🚗 Courses</Text>
+            <Text style={styles.sectionTitle}>Courses</Text>
 
             <View style={styles.settingRow}>
               <View style={styles.settingLeft}>
-                <Ionicons name="alarm-outline" size={22} color="#64748B" />
+                <View style={[styles.settingIconWrapper, styles.settingIconMuted]}>
+                  <Ionicons name="alarm-outline" size={20} color="#64748b" />
+                </View>
                 <View style={styles.settingText}>
                   <Text style={styles.settingTitle}>Rappels de courses</Text>
-                  <Text style={styles.settingDescription}>
-                    1h avant le début
-                  </Text>
+                  <Text style={styles.settingDescription}>1h avant le début</Text>
                 </View>
               </View>
               <Switch
                 value={prefs.rideReminders}
                 onValueChange={(value) => updatePreference('rideReminders', value)}
-                trackColor={{ false: '#E5E7EB', true: '#FF6B47' }}
-                thumbColor="#FFFFFF"
+                trackColor={{ false: '#334155', true: '#0ea5e9' }}
+                thumbColor="#fff"
               />
             </View>
 
             <View style={styles.settingRow}>
               <View style={styles.settingLeft}>
-                <Ionicons name="calendar-outline" size={22} color="#64748B" />
+                <View style={[styles.settingIconWrapper, styles.settingIconMuted]}>
+                  <Ionicons name="calendar-outline" size={20} color="#64748b" />
+                </View>
                 <View style={styles.settingText}>
                   <Text style={styles.settingTitle}>Résumé quotidien</Text>
-                  <Text style={styles.settingDescription}>
-                    Courses prévues aujourd'hui (8h)
-                  </Text>
+                  <Text style={styles.settingDescription}>Courses prévues aujourd'hui (8h)</Text>
                 </View>
               </View>
               <Switch
                 value={prefs.dailySummary}
                 onValueChange={(value) => updatePreference('dailySummary', value)}
-                trackColor={{ false: '#E5E7EB', true: '#FF6B47' }}
-                thumbColor="#FFFFFF"
+                trackColor={{ false: '#334155', true: '#0ea5e9' }}
+                thumbColor="#fff"
               />
             </View>
 
             <View style={styles.settingRow}>
               <View style={styles.settingLeft}>
-                <Ionicons name="checkmark-circle-outline" size={22} color="#64748B" />
+                <View style={[styles.settingIconWrapper, styles.settingIconMuted]}>
+                  <Ionicons name="checkmark-circle-outline" size={20} color="#64748b" />
+                </View>
                 <View style={styles.settingText}>
                   <Text style={styles.settingTitle}>Terminer une course</Text>
-                  <Text style={styles.settingDescription}>
-                    Rappel 2h après la course
-                  </Text>
+                  <Text style={styles.settingDescription}>Rappel 2h après la course</Text>
                 </View>
               </View>
               <Switch
                 value={prefs.rideCompleted}
                 onValueChange={(value) => updatePreference('rideCompleted', value)}
-                trackColor={{ false: '#E5E7EB', true: '#FF6B47' }}
-                thumbColor="#FFFFFF"
+                trackColor={{ false: '#334155', true: '#0ea5e9' }}
+                thumbColor="#fff"
               />
             </View>
           </View>
 
-          {/* Marketplace */}
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>🛒 Marketplace</Text>
+            <Text style={styles.sectionTitle}>Annonces & marketplace</Text>
 
             <View style={styles.settingRow}>
               <View style={styles.settingLeft}>
-                <Ionicons name="sparkles-outline" size={22} color="#64748B" />
+                <View style={styles.settingIconWrapper}>
+                  <Ionicons name="megaphone-outline" size={20} color="#0ea5e9" />
+                </View>
                 <View style={styles.settingText}>
-                  <Text style={styles.settingTitle}>Nouvelles courses</Text>
+                  <Text style={styles.settingTitle}>Nouvelles annonces</Text>
                   <Text style={styles.settingDescription}>
-                    Courses disponibles près de vous
+                    Alerte lorsqu'une course est publiée (marketplace ou vos groupes)
                   </Text>
                 </View>
               </View>
               <Switch
                 value={prefs.newRidesAvailable}
                 onValueChange={(value) => updatePreference('newRidesAvailable', value)}
-                trackColor={{ false: '#E5E7EB', true: '#FF6B47' }}
-                thumbColor="#FFFFFF"
+                trackColor={{ false: '#334155', true: '#0ea5e9' }}
+                thumbColor="#fff"
               />
             </View>
           </View>
 
-          {/* Compte */}
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>💳 Compte</Text>
+            <Text style={styles.sectionTitle}>Compte</Text>
 
             <View style={styles.settingRow}>
               <View style={styles.settingLeft}>
-                <Ionicons name="warning-outline" size={22} color="#64748B" />
+                <View style={[styles.settingIconWrapper, styles.settingIconMuted]}>
+                  <Ionicons name="warning-outline" size={20} color="#64748b" />
+                </View>
                 <View style={styles.settingText}>
                   <Text style={styles.settingTitle}>Crédits faibles</Text>
-                  <Text style={styles.settingDescription}>
-                    Moins de 2 crédits restants
-                  </Text>
+                  <Text style={styles.settingDescription}>Moins de 2 crédits restants</Text>
                 </View>
               </View>
               <Switch
                 value={prefs.lowCredits}
                 onValueChange={(value) => updatePreference('lowCredits', value)}
-                trackColor={{ false: '#E5E7EB', true: '#FF6B47' }}
-                thumbColor="#FFFFFF"
+                trackColor={{ false: '#334155', true: '#0ea5e9' }}
+                thumbColor="#fff"
               />
             </View>
 
             <View style={styles.settingRow}>
               <View style={styles.settingLeft}>
-                <Ionicons name="trophy-outline" size={22} color="#64748B" />
+                <View style={[styles.settingIconWrapper, styles.settingIconMuted]}>
+                  <Ionicons name="trophy-outline" size={20} color="#64748b" />
+                </View>
                 <View style={styles.settingText}>
                   <Text style={styles.settingTitle}>Nouveaux badges</Text>
-                  <Text style={styles.settingDescription}>
-                    Badge débloqué
-                  </Text>
+                  <Text style={styles.settingDescription}>Badge débloqué</Text>
                 </View>
               </View>
               <Switch
                 value={prefs.badgesEarned}
                 onValueChange={(value) => updatePreference('badgesEarned', value)}
-                trackColor={{ false: '#E5E7EB', true: '#FF6B47' }}
-                thumbColor="#FFFFFF"
+                trackColor={{ false: '#334155', true: '#0ea5e9' }}
+                thumbColor="#fff"
               />
             </View>
           </View>
 
-          {/* Social */}
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>👥 Social</Text>
+            <Text style={styles.sectionTitle}>Social</Text>
 
             <View style={styles.settingRow}>
               <View style={styles.settingLeft}>
-                <Ionicons name="people-outline" size={22} color="#64748B" />
+                <View style={[styles.settingIconWrapper, styles.settingIconMuted]}>
+                  <Ionicons name="people-outline" size={20} color="#64748b" />
+                </View>
                 <View style={styles.settingText}>
                   <Text style={styles.settingTitle}>Invitations groupes</Text>
-                  <Text style={styles.settingDescription}>
-                    Invitation à rejoindre un groupe
-                  </Text>
+                  <Text style={styles.settingDescription}>Invitation à rejoindre un groupe</Text>
                 </View>
               </View>
               <Switch
                 value={prefs.groupInvitations}
                 onValueChange={(value) => updatePreference('groupInvitations', value)}
-                trackColor={{ false: '#E5E7EB', true: '#FF6B47' }}
-                thumbColor="#FFFFFF"
+                trackColor={{ false: '#334155', true: '#0ea5e9' }}
+                thumbColor="#fff"
               />
             </View>
           </View>
         </>
       )}
 
-      {/* Bouton test */}
-      <TouchableOpacity 
-        style={styles.testButton}
-        onPress={handleTestNotification}
-      >
-        <Ionicons name="send-outline" size={20} color="#FFFFFF" />
+      <TouchableOpacity style={styles.testButton} onPress={handleTestNotification} activeOpacity={0.8}>
+        <Ionicons name="send-outline" size={20} color="#fff" />
         <Text style={styles.testButtonText}>Envoyer une notification test</Text>
       </TouchableOpacity>
 
@@ -294,49 +292,61 @@ export const NotificationSettings: React.FC = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F9FAFB',
+    backgroundColor: '#0f172a',
+  },
+  scrollContent: {
+    paddingHorizontal: 20,
+    paddingTop: 16,
+    paddingBottom: 40,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    paddingVertical: 40,
   },
   loadingText: {
     textAlign: 'center',
-    marginTop: 40,
-    fontSize: 16,
-    color: '#64748B',
+    fontSize: 15,
+    color: '#64748b',
   },
-  header: {
-    alignItems: 'center',
-    paddingVertical: 32,
-    backgroundColor: '#FFFFFF',
-    borderBottomWidth: 1,
-    borderBottomColor: '#E5E7EB',
+  intro: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 12,
+    backgroundColor: '#1e293b',
+    padding: 16,
+    borderRadius: 14,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: '#334155',
   },
-  title: {
-    fontSize: 24,
-    fontWeight: '700',
-    color: '#1F2937',
-    marginTop: 12,
+  introTextBlock: {
+    flex: 1,
   },
-  subtitle: {
+  introText: {
     fontSize: 14,
-    color: '#64748B',
-    marginTop: 4,
+    color: '#94a3b8',
+    lineHeight: 20,
+  },
+  introSubtext: {
+    fontSize: 12,
+    color: '#64748b',
+    marginTop: 8,
   },
   section: {
-    marginTop: 24,
-    backgroundColor: '#FFFFFF',
-    borderRadius: 12,
-    marginHorizontal: 16,
+    backgroundColor: '#1e293b',
+    borderRadius: 14,
     padding: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 2,
-    elevation: 1,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: '#334155',
   },
   sectionTitle: {
-    fontSize: 16,
+    fontSize: 13,
     fontWeight: '600',
-    color: '#1F2937',
-    marginBottom: 16,
+    color: '#64748b',
+    marginBottom: 12,
+    letterSpacing: 0.3,
   },
   settingRow: {
     flexDirection: 'row',
@@ -344,59 +354,64 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 12,
     borderBottomWidth: 1,
-    borderBottomColor: '#F3F4F6',
+    borderBottomColor: '#334155',
   },
   settingLeft: {
     flexDirection: 'row',
     alignItems: 'center',
     flex: 1,
   },
+  settingIconWrapper: {
+    width: 36,
+    height: 36,
+    borderRadius: 10,
+    backgroundColor: 'rgba(14, 165, 233, 0.15)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 12,
+  },
+  settingIconMuted: {
+    backgroundColor: 'rgba(100, 116, 139, 0.15)',
+  },
   settingText: {
-    marginLeft: 12,
     flex: 1,
   },
   settingTitle: {
     fontSize: 15,
-    fontWeight: '500',
-    color: '#1F2937',
+    fontWeight: '600',
+    color: '#e2e8f0',
     marginBottom: 2,
   },
   settingDescription: {
     fontSize: 13,
-    color: '#64748B',
+    color: '#64748b',
   },
   testButton: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#FF6B47',
-    marginHorizontal: 16,
-    marginTop: 24,
-    paddingVertical: 14,
-    borderRadius: 12,
-    shadowColor: '#FF6B47',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.3,
-    shadowRadius: 4,
-    elevation: 3,
+    gap: 8,
+    backgroundColor: '#0ea5e9',
+    marginTop: 8,
+    paddingVertical: 18,
+    borderRadius: 18,
   },
   testButtonText: {
-    color: '#FFFFFF',
+    color: '#fff',
     fontSize: 16,
     fontWeight: '600',
-    marginLeft: 8,
   },
   footer: {
-    marginHorizontal: 16,
     marginTop: 24,
-    marginBottom: 32,
     padding: 16,
-    backgroundColor: '#F3F4F6',
-    borderRadius: 8,
+    backgroundColor: '#1e293b',
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: '#334155',
   },
   footerText: {
     fontSize: 13,
-    color: '#64748B',
+    color: '#64748b',
     textAlign: 'center',
     lineHeight: 18,
   },

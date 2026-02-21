@@ -14,10 +14,15 @@ import {
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import DateTimePicker from '@react-native-community/datetimepicker';
+import { ShareQuoteModal } from '../components/ShareQuoteModal';
+import { PriceHintChauffeur } from '../components/PriceHintChauffeur';
 import { apiClient } from '../services/api';
 import { AddressAutocomplete } from '../components/AddressAutocomplete';
 import { AddressSuggestion } from '../services/addressApi';
 import { calculateRoute } from '../services/routingApi';
+import { formatDateWithLocalTimezone } from '../utils/dateFormat';
+import { useAuth } from '../contexts/AuthContext';
+import { getQuoteUrl } from '../constants/urls';
 
 interface Group {
   id: string;
@@ -35,17 +40,11 @@ interface CreateRideScreenProps {
   onBack: () => void;
   onCreate: (ride: any) => void;
   mode?: 'create' | 'publish'; // 'create' = depuis Mes Courses, 'publish' = depuis Marketplace
+  verificationStatus?: string | null;
 }
 
-const VEHICLE_TYPES = [
-  { type: 'STANDARD', label: 'Standard', icon: 'car', color: '#64748b' },
-  { type: 'PREMIUM', label: 'Premium', icon: 'car-sport', color: '#8b5cf6' },
-  { type: 'ELECTRIC', label: 'Électrique', icon: 'flash', color: '#10b981' },
-  { type: 'VAN', label: 'Van', icon: 'bus', color: '#0ea5e9' },
-  { type: 'LUXURY', label: 'Luxe', icon: 'diamond', color: '#fbbf24' },
-];
-
-export const CreateRideScreen: React.FC<CreateRideScreenProps> = ({ onBack, onCreate, mode = 'publish' }) => {
+export const CreateRideScreen: React.FC<CreateRideScreenProps> = ({ onBack, onCreate, mode = 'publish', verificationStatus }) => {
+  const { user } = useAuth();
   const [pickup, setPickup] = useState('');
   const [dropoff, setDropoff] = useState('');
   const [pickupCoords, setPickupCoords] = useState<{ lat: number; lon: number } | null>(null);
@@ -57,15 +56,19 @@ export const CreateRideScreen: React.FC<CreateRideScreenProps> = ({ onBack, onCr
   const [visibility, setVisibility] = useState<'PUBLIC' | 'GROUP' | 'PERSONAL'>(mode === 'create' ? 'PERSONAL' : 'PUBLIC');
   const [publishToMarketplace, setPublishToMarketplace] = useState(false); // Pour mode 'create'
   const [selectedGroups, setSelectedGroups] = useState<Group[]>([]);
-  const [vehicleType, setVehicleType] = useState<string>('STANDARD');
   const [distance, setDistance] = useState('');
   const [duration, setDuration] = useState('');
   const [clientName, setClientName] = useState('');
   const [clientPhone, setClientPhone] = useState('');
+  const [clientEmail, setClientEmail] = useState('');
   const [groups, setGroups] = useState<Group[]>([]);
   const [generateQuote, setGenerateQuote] = useState(false); // Toggle pour générer un devis
-  const [showMoreOptions, setShowMoreOptions] = useState(false); // Toggle pour Plus d'options
+  const [showClientSection, setShowClientSection] = useState(mode === 'publish');
+  const [notes, setNotes] = useState('');
   const [calculatingRoute, setCalculatingRoute] = useState(false); // Calcul de l'itinéraire en cours
+  const [showShareQuoteModal, setShowShareQuoteModal] = useState(false); // Modal de partage du devis
+  const [createdQuoteData, setCreatedQuoteData] = useState<any>(null); // Données du devis créé
+  const [pendingRideData, setPendingRideData] = useState<any>(null); // Données de la course en attente
 
   // Charger les groupes de l'utilisateur au montage
   useEffect(() => {
@@ -74,10 +77,10 @@ export const CreateRideScreen: React.FC<CreateRideScreenProps> = ({ onBack, onCr
 
   // Désactiver le toggle si les champs client sont vidés
   useEffect(() => {
-    if ((!clientName || !clientPhone) && generateQuote) {
+    if ((!clientName || (!clientPhone && !clientEmail)) && generateQuote) {
       setGenerateQuote(false);
     }
-  }, [clientName, clientPhone]);
+  }, [clientName, clientPhone, clientEmail]);
 
   // Calculer automatiquement la distance et la durée quand les 2 adresses sont saisies
   useEffect(() => {
@@ -120,7 +123,7 @@ export const CreateRideScreen: React.FC<CreateRideScreenProps> = ({ onBack, onCr
         id: g.id,
         name: g.name,
         description: g.description || '',
-        memberCount: 1, // TODO: récupérer le vrai nombre de membres via l'API
+        memberCount: (g as any).memberCount ?? g.member_count ?? 1,
         color: GROUP_COLORS[index % GROUP_COLORS.length],
         icon: g.icon || 'people',
       }));
@@ -131,24 +134,10 @@ export const CreateRideScreen: React.FC<CreateRideScreenProps> = ({ onBack, onCr
     }
   };
 
-  // Formater la date pour l'API (YYYY-MM-DD HH:MM)
-  const formatDateForAPI = (date: Date): string => {
-    const year = date.getFullYear();
-    const month = String(date.getMonth() + 1).padStart(2, '0');
-    const day = String(date.getDate()).padStart(2, '0');
-    const hours = String(date.getHours()).padStart(2, '0');
-    const minutes = String(date.getMinutes()).padStart(2, '0');
-    return `${year}-${month}-${day} ${hours}:${minutes}`;
-  };
 
-  // Formater la date pour l'affichage (ex: Lun 31 Déc 2025)
+  // Date courte sans année (ex: lun. 31 déc.)
   const formatDateDisplay = (date: Date): string => {
-    return date.toLocaleDateString('fr-FR', { 
-      weekday: 'short', 
-      day: 'numeric', 
-      month: 'short', 
-      year: 'numeric' 
-    });
+    return date.toLocaleDateString('fr-FR', { weekday: 'short', day: 'numeric', month: 'short' });
   };
 
   // Formater l'heure pour l'affichage (ex: 14:30)
@@ -204,23 +193,40 @@ export const CreateRideScreen: React.FC<CreateRideScreenProps> = ({ onBack, onCr
       return;
     }
 
+    // Bloquer la publication sur la marketplace si le profil n'est pas vérifié
+    if (visibility === 'PUBLIC' && verificationStatus !== 'VERIFIED') {
+      Alert.alert(
+        'Profil en cours de vérification',
+        'Vous pourrez publier sur la marketplace après validation de votre profil.'
+      );
+      return;
+    }
+
+    // Annonce : nom + email OU téléphone (1 des 2 suffit)
+    if ((mode === 'publish' || visibility === 'PUBLIC') && (!clientName || (!clientPhone && !clientEmail))) {
+      Alert.alert('Erreur', 'Nom du client et au moins un contact (email ou téléphone) sont obligatoires pour une annonce.');
+      return;
+    }
+
     // Validation pour le devis
-    if (generateQuote && (!clientName || !clientPhone)) {
-      Alert.alert('Erreur', 'Le nom et le téléphone du client sont requis pour générer un devis');
+    if (generateQuote && (!clientName || (!clientPhone && !clientEmail))) {
+      Alert.alert('Erreur', 'Le nom du client et au moins un contact (téléphone ou email) sont requis pour générer un devis');
       return;
     }
 
     try {
       let quoteId = null;
       let quoteToken = null;
+      let shouldShowShareModal = false;
 
       // Créer le devis d'abord si demandé
-      if (generateQuote && clientName && clientPhone) {
+      if (generateQuote && clientName && (clientPhone || clientEmail)) {
         try {
           const scheduledDate = new Date(selectedDate);
           const quoteData = {
             client_name: clientName,
-            client_phone: clientPhone,
+            client_phone: clientPhone || undefined,
+            client_email: clientEmail || undefined,
             pickup_address: pickup,
             dropoff_address: dropoff,
             scheduled_date: scheduledDate.toISOString().split('T')[0], // YYYY-MM-DD
@@ -233,6 +239,7 @@ export const CreateRideScreen: React.FC<CreateRideScreenProps> = ({ onBack, onCr
           console.log('✅ Devis créé:', quote);
           quoteId = quote.id;
           quoteToken = quote.token;
+          shouldShowShareModal = true;
         } catch (quoteError: any) {
           console.error('❌ Erreur création devis:', quoteError);
           Alert.alert('Attention', 'Erreur lors de la création du devis, la course sera créée sans devis');
@@ -244,28 +251,50 @@ export const CreateRideScreen: React.FC<CreateRideScreenProps> = ({ onBack, onCr
         pickup_address: pickup,
         dropoff_address: dropoff,
         price_cents: parseFloat(price) * 100,
-        scheduled_at: formatDateForAPI(selectedDate),
+        scheduled_at: formatDateWithLocalTimezone(selectedDate),
         visibility,
         group_ids: selectedGroups.map(g => g.id),
-        vehicle_type: vehicleType,
+        vehicle_type: 'STANDARD',
         distance_km: distance ? parseFloat(distance) : undefined,
         duration_minutes: duration ? parseInt(duration) : undefined,
         client_name: clientName || undefined,
         client_phone: clientPhone || undefined,
+        client_email: clientEmail || undefined,
         quote_id: quoteId,
         quote_token: quoteToken,
         quote_status: quoteId ? 'SENT' : undefined,
+        notes: notes.trim() || undefined,
       };
 
-      onCreate(rideData);
-
-      if (quoteId) {
-        Alert.alert('Succès', `Course et devis créés avec succès !\nLien du devis copié.`);
+      // Si un devis a été créé, afficher le modal de partage
+      if (shouldShowShareModal && quoteToken) {
+        const scheduledDate = new Date(selectedDate);
+        const dateFormatted = scheduledDate.toLocaleDateString('fr-FR', {
+          day: 'numeric',
+          month: 'numeric',
+        });
+        const timeFormatted = `${scheduledDate.getHours().toString().padStart(2, '0')}h${scheduledDate.getMinutes().toString().padStart(2, '0')}`;
+        
+        // Stocker les données pour les utiliser après la fermeture du modal
+        setPendingRideData(rideData);
+        setCreatedQuoteData({
+          quoteUrl: getQuoteUrl(quoteToken),
+          clientName: clientName,
+          clientEmail: clientEmail || undefined,
+          clientPhone: clientPhone || undefined,
+          price: price,
+          date: dateFormatted,
+          time: timeFormatted,
+          pickupAddress: pickup,
+          dropoffAddress: dropoff,
+        });
+        setShowShareQuoteModal(true);
       } else {
+        // Sinon, créer la course immédiatement et fermer
+        onCreate(rideData);
         Alert.alert('Succès', 'Course créée avec succès !');
+        onBack();
       }
-
-      onBack();
     } catch (error: any) {
       console.error('❌ Erreur création course:', error);
       Alert.alert('Erreur', 'Impossible de créer la course');
@@ -286,409 +315,215 @@ export const CreateRideScreen: React.FC<CreateRideScreenProps> = ({ onBack, onCr
     return selectedGroups.some(g => g.id === groupId);
   };
 
+  const priceNum = parseFloat((price || '').replace(',', '.')) || 0;
+  const distanceNum = parseFloat(distance) || 0;
+  const pricePerKmLabel =
+    price && distanceNum > 0 && !Number.isNaN(priceNum) && priceNum > 0
+      ? (priceNum / distanceNum).toFixed(2)
+      : null;
+
   return (
     <View style={styles.container}>
-      {/* Header */}
-      <LinearGradient
-        colors={['#1e293b', '#0f172a']}
-        style={styles.header}
-      >
-        <TouchableOpacity onPress={onBack} style={styles.backButton}>
-          <Ionicons name="arrow-back" size={24} color="#f1f5f9" />
+      <View style={styles.header}>
+        <TouchableOpacity onPress={onBack} style={styles.backButton} activeOpacity={0.7}>
+          <Ionicons name="arrow-back" size={24} color="#e2e8f0" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>
           {mode === 'create' ? 'Créer une course' : 'Publier une course'}
         </Text>
-        <View style={{ width: 40 }} />
-      </LinearGradient>
+        <View style={styles.headerRight} />
+      </View>
 
-      <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
-        {/* Pickup */}
-        <View style={styles.section}>
+      <ScrollView style={styles.content} showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
+        {/* 1. Itinéraire en haut — puis Prix + Date/heure en dessous */}
+        <View style={styles.formCard}>
+          <Text style={styles.formCardTitle}>Itinéraire</Text>
           <AddressAutocomplete
-            label="Point de départ"
-            placeholder="Ex: Gare Toulouse-Matabiau"
+            label="Départ"
+            placeholder="Adresse de prise en charge"
             value={pickup}
-            onSelectAddress={(address: AddressSuggestion) => {
-              setPickup(address.label);
-              setPickupCoords(address.coordinates);
-              console.log('📍 Adresse départ sélectionnée:', address.label, address.coordinates);
-            }}
+            onSelectAddress={(address: AddressSuggestion) => { setPickup(address.label); setPickupCoords(address.coordinates); }}
             onChangeText={setPickup}
           />
-        </View>
-
-        {/* Dropoff */}
-        <View style={styles.section}>
+          <View style={styles.formCardSpacer} />
           <AddressAutocomplete
-            label="Point d'arrivée"
-            placeholder="Ex: Aéroport Toulouse-Blagnac"
+            label="Arrivée"
+            placeholder="Adresse de destination"
             value={dropoff}
-            onSelectAddress={(address: AddressSuggestion) => {
-              setDropoff(address.label);
-              setDropoffCoords(address.coordinates);
-              console.log('📍 Adresse arrivée sélectionnée:', address.label, address.coordinates);
-            }}
+            onSelectAddress={(address: AddressSuggestion) => { setDropoff(address.label); setDropoffCoords(address.coordinates); }}
             onChangeText={setDropoff}
           />
+          {(pickupCoords && dropoffCoords) && (
+            <View style={styles.routeWrap}>
+              {calculatingRoute ? (
+                <View style={styles.routeCalculating}>
+                  <ActivityIndicator size="small" color="#0ea5e9" />
+                  <Text style={styles.routeCalculatingText}>Calcul en cours…</Text>
+                </View>
+              ) : (distance && duration) ? (
+                <View style={styles.routeRow}>
+                  <View style={styles.routeRowCenter}>
+                    <Text style={styles.routeValue}>{distance} km</Text>
+                    <Text style={styles.routeDot}>·</Text>
+                    <Text style={styles.routeValue}>{duration} min</Text>
+                  </View>
+                  <Text style={styles.routeHint}>La durée dépend des conditions de circulation et n'est qu'indicative.</Text>
+                </View>
+              ) : null}
+            </View>
+          )}
+
+          {/* Fourchette indicative : sous km et durée, avec barre et repère */}
+          <PriceHintChauffeur
+            distanceKm={distance ? parseFloat(distance) : null}
+            priceEur={price ? parseFloat((price || '').replace(',', '.')) : null}
+          />
+
+          <View style={styles.priceWrap}>
+            <Text style={styles.priceLabel}>Prix (€)</Text>
+            <View style={styles.priceRow}>
+              <TextInput
+                style={styles.priceInputGold}
+                placeholder="Ex: 45,00"
+                placeholderTextColor="#64748b"
+                keyboardType="decimal-pad"
+                value={price}
+                onChangeText={setPrice}
+              />
+              {pricePerKmLabel !== null && (
+                <View style={styles.pricePerKmWrap}>
+                  <Text style={styles.pricePerKmValue}>{pricePerKmLabel}</Text>
+                  <Text style={styles.pricePerKmUnit}> €/km</Text>
+                </View>
+              )}
+            </View>
+          </View>
+
+          <View style={styles.dateTimeRow}>
+            <TouchableOpacity style={styles.dateTimeHalf} onPress={() => setShowDatePicker(true)} activeOpacity={0.8}>
+              <Ionicons name="calendar-outline" size={22} color="#0ea5e9" />
+              <Text style={styles.dateTimeText} numberOfLines={1}>{formatDateDisplay(selectedDate)}</Text>
+            </TouchableOpacity>
+            <View style={styles.dateTimeDivider} />
+            <TouchableOpacity style={styles.dateTimeHalf} onPress={() => setShowTimePicker(true)} activeOpacity={0.8}>
+              <Ionicons name="time-outline" size={22} color="#0ea5e9" />
+              <Text style={styles.dateTimeText}>{formatTimeDisplay(selectedDate)}</Text>
+            </TouchableOpacity>
+          </View>
         </View>
 
-        {/* Distance & Duration - Calculé automatiquement */}
-        {(pickupCoords && dropoffCoords) && (
-          <View style={styles.routeInfoSection}>
-            {calculatingRoute ? (
-              <View style={styles.routeInfoCalculating}>
-                <ActivityIndicator size="small" color="#10b981" />
-                <Text style={styles.routeInfoCalculatingText}>Calcul de l'itinéraire...</Text>
-              </View>
-            ) : (distance && duration) ? (
-              <View style={styles.routeInfoCard}>
-                <View style={styles.routeInfoHeader}>
-                  <Ionicons name="checkmark-circle" size={16} color="#10b981" />
-                  <Text style={styles.routeInfoBadge}>Calcul estimé</Text>
-                </View>
-                <View style={styles.routeInfoContent}>
-                  <View style={styles.routeInfoItem}>
-                    <View style={styles.routeInfoIconWrapper}>
-                      <Ionicons name="speedometer" size={20} color="#10b981" />
-                    </View>
-                    <View style={{ flex: 1 }}>
-                      <Text style={styles.routeInfoLabel}>Distance</Text>
-                      <Text style={styles.routeInfoValue}>{distance} km</Text>
-                    </View>
-                  </View>
-                  <View style={styles.routeInfoDivider} />
-                  <View style={styles.routeInfoItem}>
-                    <View style={styles.routeInfoIconWrapper}>
-                      <Ionicons name="time" size={20} color="#10b981" />
-                    </View>
-                    <View style={{ flex: 1 }}>
-                      <Text style={styles.routeInfoLabel}>Durée</Text>
-                      <Text style={styles.routeInfoValue}>{duration} min</Text>
-                    </View>
-                  </View>
-                </View>
-              </View>
-            ) : null}
+        {/* 2. Personnelle ou Annonce (en dessous de Prix et horaire) */}
+        {mode === 'create' && (
+          <View style={styles.typeCard}>
+            <Text style={styles.typeCardLabel}>Type de course</Text>
+            <View style={styles.typeRow}>
+              <TouchableOpacity
+                style={[styles.typeOption, !publishToMarketplace && styles.typeOptionActive]}
+                onPress={() => { setPublishToMarketplace(false); setVisibility('PERSONAL'); setSelectedGroups([]); }}
+                activeOpacity={0.85}
+              >
+                <Ionicons name="person-outline" size={20} color={!publishToMarketplace ? '#fff' : '#94a3b8'} />
+                <Text style={[styles.typeOptionText, !publishToMarketplace && styles.typeOptionTextActive]}>Personnelle</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.typeOption, publishToMarketplace && styles.typeOptionActive]}
+                onPress={() => { setPublishToMarketplace(true); setVisibility('PUBLIC'); }}
+                activeOpacity={0.85}
+              >
+                <Ionicons name="megaphone-outline" size={20} color={publishToMarketplace ? '#fff' : '#94a3b8'} />
+                <Text style={[styles.typeOptionText, publishToMarketplace && styles.typeOptionTextActive]}>Annonce</Text>
+              </TouchableOpacity>
+            </View>
           </View>
         )}
 
-        {/* Price */}
-        <View style={styles.section}>
-          <Text style={styles.label}>
-            <Ionicons name="cash" size={16} color="#fbbf24" /> Prix (€)
-          </Text>
-          <TextInput
-            style={styles.input}
-            placeholder="Ex: 25.00"
-            placeholderTextColor="#64748b"
-            keyboardType="decimal-pad"
-            value={price}
-            onChangeText={setPrice}
-          />
-        </View>
-
-        {/* Date & Time */}
-        <View style={styles.section}>
-          <Text style={styles.label}>
-            <Ionicons name="calendar" size={16} color="#0ea5e9" /> Date et heure
-          </Text>
-          
-          <View style={styles.dateTimeContainer}>
-            {/* Date Picker Button */}
-            <TouchableOpacity 
-              style={styles.dateButton}
-              onPress={() => setShowDatePicker(true)}
-            >
-              <Ionicons name="calendar-outline" size={20} color="#0ea5e9" />
-              <Text style={styles.dateText}>
-                {formatDateDisplay(selectedDate)}
-              </Text>
-            </TouchableOpacity>
-
-            {/* Separator */}
-            <View style={styles.dateSeparator} />
-
-            {/* Time Picker Button */}
-            <TouchableOpacity 
-              style={styles.timeButton}
-              onPress={() => setShowTimePicker(true)}
-            >
-              <Ionicons name="time-outline" size={20} color="#8b5cf6" />
-              <Text style={styles.timeText}>
-                {formatTimeDisplay(selectedDate)}
-              </Text>
-            </TouchableOpacity>
-          </View>
-
-        </View>
-
-        {/* Client Information & Quote */}
-        <View style={styles.section}>
-          <Text style={styles.label}>
-            <Ionicons name="person" size={16} color="#8b5cf6" /> Client & Devis
-          </Text>
-          <TextInput
-            style={styles.input}
-            placeholder="Nom du client (optionnel)"
-            placeholderTextColor="#64748b"
-            value={clientName}
-            onChangeText={setClientName}
-          />
-          <View style={{ height: 12 }} />
-          <TextInput
-            style={styles.input}
-            placeholder="Téléphone du client (optionnel)"
-            placeholderTextColor="#64748b"
-            keyboardType="phone-pad"
-            value={clientPhone}
-            onChangeText={setClientPhone}
-          />
-          
-          {/* Toggle Générer un devis */}
-          <TouchableOpacity
-            style={[
-              styles.quoteToggle,
-              (!clientName || !clientPhone) && styles.quoteToggleDisabled
-            ]}
-            onPress={() => {
-              if (!clientName || !clientPhone) {
-                Alert.alert(
-                  'Informations manquantes',
-                  'Veuillez renseigner le nom et le téléphone du client pour générer un devis'
-                );
-                return;
-              }
-              setGenerateQuote(!generateQuote);
-            }}
-            activeOpacity={0.7}
-          >
-            <View style={styles.quoteToggleLeft}>
-              <Ionicons 
-                name="document-text" 
-                size={20} 
-                color={(!clientName || !clientPhone) ? "#64748b" : "#f59e0b"} 
-              />
-              <View style={{ flex: 1 }}>
-                <Text style={[
-                  styles.quoteToggleTitle,
-                  (!clientName || !clientPhone) && styles.quoteToggleTitleDisabled
-                ]}>
-                  Générer un devis
-                </Text>
-                <Text style={[
-                  styles.quoteToggleSubtitle,
-                  (!clientName || !clientPhone) && styles.quoteToggleSubtitleDisabled
-                ]}>
-                  {(!clientName || !clientPhone) 
-                    ? 'Remplissez les infos client ci-dessus' 
-                    : 'Envoi automatique par WhatsApp'}
-                </Text>
-              </View>
-            </View>
-            <View style={[
-              styles.quoteToggleSwitchBox,
-              generateQuote && (clientName && clientPhone) && styles.quoteToggleSwitchActive,
-              (!clientName || !clientPhone) && styles.quoteToggleSwitchDisabled
-            ]}>
-              <View style={[
-                styles.quoteToggleThumb,
-                generateQuote && (clientName && clientPhone) && styles.quoteToggleThumbActive
-              ]} />
-            </View>
-          </TouchableOpacity>
-        </View>
-
-        {/* Plus d'options - Collapsible */}
-        <View style={styles.section}>
-          <TouchableOpacity
-            style={styles.moreOptionsHeader}
-            onPress={() => setShowMoreOptions(!showMoreOptions)}
-            activeOpacity={0.7}
-          >
-            <View style={styles.moreOptionsLeft}>
-              <Ionicons name="options" size={18} color="#94a3b8" />
-              <Text style={styles.moreOptionsTitle}>Plus d'options</Text>
-            </View>
-            <Ionicons
-              name={showMoreOptions ? 'chevron-up' : 'chevron-down'}
-              size={20}
-              color="#94a3b8"
-            />
-          </TouchableOpacity>
-
-          {showMoreOptions && (
-            <View style={styles.moreOptionsContent}>
-              {/* Vehicle Type */}
-              <View style={styles.moreOptionsSection}>
-                <Text style={styles.moreOptionsLabel}>
-                  <Ionicons name="car-sport" size={14} color="#ff6b47" /> Type de véhicule
-                </Text>
-                <View style={styles.vehicleTypeGrid}>
-                  {VEHICLE_TYPES.map((vehicle) => {
-                    const isSelected = vehicleType === vehicle.type;
-                    return (
-                      <TouchableOpacity
-                        key={vehicle.type}
-                        style={[
-                          styles.vehicleTypeChip,
-                          isSelected && { backgroundColor: vehicle.color + '20', borderColor: vehicle.color, borderWidth: 2 }
-                        ]}
-                        onPress={() => setVehicleType(vehicle.type)}
-                        activeOpacity={0.7}
-                      >
-                        <Ionicons
-                          name={vehicle.icon as any}
-                          size={18}
-                          color={isSelected ? vehicle.color : '#64748b'}
-                        />
-                        <Text style={[styles.vehicleTypeText, isSelected && { color: vehicle.color, fontWeight: '700' }]}>
-                          {vehicle.label}
-                        </Text>
-                      </TouchableOpacity>
-                    );
-                  })}
-                </View>
-              </View>
-
-              {/* Distance & Duration - Édition manuelle */}
-              <View style={[styles.moreOptionsSection, { marginBottom: 0 }]}>
-                <Text style={styles.moreOptionsLabel}>
-                  <Ionicons name="create" size={14} color="#64748b" /> Modifier distance et durée
-                </Text>
-                <View style={styles.row}>
-                  <View style={{ flex: 1, marginRight: 8 }}>
-                    <TextInput
-                      style={styles.input}
-                      placeholder="Distance (km)"
-                      placeholderTextColor="#64748b"
-                      keyboardType="decimal-pad"
-                      value={distance}
-                      onChangeText={setDistance}
-                      editable={!calculatingRoute}
-                    />
-                  </View>
-                  <View style={{ flex: 1, marginLeft: 8 }}>
-                    <TextInput
-                      style={styles.input}
-                      placeholder="Durée (min)"
-                      placeholderTextColor="#64748b"
-                      keyboardType="number-pad"
-                      value={duration}
-                      onChangeText={setDuration}
-                      editable={!calculatingRoute}
-                    />
+        {/* 4a. Annonce : Client (obligatoire) + Visibilité */}
+        {(publishToMarketplace || mode === 'publish') && (
+          <>
+            <View style={styles.formCard}>
+              <Text style={styles.formCardTitle}>Client</Text>
+              <Text style={styles.formCardHint}>Nom obligatoire. Email ou téléphone (1 des 2 suffit).</Text>
+              <TextInput style={[styles.input, styles.inputSpaced]} placeholder="Nom du client" placeholderTextColor="#64748b" value={clientName} onChangeText={setClientName} />
+              <TextInput style={[styles.input, styles.inputSpaced]} placeholder="Téléphone" placeholderTextColor="#64748b" keyboardType="phone-pad" value={clientPhone} onChangeText={setClientPhone} />
+              <TextInput style={[styles.input, styles.inputSpacedLast]} placeholder="Email" placeholderTextColor="#64748b" keyboardType="email-address" autoCapitalize="none" value={clientEmail} onChangeText={setClientEmail} />
+              <TouchableOpacity style={[styles.quoteToggle, (!clientName || (!clientPhone && !clientEmail)) && styles.quoteToggleDisabled]} onPress={() => { if (!clientName || (!clientPhone && !clientEmail)) { Alert.alert('Informations manquantes', 'Nom et au moins un contact (téléphone ou email) requis pour le devis.'); return; } setGenerateQuote(!generateQuote); }} activeOpacity={0.7}>
+                <View style={styles.quoteToggleLeft}>
+                  <Ionicons name="document-text" size={20} color={(!clientName || (!clientPhone && !clientEmail)) ? '#64748b' : '#f59e0b'} />
+                  <View style={{ flex: 1 }}>
+                    <Text style={[styles.quoteToggleTitle, (!clientName || (!clientPhone && !clientEmail)) && styles.quoteToggleTitleDisabled]}>Générer un devis</Text>
+                    <Text style={[styles.quoteToggleSubtitle, (!clientName || (!clientPhone && !clientEmail)) && styles.quoteToggleSubtitleDisabled]}>Envoi par email ou WhatsApp</Text>
                   </View>
                 </View>
-              </View>
-            </View>
-          )}
-        </View>
-
-        {/* Visibility - Mode 'create' : PERSONAL par défaut + option publier */}
-        {mode === 'create' && (
-          <View style={styles.section}>
-            <View style={styles.labelRow}>
-              <Ionicons name="lock-closed" size={18} color="#6366f1" />
-              <Text style={styles.labelBold}>Course personnelle</Text>
-            </View>
-            <Text style={styles.hint}>Cette course sera enregistrée dans votre historique privé</Text>
-            
-            {/* Toggle "Publier sur la marketplace ?" */}
-            <TouchableOpacity
-              style={styles.publishToggle}
-              onPress={() => {
-                setPublishToMarketplace(!publishToMarketplace);
-                if (!publishToMarketplace) {
-                  setVisibility('PUBLIC'); // Par défaut PUBLIC quand on active
-                } else {
-                  setVisibility('PERSONAL');
-                  setSelectedGroups([]);
-                }
-              }}
-              activeOpacity={0.7}
-            >
-              <View style={styles.publishToggleLeft}>
-                <Ionicons name="megaphone" size={20} color="#ff6b47" />
-                <Text style={styles.publishToggleText}>Publier sur la marketplace ?</Text>
-              </View>
-              <View style={[styles.toggleSwitch, publishToMarketplace && styles.toggleSwitchActive]}>
-                <View style={[styles.toggleKnob, publishToMarketplace && styles.toggleKnobActive]} />
-              </View>
-            </TouchableOpacity>
-
-            {/* Options PUBLIC/GROUP si toggle activé */}
-            {publishToMarketplace && (
-              <View style={styles.visibilityOptionsContainer}>
-                <Text style={styles.labelSmall}>Visibilité de la publication</Text>
-                <View style={styles.visibilityRow}>
-                  <TouchableOpacity
-                    style={[styles.visibilityButton, visibility === 'PUBLIC' && styles.visibilityButtonActive]}
-                    onPress={() => {
-                      setVisibility('PUBLIC');
-                      setSelectedGroups([]);
-                    }}
-                    activeOpacity={0.7}
-                  >
-                    <Ionicons name="globe" size={18} color={visibility === 'PUBLIC' ? '#fff' : '#64748b'} />
-                    <Text style={[styles.visibilityText, visibility === 'PUBLIC' && styles.visibilityTextActive]}>
-                      Public
-                    </Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    style={[styles.visibilityButton, visibility === 'GROUP' && styles.visibilityButtonActive]}
-                    onPress={() => setVisibility('GROUP')}
-                    activeOpacity={0.7}
-                  >
-                    <Ionicons name="people" size={18} color={visibility === 'GROUP' ? '#fff' : '#64748b'} />
-                    <Text style={[styles.visibilityText, visibility === 'GROUP' && styles.visibilityTextActive]}>
-                      Groupe
-                    </Text>
-                  </TouchableOpacity>
+                <View style={[styles.quoteToggleSwitchBox, generateQuote && (clientName && (clientPhone || clientEmail)) && styles.quoteToggleSwitchActive, (!clientName || (!clientPhone && !clientEmail)) && styles.quoteToggleSwitchDisabled]}>
+                  <View style={[styles.quoteToggleThumb, generateQuote && (clientName && (clientPhone || clientEmail)) && styles.quoteToggleThumbActive]} />
                 </View>
+              </TouchableOpacity>
+            </View>
+            <View style={styles.formCard}>
+              <Text style={styles.formCardTitle}>Visibilité</Text>
+              <View style={styles.visibilityRow}>
+                <TouchableOpacity style={[styles.visibilityButton, visibility === 'PUBLIC' && styles.visibilityButtonActive]} onPress={() => { setVisibility('PUBLIC'); setSelectedGroups([]); }} activeOpacity={0.7}>
+                  <Ionicons name="globe" size={18} color={visibility === 'PUBLIC' ? '#fff' : '#64748b'} />
+                  <Text style={[styles.visibilityText, visibility === 'PUBLIC' && styles.visibilityTextActive]}>Public</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={[styles.visibilityButton, visibility === 'GROUP' && styles.visibilityButtonActive]} onPress={() => setVisibility('GROUP')} activeOpacity={0.7}>
+                  <Ionicons name="people" size={18} color={visibility === 'GROUP' ? '#fff' : '#64748b'} />
+                  <Text style={[styles.visibilityText, visibility === 'GROUP' && styles.visibilityTextActive]}>Groupe</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </>
+        )}
+
+        {/* 4b. Personnelle : Client & devis optionnel (repliable) */}
+        {mode === 'create' && !publishToMarketplace && (
+          <View style={styles.formCard}>
+            <TouchableOpacity style={styles.cardRowHeader} onPress={() => setShowClientSection(!showClientSection)} activeOpacity={0.7}>
+              <Text style={styles.formCardTitle}>Client & devis (optionnel)</Text>
+              {(clientName || clientPhone || clientEmail) && <View style={styles.collapseBadge}><Text style={styles.collapseBadgeText}>Rempli</Text></View>}
+              <Ionicons name={showClientSection ? 'chevron-up' : 'chevron-down'} size={20} color="#64748b" />
+            </TouchableOpacity>
+            {showClientSection && (
+              <View style={styles.collapseContent}>
+                <TextInput style={[styles.input, styles.collapseInput]} placeholder="Nom du client" placeholderTextColor="#64748b" value={clientName} onChangeText={setClientName} />
+                <TextInput style={[styles.input, styles.collapseInput]} placeholder="Téléphone" placeholderTextColor="#64748b" keyboardType="phone-pad" value={clientPhone} onChangeText={setClientPhone} />
+                <TextInput style={[styles.input, styles.collapseInputLast]} placeholder="Email" placeholderTextColor="#64748b" keyboardType="email-address" autoCapitalize="none" value={clientEmail} onChangeText={setClientEmail} />
+                <TouchableOpacity style={[styles.quoteToggle, (!clientName || (!clientPhone && !clientEmail)) && styles.quoteToggleDisabled]} onPress={() => { if (!clientName || (!clientPhone && !clientEmail)) { Alert.alert('Informations manquantes', 'Nom et au moins un contact requis pour le devis.'); return; } setGenerateQuote(!generateQuote); }} activeOpacity={0.7}>
+                  <View style={styles.quoteToggleLeft}>
+                    <Ionicons name="document-text" size={20} color={(!clientName || (!clientPhone && !clientEmail)) ? '#64748b' : '#f59e0b'} />
+                    <View style={{ flex: 1 }}>
+                      <Text style={[styles.quoteToggleTitle, (!clientName || (!clientPhone && !clientEmail)) && styles.quoteToggleTitleDisabled]}>Générer un devis</Text>
+                      <Text style={[styles.quoteToggleSubtitle, (!clientName || (!clientPhone && !clientEmail)) && styles.quoteToggleSubtitleDisabled]}>Envoi par email ou WhatsApp</Text>
+                    </View>
+                  </View>
+                  <View style={[styles.quoteToggleSwitchBox, generateQuote && (clientName && (clientPhone || clientEmail)) && styles.quoteToggleSwitchActive, (!clientName || (!clientPhone && !clientEmail)) && styles.quoteToggleSwitchDisabled]}>
+                    <View style={[styles.quoteToggleThumb, generateQuote && (clientName && (clientPhone || clientEmail)) && styles.quoteToggleThumbActive]} />
+                  </View>
+                </TouchableOpacity>
               </View>
             )}
           </View>
         )}
 
-        {/* Visibility - Mode 'publish' : PUBLIC/GROUP uniquement */}
-        {mode === 'publish' && (
-          <View style={styles.section}>
-            <Text style={styles.label}>Visibilité</Text>
-            <View style={styles.visibilityRow}>
-              <TouchableOpacity
-                style={[styles.visibilityButton, visibility === 'PUBLIC' && styles.visibilityButtonActive]}
-                onPress={() => {
-                  setVisibility('PUBLIC');
-                  setSelectedGroups([]);
-                }}
-                activeOpacity={0.7}
-              >
-                <Ionicons name="globe" size={18} color={visibility === 'PUBLIC' ? '#fff' : '#64748b'} />
-                <Text style={[styles.visibilityText, visibility === 'PUBLIC' && styles.visibilityTextActive]}>
-                  Public
-                </Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.visibilityButton, visibility === 'GROUP' && styles.visibilityButtonActive]}
-                onPress={() => setVisibility('GROUP')}
-                activeOpacity={0.7}
-              >
-                <Ionicons name="people" size={18} color={visibility === 'GROUP' ? '#fff' : '#64748b'} />
-                <Text style={[styles.visibilityText, visibility === 'GROUP' && styles.visibilityTextActive]}>
-                  Groupe
-                </Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        )}
+        {/* Commentaire — infos importantes (bagages, nb personnes, etc.) */}
+        <View style={styles.formCard}>
+          <Text style={styles.formCardTitle}>Commentaire</Text>
+          <Text style={styles.formCardHint}>Ex: 3 personnes, bagages volumineux, vol à récupérer…</Text>
+          <TextInput
+            style={styles.commentInput}
+            placeholder="Notes pour le chauffeur…"
+            placeholderTextColor="#64748b"
+            value={notes}
+            onChangeText={setNotes}
+            multiline
+            numberOfLines={3}
+          />
+        </View>
 
         {/* Group Selection (only visible when GROUP is selected) */}
         {visibility === 'GROUP' && (
-          <View style={styles.section}>
-            <Text style={styles.label}>
-              <Ionicons name="people" size={16} color="#8b5cf6" /> Sélectionner vos groupes
-            </Text>
+          <View style={styles.formCard}>
+            <Text style={styles.formCardTitle}>Sélectionner vos groupes</Text>
             
             {/* Selected Groups Display */}
             {selectedGroups.length > 0 && (
@@ -768,7 +603,7 @@ export const CreateRideScreen: React.FC<CreateRideScreenProps> = ({ onBack, onCr
           activeOpacity={0.8}
         >
           <LinearGradient
-            colors={['#ff6b47', '#ff8a6d']}
+            colors={['#0ea5e9', '#06b6d4']}
             style={styles.actionButtonGradient}
           >
             <Ionicons name="checkmark-circle" size={24} color="#fff" />
@@ -787,6 +622,7 @@ export const CreateRideScreen: React.FC<CreateRideScreenProps> = ({ onBack, onCr
           display="default"
           onChange={onDateChange}
           minimumDate={new Date()}
+          locale="fr-FR"
         />
       )}
       {showDatePicker && Platform.OS === 'ios' && (
@@ -810,6 +646,7 @@ export const CreateRideScreen: React.FC<CreateRideScreenProps> = ({ onBack, onCr
                 display="spinner"
                 onChange={onDateChange}
                 minimumDate={new Date()}
+                locale="fr-FR"
                 textColor="#fff"
               />
               <TouchableOpacity
@@ -835,6 +672,7 @@ export const CreateRideScreen: React.FC<CreateRideScreenProps> = ({ onBack, onCr
           mode="time"
           display="default"
           onChange={onTimeChange}
+          locale="fr-FR"
         />
       )}
       {showTimePicker && Platform.OS === 'ios' && (
@@ -857,6 +695,7 @@ export const CreateRideScreen: React.FC<CreateRideScreenProps> = ({ onBack, onCr
                 mode="time"
                 display="spinner"
                 onChange={onTimeChange}
+                locale="fr-FR"
                 textColor="#fff"
               />
               <TouchableOpacity
@@ -874,6 +713,39 @@ export const CreateRideScreen: React.FC<CreateRideScreenProps> = ({ onBack, onCr
           </View>
         </Modal>
       )}
+
+      {/* Modal de partage du devis */}
+      {createdQuoteData && (
+        <ShareQuoteModal
+          visible={showShareQuoteModal}
+          onClose={() => {
+            // Fermer le modal
+            setShowShareQuoteModal(false);
+            setCreatedQuoteData(null);
+            
+            // Créer la course maintenant que le modal est fermé
+            if (pendingRideData) {
+              onCreate(pendingRideData);
+              setPendingRideData(null);
+            }
+            
+            // Fermer l'écran
+            onBack();
+          }}
+          quoteUrl={createdQuoteData.quoteUrl}
+          quoteData={{
+            clientName: createdQuoteData.clientName,
+            clientEmail: createdQuoteData.clientEmail,
+            clientPhone: createdQuoteData.clientPhone,
+            price: createdQuoteData.price,
+            date: createdQuoteData.date,
+            time: createdQuoteData.time,
+            pickupAddress: createdQuoteData.pickupAddress,
+            dropoffAddress: createdQuoteData.dropoffAddress,
+          }}
+          driverName={user?.displayName || user?.email?.split('@')[0]}
+        />
+      )}
     </View>
   );
 };
@@ -884,33 +756,277 @@ const styles = StyleSheet.create({
     backgroundColor: '#0f172a',
   },
   header: {
-    paddingTop: 50,
-    paddingBottom: 20,
-    paddingHorizontal: 20,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    paddingTop: 56,
+    paddingBottom: 16,
+    paddingHorizontal: 20,
+    backgroundColor: '#0f172a',
+    borderBottomWidth: 1,
+    borderBottomColor: '#334155',
   },
   backButton: {
     width: 40,
     height: 40,
-    borderRadius: 20,
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    borderRadius: 12,
+    backgroundColor: '#1e293b',
+    borderWidth: 1,
+    borderColor: '#334155',
     justifyContent: 'center',
     alignItems: 'center',
   },
   headerTitle: {
-    fontSize: 20,
+    fontSize: 18,
     fontWeight: '700',
-    color: '#f1f5f9',
+    color: '#f8fafc',
+  },
+  headerRight: {
+    width: 40,
   },
   content: {
     flex: 1,
+  },
+  scrollContent: {
     paddingHorizontal: 20,
-    paddingTop: 20,
+    paddingTop: 16,
+    paddingBottom: 24,
+  },
+  typeCard: {
+    backgroundColor: '#1e293b',
+    borderRadius: 14,
+    padding: 16,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: '#334155',
+  },
+  typeCardLabel: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#64748b',
+    marginBottom: 12,
+  },
+  typeRow: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  typeOption: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    backgroundColor: 'rgba(255,255,255,0.05)',
+    borderRadius: 12,
+    paddingVertical: 14,
+    borderWidth: 1,
+    borderColor: '#334155',
+  },
+  typeOptionActive: {
+    backgroundColor: '#0ea5e9',
+    borderColor: '#0ea5e9',
+  },
+  typeOptionText: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#94a3b8',
+  },
+  typeOptionTextActive: {
+    color: '#fff',
+  },
+  formCard: {
+    backgroundColor: '#1e293b',
+    borderRadius: 14,
+    padding: 16,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: '#334155',
+  },
+  formCardTitle: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#e2e8f0',
+    marginBottom: 12,
+  },
+  formCardHint: {
+    fontSize: 12,
+    color: '#64748b',
+    marginBottom: 12,
+  },
+  formCardSpacer: {
+    height: 12,
+  },
+  routeWrap: {
+    marginTop: 14,
+    marginBottom: 4,
+  },
+  routeCalculating: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    paddingVertical: 12,
+  },
+  routeCalculatingText: {
+    fontSize: 14,
+    color: '#0ea5e9',
+    fontWeight: '500',
+  },
+  routeRow: {
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  routeRowCenter: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    backgroundColor: 'rgba(14, 165, 233, 0.12)',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(14, 165, 233, 0.3)',
+  },
+  routeValue: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#0ea5e9',
+  },
+  routeDot: {
+    fontSize: 16,
+    color: '#38bdf8',
+    marginHorizontal: 2,
+  },
+  routeHint: {
+    fontSize: 12,
+    color: '#64748b',
+    textAlign: 'center',
+    marginTop: 6,
+  },
+  priceWrap: {
+    marginTop: 16,
+    marginBottom: 16,
+  },
+  priceLabel: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#64748b',
+    marginBottom: 8,
+  },
+  priceRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  priceInputGold: {
+    width: 120,
+    backgroundColor: 'transparent',
+    borderRadius: 12,
+    borderWidth: 1.5,
+    borderColor: 'rgba(251, 191, 36, 0.5)',
+    paddingVertical: 14,
+    paddingHorizontal: 14,
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#fbbf24',
+  },
+  pricePerKmWrap: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+    backgroundColor: 'rgba(251, 191, 36, 0.12)',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(251, 191, 36, 0.3)',
+  },
+  pricePerKmValue: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#fbbf24',
+  },
+  pricePerKmUnit: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#fcd34d',
+  },
+  dateTimeRow: {
+    flexDirection: 'row',
+    alignItems: 'stretch',
+    backgroundColor: 'rgba(255,255,255,0.06)',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#475569',
+    overflow: 'hidden',
+  },
+  dateTimeHalf: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 18,
+    paddingHorizontal: 12,
+    gap: 10,
+  },
+  dateTimeText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#e2e8f0',
+    flex: 1,
+  },
+  dateTimeDivider: {
+    width: 1,
+    backgroundColor: '#475569',
+    marginVertical: 12,
+  },
+  commentInput: {
+    backgroundColor: 'rgba(255,255,255,0.04)',
+    borderWidth: 1.5,
+    borderColor: '#475569',
+    borderRadius: 12,
+    padding: 14,
+    fontSize: 15,
+    color: '#e2e8f0',
+    minHeight: 88,
+    textAlignVertical: 'top',
+  },
+  cardRowHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  inputSpaced: {
+    marginBottom: 10,
+  },
+  inputSpacedLast: {
+    marginBottom: 14,
+  },
+  collapseBadge: {
+    backgroundColor: 'rgba(16,185,129,0.25)',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
+  },
+  collapseBadgeText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#6ee7b7',
+  },
+  collapseContent: {
+    marginTop: 16,
+    paddingTop: 16,
+    borderTopWidth: 1,
+    borderTopColor: '#334155',
+  },
+  collapseInput: {
+    marginBottom: 10,
+  },
+  collapseInputLast: {
+    marginBottom: 14,
   },
   section: {
-    marginBottom: 24,
+    marginBottom: 16,
   },
   label: {
     fontSize: 14,
@@ -991,13 +1107,13 @@ const styles = StyleSheet.create({
     borderTopColor: 'rgba(255, 255, 255, 0.1)',
   },
   input: {
-    backgroundColor: 'rgba(255, 255, 255, 0.05)',
-    borderRadius: 16,
-    padding: 16,
+    backgroundColor: 'transparent',
+    borderRadius: 12,
+    padding: 14,
     fontSize: 16,
-    color: '#f1f5f9',
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.1)',
+    color: '#e2e8f0',
+    borderWidth: 1.5,
+    borderColor: '#475569',
   },
   visibilityRow: {
     flexDirection: 'row',
@@ -1139,11 +1255,11 @@ const styles = StyleSheet.create({
   actionButton: {
     borderRadius: 18,
     overflow: 'hidden',
-    shadowColor: '#ff6b47',
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.4,
-    shadowRadius: 12,
-    elevation: 8,
+    shadowColor: '#0ea5e9',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 10,
+    elevation: 6,
   },
   actionButtonGradient: {
     flexDirection: 'row',
@@ -1256,34 +1372,13 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#fff',
   },
-  // More Options Styles
   moreOptionsHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: 'rgba(255, 255, 255, 0.03)',
-    borderRadius: 12,
-    padding: 14,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.08)',
-  },
-  moreOptionsLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-  },
-  moreOptionsTitle: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: '#94a3b8',
   },
   moreOptionsContent: {
-    marginTop: 16,
-    backgroundColor: 'rgba(255, 255, 255, 0.02)',
-    borderRadius: 12,
-    padding: 16,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.05)',
+    marginTop: 12,
   },
   moreOptionsSection: {
     marginBottom: 16,
@@ -1366,6 +1461,13 @@ const styles = StyleSheet.create({
     transform: [{ translateX: 22 }],
   },
   // Route Info Styles (Distance & Duration)
+  routeInfoDot: {
+    width: 4,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: '#64748b',
+    marginHorizontal: 8,
+  },
   routeInfoSection: {
     marginTop: -4,
     marginBottom: 20,
@@ -1385,60 +1487,22 @@ const styles = StyleSheet.create({
   routeInfoCalculatingText: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#10b981',
+    color: '#6ee7b7',
   },
   routeInfoCard: {
-    backgroundColor: 'rgba(16, 185, 129, 0.08)',
-    borderRadius: 16,
-    padding: 14,
-    borderWidth: 1.5,
-    borderColor: 'rgba(16, 185, 129, 0.3)',
-  },
-  routeInfoHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 10,
-    gap: 6,
-  },
-  routeInfoBadge: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: '#10b981',
-  },
-  routeInfoContent: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  routeInfoItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    flex: 1,
-  },
-  routeInfoIconWrapper: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: 'rgba(16, 185, 129, 0.15)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  routeInfoLabel: {
-    fontSize: 11,
-    color: '#94a3b8',
-    marginBottom: 2,
+    backgroundColor: 'rgba(52, 211, 153, 0.15)',
+    borderRadius: 10,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(52, 211, 153, 0.4)',
   },
   routeInfoValue: {
-    fontSize: 17,
+    fontSize: 14,
     fontWeight: '700',
-    color: '#10b981',
-  },
-  routeInfoDivider: {
-    width: 1,
-    height: 40,
-    backgroundColor: 'rgba(16, 185, 129, 0.2)',
-    marginHorizontal: 12,
+    color: '#6ee7b7',
   },
 });
 

@@ -15,6 +15,7 @@ interface UseRideActionsProps {
   currentUserId: string;
   userName: string; // For notifications
   userCredits: number;
+  verificationStatus: string | null; // Verification status for marketplace access
   loadRides: () => Promise<void>;
   loadPersonalRides: () => Promise<void>;
   loadCredits: () => Promise<void>;
@@ -29,6 +30,7 @@ export function useRideActions(props: UseRideActionsProps) {
     currentUserId,
     userName,
     userCredits,
+    verificationStatus,
     loadRides,
     loadPersonalRides,
     loadCredits,
@@ -127,6 +129,16 @@ export function useRideActions(props: UseRideActionsProps) {
    */
   const handleClaimRide = useCallback(async (ride: any) => {
     try {
+      // 🔐 Vérifier le statut de vérification avant de prendre une course
+      if (verificationStatus !== 'VERIFIED') {
+        haptic.warning();
+        toast.warning(
+          '⏳ Vérification en cours',
+          'Votre profil doit être vérifié pour prendre des courses sur la marketplace'
+        );
+        return null;
+      }
+
       // 🪸 Vérifier les crédits avant de prendre la course
       if (userCredits < 1) {
         haptic.warning();
@@ -233,14 +245,19 @@ export function useRideActions(props: UseRideActionsProps) {
           duration_minutes: ride.duration_minutes,
           client_name: ride.client_name,
           client_phone: ride.client_phone,
+          client_email: ride.client_email,
           quote_id: ride.quote_id,
           quote_token: ride.quote_token,
           quote_status: ride.quote_status,
+          notes: ride.notes,
           status: 'SCHEDULED',
         });
         
         haptic.success();
         console.log('✅ Course personnelle créée avec succès:', response);
+        
+        // 🔄 Recharger la liste des courses personnelles
+        await loadPersonalRides();
         
         // 📊 Analytics: Track personal ride created (non-blocking)
         try {
@@ -277,7 +294,11 @@ export function useRideActions(props: UseRideActionsProps) {
           vehicle_type: ride.vehicle_type,
           distance_km: ride.distance_km,
           duration_minutes: ride.duration_minutes,
+          client_name: ride.client_name,
+          client_phone: ride.client_phone,
+          client_email: ride.client_email,
           group_id: ride.group_ids && ride.group_ids.length > 0 ? ride.group_ids[0] : undefined,
+          ...(ride.notes ? { notes: ride.notes } : {}),
         });
         
         console.log('✅ Course marketplace créée avec succès:', response);

@@ -18,9 +18,11 @@ import {
 import { LinearGradient } from 'expo-linear-gradient';
 import MaskedView from '@react-native-masked-view/masked-view';
 import { Ionicons } from '@expo/vector-icons';
-import { firebaseAuth } from '../services/firebase';
+import { supabaseAuth } from '../services/supabaseAuth';
 import { apiClient } from '../services/api';
 import CoralLogo from '../components/CoralLogo';
+import EmailVerificationScreen from './EmailVerificationScreen';
+import { theme } from '../theme';
 
 interface LoginScreenProps {
   onLoginSuccess: () => void;
@@ -28,7 +30,9 @@ interface LoginScreenProps {
 
 export default function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
   const [isSignUp, setIsSignUp] = useState(false);
-  const [fullName, setFullName] = useState('');
+  const [showEmailVerification, setShowEmailVerification] = useState(false);
+  const [pendingEmail, setPendingEmail] = useState('');
+  const [pendingFullName, setPendingFullName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -52,12 +56,6 @@ export default function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
   }, []);
 
   const handleSubmit = async () => {
-    // Validation
-    if (isSignUp && !fullName.trim()) {
-      Alert.alert('Erreur', 'Veuillez entrer votre nom complet');
-      return;
-    }
-
     if (!email.trim() || !password.trim()) {
       Alert.alert('Erreur', 'Veuillez remplir tous les champs');
       return;
@@ -76,38 +74,32 @@ export default function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
     setLoading(true);
     try {
       if (isSignUp) {
-        // 1. Créer le compte Firebase
-        console.log('📝 Création compte Firebase...');
-        const user = await firebaseAuth.signUp(email.trim(), password);
-        
-        // 2. Formater le nom (capitaliser première lettre de chaque mot)
-        const formattedName = fullName.trim()
-          .split(' ')
-          .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
-          .join(' ');
-        
-        // 3. Créer l'utilisateur dans Databricks avec status UNVERIFIED
-        console.log('💾 Création utilisateur Databricks...');
-        try {
-          await apiClient.createUser({
-            id: user.uid,
-            email: email.trim(),
-            full_name: formattedName,
-            verification_status: 'UNVERIFIED',
-          });
-          console.log('✅ Utilisateur créé dans Databricks avec nom formaté:', formattedName);
-        } catch (dbError: any) {
-          console.error('❌ Erreur création utilisateur Databricks:', dbError);
-          // Continue quand même, l'utilisateur sera créé au premier login
-        }
+        // Créer le compte (nom complété plus tard dans le formulaire de vérification)
+        console.log('📝 Création compte Supabase...');
+        const user = await supabaseAuth.signUp(email.trim(), password);
 
-        Alert.alert(
-          'Compte créé ! 🎉',
-          'Complétez maintenant votre profil professionnel pour accéder à la plateforme.',
-          [{ text: 'Continuer', onPress: onLoginSuccess }]
-        );
+        console.log('✅ Compte créé avec succès');
+
+        const session = await supabaseAuth.getSession();
+
+        if (session) {
+          console.log('✅ Session active, connexion automatique');
+          onLoginSuccess();
+        } else {
+          console.log('🔄 Tentative de connexion automatique...');
+          try {
+            await supabaseAuth.signIn(email.trim(), password);
+            console.log('✅ Connexion automatique réussie');
+            onLoginSuccess();
+          } catch (signInError: any) {
+            console.log('📧 Email de confirmation requis:', signInError.message);
+            setPendingEmail(email.trim());
+            setPendingFullName('');
+            setShowEmailVerification(true);
+          }
+        }
       } else {
-        await firebaseAuth.signIn(email.trim(), password);
+        await supabaseAuth.signIn(email.trim(), password);
         onLoginSuccess();
       }
     } catch (error: any) {
@@ -120,15 +112,30 @@ export default function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
   const handleGoogleSignIn = async () => {
     setLoading(true);
     try {
-      await firebaseAuth.signInWithGoogle();
-      onLoginSuccess();
+      await supabaseAuth.signInWithGoogle();
+      // La redirection OAuth va se faire, donc on n'appelle pas onLoginSuccess ici
     } catch (error: any) {
       console.error('Google Sign-In Error:', error);
       Alert.alert('Erreur', error.message);
-    } finally {
       setLoading(false);
     }
   };
+
+  // Si on attend la vérification email, afficher l'écran dédié
+  if (showEmailVerification) {
+    return (
+      <EmailVerificationScreen
+        email={pendingEmail}
+        fullName={pendingFullName}
+        onBack={() => {
+          setShowEmailVerification(false);
+          setPendingEmail('');
+          setPendingFullName('');
+        }}
+        onSuccess={onLoginSuccess}
+      />
+    );
+  }
 
   return (
     <LinearGradient
@@ -188,32 +195,19 @@ export default function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
             </View>
           )}
 
-          {/* Formulaire */}
-          <View style={styles.form}>
-            {/* Nom complet (inscription seulement) */}
-            {isSignUp && (
-              <View style={styles.inputContainer}>
-                <Ionicons name="person-outline" size={20} color="#94a3b8" style={styles.inputIcon} />
-                <TextInput
-                  style={styles.input}
-                  placeholder="Nom complet"
-                  placeholderTextColor="#64748b"
-                  value={fullName}
-                  onChangeText={setFullName}
-                  autoCapitalize="words"
-                  autoCorrect={false}
-                  editable={!loading}
-                />
-              </View>
-            )}
-
+          {/* Formulaire - carte */}
+          <View style={styles.formCard}>
+            <Text style={styles.formCardTitle}>
+              {isSignUp ? 'Créer un compte' : 'Connexion'}
+            </Text>
+            <View style={styles.form}>
             {/* Email */}
             <View style={styles.inputContainer}>
-              <Ionicons name="mail-outline" size={20} color="#94a3b8" style={styles.inputIcon} />
+              <Ionicons name="mail-outline" size={20} color={theme.colors.textMuted} style={styles.inputIcon} />
               <TextInput
                 style={styles.input}
                 placeholder="Email"
-                placeholderTextColor="#64748b"
+                placeholderTextColor={theme.colors.textMutedDark}
                 value={email}
                 onChangeText={setEmail}
                 keyboardType="email-address"
@@ -225,11 +219,11 @@ export default function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
 
             {/* Mot de passe */}
             <View style={styles.inputContainer}>
-              <Ionicons name="lock-closed-outline" size={20} color="#94a3b8" style={styles.inputIcon} />
+              <Ionicons name="lock-closed-outline" size={20} color={theme.colors.textMuted} style={styles.inputIcon} />
               <TextInput
                 style={styles.input}
                 placeholder="Mot de passe"
-                placeholderTextColor="#64748b"
+                placeholderTextColor={theme.colors.textMutedDark}
                 value={password}
                 onChangeText={setPassword}
                 secureTextEntry={!showPassword}
@@ -244,7 +238,7 @@ export default function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
                 <Ionicons
                   name={showPassword ? 'eye-off-outline' : 'eye-outline'}
                   size={20}
-                  color="#94a3b8"
+                  color={theme.colors.textMuted}
                 />
               </TouchableOpacity>
             </View>
@@ -252,11 +246,11 @@ export default function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
             {/* Confirmer mot de passe (inscription seulement) */}
             {isSignUp && (
               <View style={styles.inputContainer}>
-                <Ionicons name="lock-closed-outline" size={20} color="#94a3b8" style={styles.inputIcon} />
+                <Ionicons name="lock-closed-outline" size={20} color={theme.colors.textMuted} style={styles.inputIcon} />
                 <TextInput
                   style={styles.input}
                   placeholder="Confirmer le mot de passe"
-                  placeholderTextColor="#64748b"
+                  placeholderTextColor={theme.colors.textMutedDark}
                   value={confirmPassword}
                   onChangeText={setConfirmPassword}
                   secureTextEntry={!showPassword}
@@ -323,7 +317,6 @@ export default function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
               <TouchableOpacity
                 onPress={() => {
                   setIsSignUp(!isSignUp);
-                  setFullName('');
                   setConfirmPassword('');
                 }}
                 disabled={loading}
@@ -332,6 +325,7 @@ export default function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
                   {isSignUp ? 'Se connecter' : "S'inscrire"}
                 </Text>
               </TouchableOpacity>
+            </View>
             </View>
           </View>
 
@@ -445,44 +439,60 @@ const styles = StyleSheet.create({
     color: '#64748b',
     fontWeight: '400',
   },
-  form: {
+  formCard: {
     maxWidth: 400,
     width: '100%',
     alignSelf: 'center',
+    backgroundColor: theme.colors.surface,
+    borderRadius: theme.radii.lg,
+    padding: theme.spacing.lg,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    marginBottom: theme.spacing.xl,
+  },
+  formCardTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: theme.colors.text,
+    marginBottom: theme.spacing.lg,
+    textAlign: 'center',
+  },
+  form: {
+    width: '100%',
   },
   inputContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(255, 255, 255, 0.06)',
-    borderRadius: 14,
+    backgroundColor: theme.colors.inputBg,
+    borderRadius: theme.radii.md,
     marginBottom: 14,
     paddingHorizontal: 18,
     borderWidth: 1.5,
-    borderColor: 'rgba(255, 255, 255, 0.08)',
-    shadowColor: '#000',
+    borderColor: theme.colors.borderLight,
+    shadowColor: theme.colors.black,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 4,
     elevation: 2,
   },
   inputIcon: {
-    marginRight: 12,
+    marginRight: theme.spacing.sm,
   },
   input: {
     flex: 1,
     paddingVertical: 16,
     fontSize: 16,
-    color: '#f1f5f9',
+    color: theme.colors.textSecondary,
   },
   eyeIcon: {
-    padding: 8,
+    padding: theme.spacing.xs,
   },
   button: {
-    borderRadius: 14,
+    borderRadius: theme.radii.md,
     overflow: 'hidden',
-    marginTop: 12,
+    marginTop: theme.spacing.sm,
     elevation: 8,
-    shadowColor: '#ff6b47',
+    shadowColor: theme.colors.primary,
     shadowOffset: { width: 0, height: 6 },
     shadowOpacity: 0.4,
     shadowRadius: 12,
@@ -497,12 +507,12 @@ const styles = StyleSheet.create({
   buttonText: {
     fontSize: 17,
     fontWeight: '700',
-    color: '#fff',
+    color: theme.colors.white,
   },
   dividerContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginVertical: 24,
+    marginVertical: theme.spacing.xl,
   },
   dividerLine: {
     flex: 1,
@@ -512,17 +522,17 @@ const styles = StyleSheet.create({
   dividerText: {
     fontSize: 12,
     fontWeight: '600',
-    color: '#64748b',
-    marginHorizontal: 16,
+    color: theme.colors.textMutedDark,
+    marginHorizontal: theme.spacing.md,
     letterSpacing: 3,
   },
   googleButton: {
-    backgroundColor: '#fff',
-    borderRadius: 14,
+    backgroundColor: theme.colors.white,
+    borderRadius: theme.radii.md,
     overflow: 'hidden',
     borderWidth: 1.5,
     borderColor: 'rgba(255, 255, 255, 0.9)',
-    shadowColor: '#000',
+    shadowColor: theme.colors.black,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.15,
     shadowRadius: 8,
@@ -537,8 +547,8 @@ const styles = StyleSheet.create({
   googleButtonText: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#1e293b',
-    marginLeft: 12,
+    color: theme.colors.surface,
+    marginLeft: theme.spacing.sm,
   },
   toggleContainer: {
     flexDirection: 'row',
@@ -548,31 +558,31 @@ const styles = StyleSheet.create({
   },
   toggleText: {
     fontSize: 14,
-    color: '#94a3b8',
+    color: theme.colors.textMuted,
     marginRight: 6,
   },
   toggleLink: {
     fontSize: 14,
-    color: '#ff6b47',
+    color: theme.colors.primary,
     fontWeight: '700',
     textDecorationLine: 'underline',
-    textDecorationColor: 'rgba(255, 107, 71, 0.4)',
+    textDecorationColor: theme.colors.primaryShadow,
   },
   footer: {
     alignItems: 'center',
     marginTop: 48,
-    paddingTop: 24,
+    paddingTop: theme.spacing.xl,
   },
   footerDivider: {
     width: 60,
     height: 2,
-    backgroundColor: 'rgba(255, 107, 71, 0.3)',
+    backgroundColor: theme.colors.primaryShadow,
     borderRadius: 1,
-    marginBottom: 16,
+    marginBottom: theme.spacing.md,
   },
   footerText: {
     fontSize: 12,
-    color: '#64748b',
+    color: theme.colors.textMutedDark,
     textAlign: 'center',
     lineHeight: 18,
     paddingHorizontal: 40,

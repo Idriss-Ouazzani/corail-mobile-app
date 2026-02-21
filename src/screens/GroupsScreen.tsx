@@ -12,10 +12,13 @@ import {
   Platform,
   RefreshControl,
   ActivityIndicator,
+  Image,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { apiClient } from '../services/api';
+
+const GROUPS_HERO_IMAGE = 'https://images.unsplash.com/photo-1522071820081-009f0129c71c?w=800&q=80';
 
 interface Group {
   id: string;
@@ -112,11 +115,8 @@ export const GroupsScreen: React.FC<GroupsScreenProps> = ({ onBack, onSelectGrou
 
   return (
     <View style={styles.container}>
-      {/* Header */}
-      <LinearGradient
-        colors={['#1e293b', '#0f172a']}
-        style={styles.header}
-      >
+      {/* Header épuré (aligné accueil) */}
+      <View style={styles.header}>
         <TouchableOpacity onPress={onBack} style={styles.backButton}>
           <Ionicons name="arrow-back" size={24} color="#f1f5f9" />
         </TouchableOpacity>
@@ -125,20 +125,34 @@ export const GroupsScreen: React.FC<GroupsScreenProps> = ({ onBack, onSelectGrou
           style={styles.createButton}
           onPress={() => setShowCreateModal(true)}
         >
-          <Ionicons name="add" size={24} color="#ff6b47" />
+          <Ionicons name="add" size={24} color="#0ea5e9" />
         </TouchableOpacity>
-      </LinearGradient>
+      </View>
 
       <ScrollView 
         style={styles.content} 
         showsVerticalScrollIndicator={false}
         refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor="#6366f1" />
+          <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor="#0ea5e9" />
         }
       >
+        {/* Bandeau image + descriptif */}
+        <View style={styles.heroWrap}>
+          <Image source={{ uri: GROUPS_HERO_IMAGE }} style={styles.heroImage} resizeMode="cover" />
+          <View style={styles.heroOverlay} />
+          <View style={styles.heroContent}>
+            <View style={styles.heroIconWrap}>
+              <Ionicons name="people" size={28} color="#fff" />
+            </View>
+            <Text style={styles.heroText}>
+              Partagez des annonces de courses avec vos proches et collègues.
+            </Text>
+          </View>
+        </View>
+
         {loading && !refreshing ? (
           <View style={styles.loadingContainer}>
-            <ActivityIndicator size="large" color="#6366f1" />
+            <ActivityIndicator size="large" color="#0ea5e9" />
             <Text style={styles.loadingText}>Chargement des groupes...</Text>
           </View>
         ) : (
@@ -164,29 +178,24 @@ export const GroupsScreen: React.FC<GroupsScreenProps> = ({ onBack, onSelectGrou
                 {groups.map((group) => (
                   <TouchableOpacity
                     key={group.id}
-                    style={styles.groupCard}
+                    style={[styles.groupCard, { borderLeftColor: group.color }]}
                     onPress={() => onSelectGroup?.(group)}
                     activeOpacity={0.8}
                   >
-                    <LinearGradient
-                      colors={[`${group.color}20`, `${group.color}05`]}
-                      style={styles.groupGradient}
-                    >
-                      <View style={[styles.groupIcon, { backgroundColor: `${group.color}30` }]}>
-                        <Ionicons name={group.icon as any} size={28} color={group.color} />
+                    <View style={[styles.groupIcon, { backgroundColor: `${group.color}18` }]}>
+                      <Ionicons name={group.icon as any} size={24} color={group.color} />
+                    </View>
+                    <View style={styles.groupInfo}>
+                      <Text style={styles.groupName}>{group.name}</Text>
+                      <Text style={styles.groupDesc}>{group.description}</Text>
+                      <View style={styles.groupMeta}>
+                        <Ionicons name="people" size={14} color="#94a3b8" />
+                        <Text style={styles.groupMetaText}>
+                          {group.memberCount} membre{group.memberCount > 1 ? 's' : ''}
+                        </Text>
                       </View>
-                      <View style={styles.groupInfo}>
-                        <Text style={styles.groupName}>{group.name}</Text>
-                        <Text style={styles.groupDesc}>{group.description}</Text>
-                        <View style={styles.groupMeta}>
-                          <Ionicons name="people" size={14} color="#94a3b8" />
-                          <Text style={styles.groupMetaText}>
-                            {group.memberCount} membre{group.memberCount > 1 ? 's' : ''}
-                          </Text>
-                        </View>
-                      </View>
-                      <Ionicons name="chevron-forward" size={20} color="#64748b" />
-                    </LinearGradient>
+                    </View>
+                    <Ionicons name="chevron-forward" size={20} color="#64748b" />
                   </TouchableOpacity>
                 ))}
               </>
@@ -218,6 +227,7 @@ export const GroupsScreen: React.FC<GroupsScreenProps> = ({ onBack, onSelectGrou
         <KeyboardAvoidingView
           behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
           style={styles.modalOverlay}
+          keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
         >
           <TouchableOpacity
             style={styles.modalOverlayTouchable}
@@ -225,11 +235,7 @@ export const GroupsScreen: React.FC<GroupsScreenProps> = ({ onBack, onSelectGrou
             onPress={() => setShowCreateModal(false)}
           />
           <View style={styles.modalContent}>
-            <LinearGradient
-              colors={['#1e293b', '#0f172a']}
-              style={styles.modalGradient}
-            >
-              {/* Modal Header */}
+            <View style={styles.modalGradient}>
               <View style={styles.modalHeader}>
                 <Text style={styles.modalTitle}>Créer un groupe</Text>
                 <TouchableOpacity
@@ -240,11 +246,11 @@ export const GroupsScreen: React.FC<GroupsScreenProps> = ({ onBack, onSelectGrou
                 </TouchableOpacity>
               </View>
 
-              {/* Form - Scrollable */}
               <ScrollView
                 style={styles.formScroll}
                 showsVerticalScrollIndicator={false}
                 keyboardShouldPersistTaps="handled"
+                contentContainerStyle={styles.formScrollContent}
               >
                 <View style={styles.form}>
                   <View style={styles.inputGroup}>
@@ -271,31 +277,32 @@ export const GroupsScreen: React.FC<GroupsScreenProps> = ({ onBack, onSelectGrou
                     />
                   </View>
                 </View>
-              </ScrollView>
 
-              {/* Actions */}
-              <View style={styles.modalActions}>
-                <TouchableOpacity
-                  style={[styles.modalButton, styles.modalButtonCancel]}
-                  onPress={() => setShowCreateModal(false)}
-                  activeOpacity={0.7}
-                >
-                  <Text style={styles.modalButtonTextCancel}>Annuler</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={styles.modalButton}
-                  onPress={handleCreateGroup}
-                  activeOpacity={0.8}
-                >
-                  <LinearGradient
-                    colors={['#ff6b47', '#ff8a6d']}
-                    style={styles.modalButtonGradient}
+                <View style={styles.modalActions}>
+                  <TouchableOpacity
+                    style={[styles.modalButton, styles.modalButtonCancel]}
+                    onPress={() => setShowCreateModal(false)}
+                    activeOpacity={0.7}
                   >
-                    <Text style={styles.modalButtonText}>Créer</Text>
-                  </LinearGradient>
-                </TouchableOpacity>
-              </View>
-            </LinearGradient>
+                    <Text style={styles.modalButtonTextCancel}>Annuler</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={styles.modalButton}
+                    onPress={handleCreateGroup}
+                    activeOpacity={0.8}
+                  >
+                    <LinearGradient
+                      colors={['#0ea5e9', '#06b6d4']}
+                      start={{ x: 0, y: 0 }}
+                      end={{ x: 1, y: 0 }}
+                      style={styles.modalButtonGradient}
+                    >
+                      <Text style={styles.modalButtonText}>Créer</Text>
+                    </LinearGradient>
+                  </TouchableOpacity>
+                </View>
+              </ScrollView>
+            </View>
           </View>
         </KeyboardAvoidingView>
       </Modal>
@@ -309,6 +316,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#0f172a',
   },
   header: {
+    backgroundColor: '#0f172a',
     paddingTop: 50,
     paddingBottom: 20,
     paddingHorizontal: 20,
@@ -320,7 +328,7 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    backgroundColor: '#1e293b',
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -335,14 +343,51 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: 'rgba(255, 107, 71, 0.2)',
+    backgroundColor: 'rgba(14, 165, 233, 0.2)',
     justifyContent: 'center',
     alignItems: 'center',
   },
   content: {
     flex: 1,
     paddingHorizontal: 20,
-    paddingTop: 20,
+    paddingTop: 16,
+  },
+  heroWrap: {
+    height: 100,
+    borderRadius: 18,
+    overflow: 'hidden',
+    marginBottom: 24,
+    backgroundColor: '#1e293b',
+  },
+  heroImage: {
+    ...StyleSheet.absoluteFillObject,
+  },
+  heroOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(15, 23, 42, 0.75)',
+  },
+  heroContent: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    gap: 14,
+  },
+  heroIconWrap: {
+    width: 48,
+    height: 48,
+    borderRadius: 14,
+    backgroundColor: 'rgba(14, 165, 233, 0.35)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  heroText: {
+    flex: 1,
+    fontSize: 14,
+    lineHeight: 20,
+    color: '#e2e8f0',
+    fontWeight: '500',
   },
   loadingContainer: {
     paddingVertical: 60,
@@ -360,12 +405,12 @@ const styles = StyleSheet.create({
   },
   statBox: {
     flex: 1,
-    backgroundColor: 'rgba(255, 255, 255, 0.03)',
-    borderRadius: 16,
+    backgroundColor: '#1e293b',
+    borderRadius: 18,
     padding: 20,
     marginHorizontal: 6,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.08)',
+    borderColor: 'rgba(255, 255, 255, 0.06)',
     alignItems: 'center',
   },
   statValue: {
@@ -385,23 +430,23 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   groupCard: {
-    marginBottom: 16,
-  },
-  groupGradient: {
     flexDirection: 'row',
     alignItems: 'center',
+    backgroundColor: '#1e293b',
     padding: 16,
-    borderRadius: 20,
+    borderRadius: 18,
+    borderLeftWidth: 4,
+    marginBottom: 12,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.08)',
+    borderColor: 'rgba(255, 255, 255, 0.06)',
   },
   groupIcon: {
-    width: 56,
-    height: 56,
-    borderRadius: 16,
+    width: 48,
+    height: 48,
+    borderRadius: 14,
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 16,
+    marginRight: 14,
   },
   groupInfo: {
     flex: 1,
@@ -453,14 +498,18 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   modalContent: {
+    height: '80%',
     maxHeight: '80%',
     borderTopLeftRadius: 28,
     borderTopRightRadius: 28,
     overflow: 'hidden',
   },
   modalGradient: {
+    backgroundColor: '#1e293b',
     paddingTop: 24,
-    paddingBottom: 40,
+    paddingBottom: 24,
+    flex: 1,
+    minHeight: 0,
   },
   modalHeader: {
     flexDirection: 'row',
@@ -483,10 +532,15 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   formScroll: {
-    maxHeight: 400,
+    flex: 1,
+    minHeight: 0,
+  },
+  formScrollContent: {
+    paddingBottom: 32,
+    paddingHorizontal: 24,
   },
   form: {
-    paddingHorizontal: 24,
+    paddingHorizontal: 0,
   },
   inputGroup: {
     marginBottom: 20,
@@ -498,13 +552,13 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   input: {
-    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    backgroundColor: '#334155',
     borderRadius: 14,
     padding: 16,
     fontSize: 16,
     color: '#f1f5f9',
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.1)',
+    borderColor: 'rgba(255, 255, 255, 0.08)',
   },
   inputMultiline: {
     height: 100,
@@ -512,22 +566,23 @@ const styles = StyleSheet.create({
   },
   modalActions: {
     flexDirection: 'row',
-    paddingHorizontal: 24,
+    paddingHorizontal: 0,
     marginTop: 24,
   },
   modalButton: {
     flex: 1,
     marginHorizontal: 6,
-    borderRadius: 14,
+    borderRadius: 18,
     overflow: 'hidden',
   },
   modalButtonCancel: {
-    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    backgroundColor: '#334155',
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.1)',
+    borderColor: 'rgba(255, 255, 255, 0.08)',
     justifyContent: 'center',
     alignItems: 'center',
     paddingVertical: 16,
+    borderRadius: 18,
   },
   modalButtonTextCancel: {
     fontSize: 15,

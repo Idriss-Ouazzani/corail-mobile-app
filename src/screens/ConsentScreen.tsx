@@ -11,10 +11,16 @@ import {
   TouchableOpacity,
   StyleSheet,
   ActivityIndicator,
+  Image,
+  Platform,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as Haptics from 'expo-haptics';
+import CoralLogo from '../components/CoralLogo';
+import { theme } from '../theme';
+
+const HERO_IMAGE = 'https://images.unsplash.com/photo-1522071820081-009f0129c71c?w=800&q=80';
 
 interface ConsentScreenProps {
   onAccept: () => Promise<void>;
@@ -50,132 +56,111 @@ export default function ConsentScreen({
 
   return (
     <View style={styles.container}>
-      {/* Header */}
-      <View style={styles.header}>
-        <Ionicons name="shield-checkmark" size={60} color="#6366f1" />
-        <Text style={styles.headerTitle}>Bienvenue sur Corail VTC</Text>
-        <Text style={styles.headerSubtitle}>
-          Avant de commencer, veuillez accepter nos conditions d'utilisation
-        </Text>
-      </View>
-
-      {/* Content */}
       <ScrollView
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
-        <View style={styles.infoCard}>
-          <Ionicons name="information-circle" size={24} color="#6366f1" />
-          <Text style={styles.infoTitle}>Protection de vos données</Text>
-          <Text style={styles.infoText}>
-            Corail VTC respecte votre vie privée et protège vos données personnelles 
-            conformément au RGPD (Règlement Général sur la Protection des Données).
-          </Text>
-        </View>
-
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Ce que nous collectons :</Text>
-          <BulletPoint icon="person-outline">
-            Vos informations d'identification (nom, email, téléphone, carte VTC)
-          </BulletPoint>
-          <BulletPoint icon="car-outline">
-            Vos courses et activités sur la plateforme
-          </BulletPoint>
-          <BulletPoint icon="stats-chart-outline">
-            Des données d'utilisation pour améliorer nos services
-          </BulletPoint>
-        </View>
-
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Vos droits :</Text>
-          <BulletPoint icon="eye-outline">
-            Accéder à vos données à tout moment
-          </BulletPoint>
-          <BulletPoint icon="download-outline">
-            Exporter vos données au format JSON
-          </BulletPoint>
-          <BulletPoint icon="trash-outline">
-            Supprimer votre compte définitivement
-          </BulletPoint>
-        </View>
-
-        <View style={styles.linksSection}>
-          <TouchableOpacity
-            style={styles.linkButton}
-            onPress={onShowPrivacyPolicy}
-            activeOpacity={0.7}
-          >
-            <Ionicons name="document-text" size={20} color="#6366f1" />
-            <Text style={styles.linkText}>Lire la Politique de confidentialité</Text>
-            <Ionicons name="chevron-forward" size={20} color="#6366f1" />
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={styles.linkButton}
-            onPress={onShowTermsOfService}
-            activeOpacity={0.7}
-          >
-            <Ionicons name="reader" size={20} color="#6366f1" />
-            <Text style={styles.linkText}>Lire les Conditions d'utilisation</Text>
-            <Ionicons name="chevron-forward" size={20} color="#6366f1" />
-          </TouchableOpacity>
-        </View>
-
-        {/* Checkbox de consentement */}
-        <TouchableOpacity
-          style={styles.checkboxContainer}
-          onPress={toggleAcceptance}
-          activeOpacity={0.7}
-        >
-          <View style={[styles.checkbox, isAccepted && styles.checkboxChecked]}>
-            {isAccepted && <Ionicons name="checkmark" size={20} color="#fff" />}
+        {/* Hero : image + logo + titre */}
+        <View style={styles.heroWrap}>
+          <Image source={{ uri: HERO_IMAGE }} style={styles.heroImage} />
+          <View style={styles.heroOverlay} />
+          <View style={styles.heroContent}>
+            <View style={styles.logoWrap}>
+              <CoralLogo size={44} />
+            </View>
+            <View style={styles.heroTextBlock}>
+              <Text style={styles.heroTitle}>Bienvenue sur Corail VTC</Text>
+              <Text style={styles.heroSubtitle}>Acceptez nos conditions pour continuer</Text>
+            </View>
           </View>
-          <Text style={styles.checkboxText}>
-            J'ai lu et j'accepte les{' '}
-            <Text style={styles.checkboxLink} onPress={onShowTermsOfService}>
-              Conditions d'utilisation
-            </Text>
-            {' '}et la{' '}
-            <Text style={styles.checkboxLink} onPress={onShowPrivacyPolicy}>
-              Politique de confidentialité
-            </Text>
-            {' '}de Corail VTC.
-          </Text>
-        </TouchableOpacity>
+        </View>
 
-        {/* Bouton de validation */}
-        <TouchableOpacity
-          onPress={handleAccept}
-          activeOpacity={0.8}
-          disabled={!isAccepted || isLoading}
-          style={[styles.buttonContainer, (!isAccepted || isLoading) && styles.buttonDisabled]}
-        >
-          <LinearGradient
-            colors={
-              !isAccepted || isLoading
-                ? ['#64748b', '#475569']
-                : ['#6366f1', '#4f46e5']
-            }
-            style={styles.buttonGradient}
+        {/* Carte : protection des données */}
+        <View style={styles.card}>
+          <View style={styles.cardHeader}>
+            <View style={styles.cardIconWrap}>
+              <Ionicons name="shield-checkmark" size={22} color={theme.colors.accent} />
+            </View>
+            <Text style={styles.cardTitle}>Protection de vos données</Text>
+          </View>
+          <Text style={styles.cardText}>
+            Corail VTC respecte votre vie privée et protège vos données conformément au RGPD.
+          </Text>
+        </View>
+
+        {/* Carte : ce que nous collectons */}
+        <View style={styles.card}>
+          <Text style={styles.sectionLabel}>Ce que nous collectons</Text>
+          <BulletPoint icon="person-outline">Identité (nom, email, téléphone, carte VTC)</BulletPoint>
+          <BulletPoint icon="car-outline">Courses et activités sur la plateforme</BulletPoint>
+          <BulletPoint icon="stats-chart-outline">Données d'utilisation pour améliorer le service</BulletPoint>
+        </View>
+
+        {/* Carte : vos droits */}
+        <View style={styles.card}>
+          <Text style={styles.sectionLabel}>Vos droits</Text>
+          <BulletPoint icon="eye-outline">Accéder à vos données à tout moment</BulletPoint>
+          <BulletPoint icon="download-outline">Exporter vos données (JSON)</BulletPoint>
+          <BulletPoint icon="trash-outline">Supprimer votre compte</BulletPoint>
+        </View>
+
+        {/* Liens CGU / Confidentialité */}
+        <View style={styles.card}>
+          <TouchableOpacity style={styles.linkButton} onPress={onShowPrivacyPolicy} activeOpacity={0.7}>
+            <Ionicons name="document-text" size={20} color={theme.colors.accentLight} />
+            <Text style={styles.linkText}>Politique de confidentialité</Text>
+            <Ionicons name="chevron-forward" size={20} color={theme.colors.accentLight} />
+          </TouchableOpacity>
+          <TouchableOpacity style={[styles.linkButton, styles.linkButtonLast]} onPress={onShowTermsOfService} activeOpacity={0.7}>
+            <Ionicons name="reader" size={20} color={theme.colors.accentLight} />
+            <Text style={styles.linkText}>Conditions d'utilisation</Text>
+            <Ionicons name="chevron-forward" size={20} color={theme.colors.accentLight} />
+          </TouchableOpacity>
+        </View>
+
+        {/* Checkbox + bouton */}
+        <View style={styles.card}>
+          <TouchableOpacity style={styles.checkboxContainer} onPress={toggleAcceptance} activeOpacity={0.7}>
+            <View style={[styles.checkbox, isAccepted && styles.checkboxChecked]}>
+              {isAccepted && <Ionicons name="checkmark" size={18} color="#fff" />}
+            </View>
+            <Text style={styles.checkboxText}>
+              J'accepte les{' '}
+              <Text style={styles.checkboxLink} onPress={onShowTermsOfService}>CGU</Text>
+              {' '}et la{' '}
+              <Text style={styles.checkboxLink} onPress={onShowPrivacyPolicy}>Politique de confidentialité</Text>
+              {' '}de Corail VTC.
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            onPress={handleAccept}
+            activeOpacity={0.8}
+            disabled={!isAccepted || isLoading}
+            style={[styles.buttonContainer, (!isAccepted || isLoading) && styles.buttonDisabled]}
           >
-            {isLoading ? (
-              <>
-                <ActivityIndicator size="small" color="#fff" style={styles.buttonIcon} />
-                <Text style={styles.buttonText}>Validation...</Text>
-              </>
-            ) : (
-              <>
-                <Ionicons name="checkmark-circle" size={20} color="#fff" style={styles.buttonIcon} />
-                <Text style={styles.buttonText}>Accepter et continuer</Text>
-              </>
-            )}
-          </LinearGradient>
-        </TouchableOpacity>
+            <LinearGradient
+              colors={!isAccepted || isLoading ? ['#64748b', '#475569'] : ['#6366f1', '#4f46e5']}
+              style={styles.buttonGradient}
+            >
+              {isLoading ? (
+                <>
+                  <ActivityIndicator size="small" color="#fff" style={styles.buttonIcon} />
+                  <Text style={styles.buttonText}>Validation...</Text>
+                </>
+              ) : (
+                <>
+                  <Ionicons name="checkmark-circle" size={20} color="#fff" style={styles.buttonIcon} />
+                  <Text style={styles.buttonText}>Accepter et continuer</Text>
+                </>
+              )}
+            </LinearGradient>
+          </TouchableOpacity>
+        </View>
 
         <Text style={styles.footer}>
-          En continuant, vous confirmez avoir pris connaissance de nos engagements 
-          en matière de protection des données.
+          En continuant, vous confirmez avoir pris connaissance de nos engagements.
         </Text>
       </ScrollView>
     </View>
@@ -185,178 +170,95 @@ export default function ConsentScreen({
 function BulletPoint({ icon, children }: { icon: string; children: React.ReactNode }) {
   return (
     <View style={styles.bulletPoint}>
-      <Ionicons name={icon as any} size={18} color="#6366f1" style={styles.bulletIcon} />
+      <Ionicons name={icon as any} size={18} color={theme.colors.accent} style={styles.bulletIcon} />
       <Text style={styles.bulletText}>{children}</Text>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
+  container: { flex: 1, backgroundColor: theme.colors.background },
+  scrollView: { flex: 1 },
+  scrollContent: { paddingHorizontal: theme.spacing.lg, paddingTop: Platform.OS === 'ios' ? 50 : 24, paddingBottom: 60 },
+  heroWrap: {
+    height: 120,
+    borderRadius: theme.radii.lg,
+    overflow: 'hidden',
+    marginBottom: theme.spacing.lg,
+    backgroundColor: theme.colors.surface,
+  },
+  heroImage: { ...StyleSheet.absoluteFillObject },
+  heroOverlay: { ...StyleSheet.absoluteFillObject, backgroundColor: theme.colors.overlayLight },
+  heroContent: {
     flex: 1,
-    backgroundColor: '#0f172a',
-  },
-  header: {
-    alignItems: 'center',
-    paddingTop: 60,
-    paddingBottom: 24,
-    paddingHorizontal: 20,
-    backgroundColor: '#1e293b',
-    borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255, 255, 255, 0.1)',
-  },
-  headerTitle: {
-    fontSize: 24,
-    fontWeight: '700',
-    color: '#e2e8f0',
-    marginTop: 16,
-    marginBottom: 8,
-    textAlign: 'center',
-  },
-  headerSubtitle: {
-    fontSize: 15,
-    color: '#cbd5e1',
-    textAlign: 'center',
-    lineHeight: 22,
-  },
-  scrollView: {
-    flex: 1,
-  },
-  scrollContent: {
-    padding: 20,
-    paddingBottom: 60,
-  },
-  infoCard: {
-    backgroundColor: 'rgba(99, 102, 241, 0.1)',
-    borderRadius: 12,
-    padding: 16,
-    borderWidth: 1,
-    borderColor: 'rgba(99, 102, 241, 0.2)',
-    alignItems: 'center',
-    marginBottom: 24,
-  },
-  infoTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: '#e2e8f0',
-    marginTop: 12,
-    marginBottom: 8,
-  },
-  infoText: {
-    fontSize: 14,
-    lineHeight: 20,
-    color: '#cbd5e1',
-    textAlign: 'center',
-  },
-  section: {
-    marginBottom: 24,
-  },
-  sectionTitle: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: '#e2e8f0',
-    marginBottom: 12,
-  },
-  bulletPoint: {
     flexDirection: 'row',
-    alignItems: 'flex-start',
-    marginBottom: 12,
+    alignItems: 'center',
+    paddingHorizontal: theme.spacing.md,
+    paddingVertical: theme.spacing.sm,
+    gap: 14,
   },
-  bulletIcon: {
-    marginRight: 12,
-    marginTop: 2,
+  logoWrap: { width: 52, height: 52, alignItems: 'center', justifyContent: 'center' },
+  heroTextBlock: { flex: 1, minWidth: 0 },
+  heroTitle: { fontSize: 20, fontWeight: '700', color: theme.colors.text, marginBottom: 4 },
+  heroSubtitle: { fontSize: 14, color: theme.colors.textMuted },
+  card: {
+    backgroundColor: theme.colors.surface,
+    borderRadius: theme.radii.md,
+    padding: theme.spacing.md,
+    marginBottom: theme.spacing.md,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
   },
-  bulletText: {
-    flex: 1,
-    fontSize: 14,
-    lineHeight: 20,
-    color: '#cbd5e1',
+  cardHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 10, gap: 10 },
+  cardIconWrap: {
+    width: 40,
+    height: 40,
+    borderRadius: theme.radii.sm,
+    backgroundColor: theme.colors.accentBgStrong,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  linksSection: {
-    marginBottom: 24,
-  },
+  cardTitle: { fontSize: 16, fontWeight: '700', color: theme.colors.textSecondary, flex: 1 },
+  cardText: { fontSize: 14, lineHeight: 20, color: theme.colors.textMuted },
+  sectionLabel: { fontSize: 13, fontWeight: '600', color: theme.colors.textMutedDark, marginBottom: theme.spacing.sm, letterSpacing: 0.3 },
+  bulletPoint: { flexDirection: 'row', alignItems: 'flex-start', marginBottom: 10 },
+  bulletIcon: { marginRight: 10, marginTop: 2 },
+  bulletText: { flex: 1, fontSize: 14, lineHeight: 20, color: theme.colors.textSoft },
   linkButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(99, 102, 241, 0.1)',
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 12,
+    paddingVertical: 14,
+    paddingHorizontal: theme.spacing.sm,
+    borderRadius: theme.radii.sm,
+    backgroundColor: theme.colors.accentBg,
     borderWidth: 1,
-    borderColor: 'rgba(99, 102, 241, 0.2)',
+    borderColor: theme.colors.accentBgStrong,
+    marginBottom: 10,
+    gap: 10,
   },
-  linkText: {
-    flex: 1,
-    fontSize: 15,
-    fontWeight: '600',
-    color: '#6366f1',
-    marginLeft: 12,
-  },
-  checkboxContainer: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    marginBottom: 24,
-  },
+  linkButtonLast: { marginBottom: 0 },
+  linkText: { flex: 1, fontSize: 15, fontWeight: '600', color: theme.colors.accentLight },
+  checkboxContainer: { flexDirection: 'row', alignItems: 'flex-start', marginBottom: theme.spacing.md },
   checkbox: {
     width: 24,
     height: 24,
     borderRadius: 6,
     borderWidth: 2,
-    borderColor: '#64748b',
+    borderColor: theme.colors.textMutedDark,
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: 12,
+    marginRight: theme.spacing.sm,
     marginTop: 2,
   },
-  checkboxChecked: {
-    backgroundColor: '#6366f1',
-    borderColor: '#6366f1',
-  },
-  checkboxText: {
-    flex: 1,
-    fontSize: 14,
-    lineHeight: 20,
-    color: '#cbd5e1',
-  },
-  checkboxLink: {
-    color: '#6366f1',
-    fontWeight: '600',
-    textDecorationLine: 'underline',
-  },
-  buttonContainer: {
-    borderRadius: 12,
-    overflow: 'hidden',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 4,
-    elevation: 4,
-    marginBottom: 16,
-  },
-  buttonDisabled: {
-    opacity: 0.5,
-  },
-  buttonGradient: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 16,
-  },
-  buttonIcon: {
-    marginRight: 8,
-  },
-  buttonText: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: '#fff',
-  },
-  footer: {
-    fontSize: 12,
-    lineHeight: 18,
-    color: '#64748b',
-    textAlign: 'center',
-    fontStyle: 'italic',
-  },
+  checkboxChecked: { backgroundColor: theme.colors.accent, borderColor: theme.colors.accent },
+  checkboxText: { flex: 1, fontSize: 14, lineHeight: 20, color: theme.colors.textSoft },
+  checkboxLink: { color: theme.colors.accentLight, fontWeight: '600', textDecorationLine: 'underline' },
+  buttonContainer: { borderRadius: theme.radii.sm, overflow: 'hidden' },
+  buttonDisabled: { opacity: 0.5 },
+  buttonGradient: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: theme.spacing.md },
+  buttonIcon: { marginRight: theme.spacing.xs },
+  buttonText: { fontSize: 16, fontWeight: '700', color: theme.colors.white },
+  footer: { fontSize: 12, lineHeight: 18, color: theme.colors.textMutedDark, textAlign: 'center', fontStyle: 'italic', marginTop: theme.spacing.xs },
 });
 
 

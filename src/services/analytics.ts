@@ -25,10 +25,10 @@ try {
 // CONFIGURATION
 // ============================================================================
 
-// ⚠️ DÉSACTIVÉ TEMPORAIREMENT : Firebase Analytics nécessite une config native complexe
-// Pour l'instant, on garde juste les logs en dev. On réactivera plus tard si besoin.
-const ENABLED = false; // Complètement désactivé pour éviter les crashes
-// TODO: Réactiver après avoir configuré google-services.json pour Android/iOS
+// ✅ ACTIVÉ : Firebase Analytics pour tracker l'usage et améliorer l'app
+// Les événements sont envoyés à Firebase Analytics pour analyse
+// Activé uniquement en production (pas en dev local pour éviter les erreurs)
+const ENABLED = !__DEV__; // true en production, false en dev local
 
 // ============================================================================
 // ÉVÉNEMENTS BUSINESS - Rides

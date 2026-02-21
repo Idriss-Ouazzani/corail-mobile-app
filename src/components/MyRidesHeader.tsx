@@ -15,16 +15,9 @@ interface MyRidesHeaderProps {
 export default function MyRidesHeader({ totalCount, onCreateRide }: MyRidesHeaderProps) {
   return (
     <View style={styles.pageHeaderRow}>
-      <View style={{ flex: 1 }}>
-        <Text style={styles.pageTitleCompact}>Mes Courses</Text>
-        <Text style={styles.pageSubtitle}>
-          <Ionicons name="car-sport" size={14} color="#b9e6fe" /> {totalCount} courses
-        </Text>
-      </View>
-      
-      {/* Créer une course button */}
+      <Text style={styles.pageTitle}>Mes courses</Text>
       <TouchableOpacity
-        style={styles.createButtonCompact}
+        style={styles.createButton}
         onPress={onCreateRide}
         activeOpacity={0.8}
       >
@@ -32,7 +25,7 @@ export default function MyRidesHeader({ totalCount, onCreateRide }: MyRidesHeade
           colors={['#6366f1', '#8b5cf6']}
           style={styles.createButtonGradient}
         >
-          <Ionicons name="add" size={18} color="#fff" />
+          <Ionicons name="add-circle" size={20} color="#fff" />
           <Text style={styles.createButtonText}>Créer</Text>
         </LinearGradient>
       </TouchableOpacity>
@@ -45,39 +38,36 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: 20,
+    marginBottom: 12,
     paddingHorizontal: 20,
   },
-  pageTitleCompact: {
-    fontSize: 28,
-    fontWeight: '700',
-    color: '#e2e8f0',
-    letterSpacing: 0.5,
+  pageTitle: {
+    fontSize: 22,
+    fontWeight: '800',
+    color: '#f1f5f9',
+    letterSpacing: -0.2,
   },
-  pageSubtitle: {
-    fontSize: 14,
-    color: '#94a3b8',
-    marginTop: 4,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-  },
-  createButtonCompact: {
-    borderRadius: 25,
+  createButton: {
+    borderRadius: 14,
     overflow: 'hidden',
+    shadowColor: '#6366f1',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 2,
   },
   createButtonGradient: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingVertical: 10,
-    paddingHorizontal: 15,
-    borderRadius: 25,
+    paddingHorizontal: 14,
+    borderRadius: 14,
+    gap: 6,
   },
   createButtonText: {
     color: '#fff',
     fontSize: 15,
-    fontWeight: '600',
-    marginLeft: 6,
+    fontWeight: '700',
   },
 });
 

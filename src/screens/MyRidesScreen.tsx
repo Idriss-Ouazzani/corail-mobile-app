@@ -6,27 +6,33 @@ import {
   ScrollView,
   RefreshControl,
   TouchableOpacity,
+  ActivityIndicator,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import RideCard from '../components/RideCard';
+import { RideCard } from '../components/RideCard';
 import apiClient from '../services/api';
 import type { Ride } from '../types';
 
 export const MyRidesScreen = ({ navigation }: any) => {
   const [rides, setRides] = useState<Ride[]>([]);
+  const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [filter, setFilter] = useState<'ongoing' | 'completed' | 'all'>('ongoing');
 
   const fetchMyRides = async () => {
     try {
+      if (!refreshing) setLoading(true);
+      setLoadError(null);
       const response = await apiClient.listMyRides();
-      setRides(response.data);
+      setRides(response.data ?? []);
     } catch (error) {
       console.error('Error fetching my rides:', error);
-      // Mock data for demo
-      setRides(getMockMyRides());
+      setLoadError('Impossible de charger vos courses. Vérifiez votre connexion.');
+      setRides([]);
     } finally {
+      setLoading(false);
       setRefreshing(false);
     }
   };
@@ -48,6 +54,44 @@ export const MyRidesScreen = ({ navigation }: any) => {
 
   const ongoingCount = rides.filter((r) => r.status === 'CLAIMED').length;
   const completedCount = rides.filter((r) => r.status === 'COMPLETED').length;
+
+  if (loading && !refreshing) {
+    return (
+      <SafeAreaView style={styles.container} edges={['top']}>
+        <LinearGradient colors={['#0c4a6e', '#075985']} style={styles.gradient}>
+          <View style={styles.header}>
+            <Text style={styles.title}>Mes Courses</Text>
+            <Text style={styles.subtitle}>Chargement...</Text>
+          </View>
+          <View style={styles.loadingContainer}>
+            <ActivityIndicator size="large" color="#ff6b47" />
+            <Text style={styles.loadingText}>Chargement de vos courses...</Text>
+          </View>
+        </LinearGradient>
+      </SafeAreaView>
+    );
+  }
+
+  if (loadError) {
+    return (
+      <SafeAreaView style={styles.container} edges={['top']}>
+        <LinearGradient colors={['#0c4a6e', '#075985']} style={styles.gradient}>
+          <View style={styles.header}>
+            <Text style={styles.title}>Mes Courses</Text>
+            <Text style={styles.subtitle}>Erreur de chargement</Text>
+          </View>
+          <View style={styles.errorContainer}>
+            <Text style={styles.errorEmoji}>📡</Text>
+            <Text style={styles.errorTitle}>Connexion impossible</Text>
+            <Text style={styles.errorMessage}>{loadError}</Text>
+            <TouchableOpacity style={styles.retryButton} onPress={() => fetchMyRides()} activeOpacity={0.8}>
+              <Text style={styles.retryButtonText}>Réessayer</Text>
+            </TouchableOpacity>
+          </View>
+        </LinearGradient>
+      </SafeAreaView>
+    );
+  }
 
   const StatCard = ({ label, value, active }: { label: string; value: number; active: boolean }) => (
     <TouchableOpacity
@@ -101,6 +145,7 @@ export const MyRidesScreen = ({ navigation }: any) => {
               <RideCard
                 key={ride.id}
                 ride={ride}
+                status={ride.status === 'CLAIMED' ? 'IN_PROGRESS' : 'UPCOMING'}
                 onPress={() => navigation.navigate('RideDetail', { rideId: ride.id })}
               />
             ))
@@ -110,29 +155,6 @@ export const MyRidesScreen = ({ navigation }: any) => {
     </SafeAreaView>
   );
 };
-
-const getMockMyRides = (): Ride[] => [
-  {
-    id: '3',
-    creator_id: 'user3',
-    picker_id: 'current-user',
-    pickup_address: 'CHU Purpan, Toulouse',
-    dropoff_address: 'Labège Innopole',
-    scheduled_at: new Date(Date.now() + 1800000).toISOString(),
-    price_cents: 3200,
-    status: 'CLAIMED',
-    created_at: new Date().toISOString(),
-    updated_at: new Date().toISOString(),
-    completed_at: null,
-    visibility: 'PUBLIC',
-    commission_enabled: true,
-    creator: {
-      id: 'user3',
-      full_name: 'Marie Dubois',
-      email: 'marie@example.com',
-    },
-  },
-];
 
 const styles = StyleSheet.create({
   container: {
@@ -188,6 +210,50 @@ const styles = StyleSheet.create({
   scrollContent: {
     paddingHorizontal: 20,
     paddingBottom: 100,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  loadingText: {
+    marginTop: 16,
+    fontSize: 16,
+    color: '#b9e6fe',
+  },
+  errorContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 32,
+  },
+  errorEmoji: {
+    fontSize: 56,
+    marginBottom: 16,
+  },
+  errorTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: '#ffffff',
+    marginBottom: 8,
+    textAlign: 'center',
+  },
+  errorMessage: {
+    fontSize: 15,
+    color: '#b9e6fe',
+    textAlign: 'center',
+    marginBottom: 24,
+  },
+  retryButton: {
+    backgroundColor: '#ff6b47',
+    paddingHorizontal: 28,
+    paddingVertical: 14,
+    borderRadius: 14,
+  },
+  retryButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#ffffff',
   },
   emptyContainer: {
     alignItems: 'center',

@@ -11,13 +11,18 @@ import {
   StyleSheet,
   Alert,
   ActivityIndicator,
+  Image,
+  Platform,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
+
+const HERO_IMAGE = 'https://images.unsplash.com/photo-1522071820081-009f0129c71c?w=800&q=80';
 import * as Haptics from 'expo-haptics';
 import { apiClient } from '../services/api';
 import { toast } from '../services/toast';
 import { logger } from '../services/logger';
+import { theme } from '../theme';
 
 interface PrivacyDataScreenProps {
   onBack: () => void;
@@ -138,41 +143,52 @@ export default function PrivacyDataScreen({
 
   return (
     <View style={styles.container}>
-      {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity onPress={onBack} style={styles.backButton}>
-          <Ionicons name="arrow-back" size={24} color="#e2e8f0" />
+          <Ionicons name="arrow-back" size={24} color={theme.colors.textSecondary} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Confidentialité et données</Text>
         <View style={styles.headerRight} />
       </View>
 
-      {/* Content */}
       <ScrollView
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
-        {/* Intro RGPD */}
-        <View style={styles.infoCard}>
-          <Ionicons name="shield-checkmark" size={32} color="#6366f1" />
-          <Text style={styles.infoTitle}>Vos droits RGPD</Text>
-          <Text style={styles.infoText}>
-            Conformément au Règlement Général sur la Protection des Données (RGPD), 
-            vous disposez d'un droit d'accès, de rectification, de portabilité et d'effacement 
-            de vos données personnelles.
+        {/* Hero */}
+        <View style={styles.heroWrap}>
+          <Image source={{ uri: HERO_IMAGE }} style={styles.heroImage} />
+          <View style={styles.heroOverlay} />
+          <View style={styles.heroContent}>
+            <View style={styles.heroIconWrap}>
+              <Ionicons name="shield-checkmark" size={28} color={theme.colors.accentIcon} />
+            </View>
+            <Text style={styles.heroTitle}>Confidentialité et données</Text>
+            <Text style={styles.heroSubtitle}>Vos droits RGPD</Text>
+          </View>
+        </View>
+
+        {/* Intro RGPD - carte */}
+        <View style={styles.card}>
+          <Text style={styles.sectionTitle}>Vos droits</Text>
+          <Text style={styles.cardText}>
+            Conformément au RGPD, vous disposez d'un droit d'accès, de rectification, 
+            de portabilité et d'effacement de vos données personnelles.
           </Text>
         </View>
 
-        {/* Export des données */}
-        <View style={styles.section}>
+        {/* Export - carte */}
+        <View style={styles.card}>
           <View style={styles.sectionHeader}>
-            <Ionicons name="download-outline" size={24} color="#10b981" />
-            <Text style={styles.sectionTitle}>Exporter mes données</Text>
+            <View style={[styles.sectionIconWrap, { backgroundColor: theme.colors.successIconBg }]}>
+              <Ionicons name="download-outline" size={22} color={theme.colors.success} />
+            </View>
+            <Text style={styles.cardSectionTitle}>Exporter mes données</Text>
           </View>
           <Text style={styles.sectionDescription}>
-            Téléchargez une copie complète de toutes vos données (profil, courses, crédits, activités) 
-            au format JSON. Vous recevrez un email avec un lien de téléchargement.
+            Copie complète de vos données (profil, courses, crédits) au format JSON. 
+            Vous recevrez un email avec un lien de téléchargement.
           </Text>
           <TouchableOpacity
             onPress={handleExportData}
@@ -199,31 +215,27 @@ export default function PrivacyDataScreen({
           </TouchableOpacity>
         </View>
 
-        {/* Divider */}
-        <View style={styles.divider} />
-
-        {/* Suppression du compte */}
-        <View style={styles.section}>
+        {/* Suppression - carte */}
+        <View style={styles.card}>
           <View style={styles.sectionHeader}>
-            <Ionicons name="trash-outline" size={24} color="#ef4444" />
-            <Text style={[styles.sectionTitle, { color: '#ef4444' }]}>Supprimer mon compte</Text>
+            <View style={[styles.sectionIconWrap, { backgroundColor: theme.colors.errorBg }]}>
+              <Ionicons name="trash-outline" size={22} color={theme.colors.error} />
+            </View>
+            <Text style={[styles.cardSectionTitle, { color: theme.colors.errorLight }]}>Supprimer mon compte</Text>
           </View>
           <Text style={styles.sectionDescription}>
-            <Text style={styles.warningText}>⚠️ Action irréversible !</Text>
-            {'\n\n'}
-            La suppression de votre compte entraînera :
+            <Text style={styles.warningText}>⚠️ Action irréversible.</Text>
+            {'\n'}La suppression entraînera :
           </Text>
           <View style={styles.warningList}>
-            <WarningItem>Suppression définitive de votre profil</WarningItem>
-            <WarningItem>Perte de tous vos crédits restants</WarningItem>
-            <WarningItem>Effacement de toutes vos courses (historique)</WarningItem>
-            <WarningItem>Suppression de vos groupes et invitations</WarningItem>
-            <WarningItem>Impossible de récupérer votre compte</WarningItem>
+            <WarningItem>Suppression définitive du profil</WarningItem>
+            <WarningItem>Perte des crédits restants</WarningItem>
+            <WarningItem>Effacement de l'historique des courses</WarningItem>
+            <WarningItem>Suppression des groupes et invitations</WarningItem>
           </View>
           <Text style={styles.sectionDescription}>
-            Vos données seront anonymisées sous 30 jours (sauf obligations légales comptables).
+            Vos données seront anonymisées sous 30 jours (sauf obligations légales).
           </Text>
-          
           <TouchableOpacity
             onPress={handleDeleteAccount}
             activeOpacity={0.8}
@@ -249,10 +261,9 @@ export default function PrivacyDataScreen({
           </TouchableOpacity>
         </View>
 
-        {/* Footer */}
         <View style={styles.footer}>
           <Text style={styles.footerText}>
-            Des questions ? Contactez notre DPO : <Text style={styles.footerLink}>dpo@corail.app</Text>
+            Questions ? DPO : <Text style={styles.footerLink}>dpo@corail.app</Text>
           </Text>
         </View>
       </ScrollView>
@@ -263,166 +274,98 @@ export default function PrivacyDataScreen({
 function WarningItem({ children }: { children: React.ReactNode }) {
   return (
     <View style={styles.warningItem}>
-      <Ionicons name="close-circle" size={16} color="#ef4444" style={styles.warningIcon} />
+      <Ionicons name="close-circle" size={16} color={theme.colors.error} style={styles.warningIcon} />
       <Text style={styles.warningItemText}>{children}</Text>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#0f172a',
-  },
+  container: { flex: 1, backgroundColor: theme.colors.background },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 20,
-    paddingTop: 60,
-    paddingBottom: 16,
-    backgroundColor: '#1e293b',
+    paddingTop: Platform.OS === 'ios' ? 60 : 24,
+    paddingBottom: theme.spacing.md,
+    paddingHorizontal: theme.spacing.lg,
+    backgroundColor: theme.colors.background,
     borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255, 255, 255, 0.1)',
+    borderBottomColor: theme.colors.border,
   },
   backButton: {
     width: 40,
     height: 40,
-    borderRadius: 20,
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  headerTitle: {
-    flex: 1,
-    fontSize: 18,
-    fontWeight: '700',
-    color: '#e2e8f0',
-    textAlign: 'center',
-    marginHorizontal: 12,
-  },
-  headerRight: {
-    width: 40,
-  },
-  scrollView: {
-    flex: 1,
-  },
-  scrollContent: {
-    padding: 20,
-    paddingBottom: 60,
-  },
-  infoCard: {
-    backgroundColor: 'rgba(99, 102, 241, 0.1)',
-    borderRadius: 12,
-    padding: 16,
+    borderRadius: theme.radii.sm,
+    backgroundColor: theme.colors.surface,
     borderWidth: 1,
-    borderColor: 'rgba(99, 102, 241, 0.2)',
-    alignItems: 'center',
-    marginBottom: 24,
-  },
-  infoTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: '#e2e8f0',
-    marginTop: 12,
-    marginBottom: 8,
-  },
-  infoText: {
-    fontSize: 14,
-    lineHeight: 20,
-    color: '#cbd5e1',
-    textAlign: 'center',
-  },
-  section: {
-    marginBottom: 24,
-  },
-  sectionHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 12,
-  },
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: '#e2e8f0',
-    marginLeft: 8,
-  },
-  sectionDescription: {
-    fontSize: 14,
-    lineHeight: 22,
-    color: '#cbd5e1',
-    marginBottom: 16,
-  },
-  warningText: {
-    fontSize: 15,
-    fontWeight: '700',
-    color: '#fbbf24',
-  },
-  warningList: {
-    backgroundColor: 'rgba(239, 68, 68, 0.05)',
-    borderRadius: 8,
-    padding: 12,
-    borderLeftWidth: 3,
-    borderLeftColor: '#ef4444',
-    marginBottom: 12,
-  },
-  warningItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 8,
-  },
-  warningIcon: {
-    marginRight: 8,
-  },
-  warningItemText: {
-    flex: 1,
-    fontSize: 13,
-    lineHeight: 18,
-    color: '#fca5a5',
-  },
-  buttonContainer: {
-    borderRadius: 12,
-    overflow: 'hidden',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 4,
-    elevation: 4,
-  },
-  buttonGradient: {
-    flexDirection: 'row',
+    borderColor: theme.colors.border,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 14,
   },
-  buttonIcon: {
-    marginRight: 8,
+  headerTitle: { flex: 1, fontSize: 18, fontWeight: '700', color: theme.colors.text, marginHorizontal: theme.spacing.sm, textAlign: 'center' },
+  headerRight: { width: 40 },
+  scrollView: { flex: 1 },
+  scrollContent: { paddingHorizontal: theme.spacing.lg, paddingTop: theme.spacing.lg, paddingBottom: 40 },
+  heroWrap: {
+    height: 100,
+    borderRadius: theme.radii.lg,
+    overflow: 'hidden',
+    marginBottom: theme.spacing.lg,
+    backgroundColor: theme.colors.surface,
   },
-  buttonText: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: '#fff',
-  },
-  divider: {
-    height: 1,
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
-    marginVertical: 32,
-  },
-  footer: {
-    marginTop: 24,
-    paddingTop: 20,
-    borderTopWidth: 1,
-    borderTopColor: 'rgba(255, 255, 255, 0.1)',
+  heroImage: { ...StyleSheet.absoluteFillObject },
+  heroOverlay: { ...StyleSheet.absoluteFillObject, backgroundColor: theme.colors.overlayStrong },
+  heroContent: {
+    flex: 1,
+    flexDirection: 'row',
     alignItems: 'center',
+    paddingHorizontal: theme.spacing.md,
+    paddingVertical: theme.spacing.sm,
+    gap: theme.spacing.sm,
   },
-  footerText: {
-    fontSize: 13,
-    color: '#94a3b8',
-    textAlign: 'center',
+  heroIconWrap: {
+    width: 48,
+    height: 48,
+    borderRadius: 14,
+    backgroundColor: theme.colors.accentBgHero,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  footerLink: {
-    color: '#6366f1',
-    textDecorationLine: 'underline',
+  heroTitle: { fontSize: 18, fontWeight: '700', color: theme.colors.text, marginBottom: 2 },
+  heroSubtitle: { fontSize: 13, color: theme.colors.textMuted },
+  card: {
+    backgroundColor: theme.colors.surface,
+    borderRadius: theme.radii.md,
+    padding: theme.spacing.md,
+    marginBottom: theme.spacing.md,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
   },
+  sectionTitle: { fontSize: 13, fontWeight: '600', color: theme.colors.textMutedDark, marginBottom: 10, letterSpacing: 0.3 },
+  cardText: { fontSize: 14, lineHeight: 20, color: theme.colors.textSoft },
+  sectionHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: theme.spacing.sm, gap: 10 },
+  sectionIconWrap: { width: 40, height: 40, borderRadius: theme.radii.sm, alignItems: 'center', justifyContent: 'center' },
+  cardSectionTitle: { fontSize: 16, fontWeight: '700', color: theme.colors.textSecondary, flex: 1 },
+  sectionDescription: { fontSize: 14, lineHeight: 20, color: theme.colors.textMuted, marginBottom: theme.spacing.sm },
+  warningText: { fontSize: 14, fontWeight: '700', color: theme.colors.warning },
+  warningList: {
+    backgroundColor: theme.colors.errorBg,
+    borderRadius: 10,
+    padding: theme.spacing.sm,
+    borderLeftWidth: 3,
+    borderLeftColor: theme.colors.error,
+    marginBottom: theme.spacing.sm,
+  },
+  warningItem: { flexDirection: 'row', alignItems: 'center', marginBottom: 6 },
+  warningIcon: { marginRight: theme.spacing.xs },
+  warningItemText: { flex: 1, fontSize: 13, lineHeight: 18, color: '#fca5a5' },
+  buttonContainer: { borderRadius: theme.radii.sm, overflow: 'hidden', marginTop: 4 },
+  buttonGradient: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: 14 },
+  buttonIcon: { marginRight: theme.spacing.xs },
+  buttonText: { fontSize: 16, fontWeight: '700', color: theme.colors.white },
+  footer: { marginTop: theme.spacing.xs, paddingTop: theme.spacing.md, alignItems: 'center' },
+  footerText: { fontSize: 13, color: theme.colors.textMuted, textAlign: 'center' },
+  footerLink: { color: theme.colors.accent, textDecorationLine: 'underline' },
 });
 

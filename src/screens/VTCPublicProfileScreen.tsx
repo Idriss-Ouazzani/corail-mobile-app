@@ -12,8 +12,9 @@ import {
   StyleSheet,
   KeyboardAvoidingView,
   Platform,
+  Image,
 } from 'react-native';
-import { Image } from 'expo-image';
+import { Image as ExpoImage } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useAuth } from '../contexts/AuthContext';
@@ -24,7 +25,10 @@ import { supabase } from '../lib/supabase';
 import MultiSelectInput from '../components/MultiSelectInput';
 
 // URL de production pour les profils VTC
-const VTC_BASE_URL = 'https://corail-quotes-web.vercel.app';
+import { getVtcProfileUrl } from '../constants/urls';
+
+// Photo sympa : page pro / présence en ligne (représente Ma Page Publique)
+const HERO_IMAGE = 'https://images.unsplash.com/photo-1522071820081-009f0129c71c?w=800&q=80';
 
 // Listes prédéfinies
 const PREDEFINED_LANGUAGES = [
@@ -93,6 +97,8 @@ interface VTCPublicProfileScreenProps {
   currentUserEmail?: string;
   currentUserName?: string;
   currentUserPhone?: string;
+  currentUserProfessionalCard?: string;
+  currentUserPhotoUrl?: string; // Photo du profil général
 }
 
 export const VTCPublicProfileScreen: React.FC<VTCPublicProfileScreenProps> = ({ 
@@ -101,6 +107,8 @@ export const VTCPublicProfileScreen: React.FC<VTCPublicProfileScreenProps> = ({
   currentUserEmail,
   currentUserName,
   currentUserPhone,
+  currentUserProfessionalCard,
+  currentUserPhotoUrl,
 }) => {
   const { loadVerificationStatus } = useAuth();
   const [loading, setLoading] = useState(true);
@@ -165,12 +173,22 @@ export const VTCPublicProfileScreen: React.FC<VTCPublicProfileScreenProps> = ({
         setLanguages(data.languages || ['Français']);
         setAmenities(data.amenities || []);
         setServices(data.services || []);
-        setPhotoUrl(data.photo_url || '');
+        // Pré-remplir avec la photo du profil général si pas de photo VTC
+        const photoToUse = data.photo_url || currentUserPhotoUrl || '';
+        setPhotoUrl(photoToUse);
+        if (photoToUse && !data.photo_url) {
+          console.log('📸 Photo pré-remplie depuis le profil général');
+        }
         setIsPublic(data.is_public);
       } else {
         console.log('ℹ️ Pas de profil VTC, pré-remplissage avec les données utilisateur');
         // Pré-remplir avec les données du user
         setPhone(currentUserPhone || '');
+        // Pré-remplir avec la photo du profil général
+        if (currentUserPhotoUrl) {
+          setPhotoUrl(currentUserPhotoUrl);
+          console.log('📸 Photo pré-remplie depuis le profil général');
+        }
         // Générer un slug par défaut à partir du nom
         const defaultSlug = generateSlug(currentUserName || '');
         setSlug(defaultSlug);
@@ -376,7 +394,7 @@ export const VTCPublicProfileScreen: React.FC<VTCPublicProfileScreenProps> = ({
       const savedProfile = await apiClient.updateVTCProfile(profileData);
       
       console.log('✅ Profil sauvegardé avec succès !');
-      console.log('🔗 URL du profil:', `${VTC_BASE_URL}/vtc/${slug.toLowerCase()}`);
+      console.log('🔗 URL du profil:', getVtcProfileUrl(slug));
       
       // Mettre à jour aussi la photo dans le profil utilisateur (si photo présente)
       if (photoUrl) {
@@ -400,7 +418,7 @@ export const VTCPublicProfileScreen: React.FC<VTCPublicProfileScreenProps> = ({
           {
             text: 'OK',
             onPress: () => {
-              console.log('💡 Le profil est accessible sur:', `${VTC_BASE_URL}/vtc/${slug.toLowerCase()}`);
+              console.log('💡 Le profil est accessible sur:', getVtcProfileUrl(slug));
             }
           }
         ]
@@ -422,7 +440,7 @@ export const VTCPublicProfileScreen: React.FC<VTCPublicProfileScreenProps> = ({
       return;
     }
 
-    const url = `${VTC_BASE_URL}/vtc/${slug.toLowerCase()}`;
+    const url = getVtcProfileUrl(slug);
     const message = `Découvrez mon profil VTC sur Corail :\n${url}`;
 
     console.log('📤 Partage du profil:', url);
@@ -442,15 +460,16 @@ export const VTCPublicProfileScreen: React.FC<VTCPublicProfileScreenProps> = ({
       Alert.alert('Info', 'Créez d\'abord votre profil');
       return;
     }
-    const url = `${VTC_BASE_URL}/vtc/${slug.toLowerCase()}`;
+    const url = getVtcProfileUrl(slug);
     console.log('🔗 Ouverture du profil VTC:', url);
     Linking.openURL(url);
   };
 
+
   if (loading) {
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#6366f1" />
+        <ActivityIndicator size="large" color="#0ea5e9" />
         <Text style={styles.loadingText}>Chargement...</Text>
       </View>
     );
@@ -461,7 +480,7 @@ export const VTCPublicProfileScreen: React.FC<VTCPublicProfileScreenProps> = ({
       {/* Header avec bouton retour */}
       <View style={styles.header}>
         <TouchableOpacity onPress={onBack} style={styles.backButton}>
-          <Ionicons name="arrow-back" size={24} color="#fff" />
+          <Ionicons name="arrow-back" size={24} color="#e2e8f0" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Ma Page Publique</Text>
         <View style={styles.headerRight} />
@@ -472,12 +491,18 @@ export const VTCPublicProfileScreen: React.FC<VTCPublicProfileScreenProps> = ({
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >
         <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent}>
-          {/* Intro */}
-          <View style={styles.intro}>
-            <Ionicons name="globe-outline" size={32} color="#6366f1" />
-            <Text style={styles.introText}>
-              Créez votre profil VTC public pour attirer de nouveaux clients
-            </Text>
+          {/* Bandeau image + descriptif */}
+          <View style={styles.heroWrap}>
+            <Image source={{ uri: HERO_IMAGE }} style={styles.heroImage} resizeMode="cover" />
+            <View style={styles.heroOverlay} />
+            <View style={styles.heroContent}>
+              <View style={styles.heroIconWrap}>
+                <Ionicons name="globe" size={26} color="#fff" />
+              </View>
+              <Text style={styles.heroText}>
+                Votre page pro en ligne : carte de visite, coordonnées et lien partageable pour vos clients.
+              </Text>
+            </View>
           </View>
 
           {/* Photo de profil */}
@@ -493,12 +518,12 @@ export const VTCPublicProfileScreen: React.FC<VTCPublicProfileScreenProps> = ({
                 {uploading ? (
                   // Pendant l'upload : spinner
                   <View style={styles.photoPlaceholder}>
-                    <ActivityIndicator size="large" color="#6366f1" />
+                    <ActivityIndicator size="large" color="#0ea5e9" />
                     <Text style={styles.uploadingText}>Upload...</Text>
                   </View>
                 ) : photoUrl ? (
                   // Après upload : preview avec expo-image
-                  <Image
+                  <ExpoImage
                     key={`photo-${photoKey}`}
                     source={{ uri: photoUrl }}
                     style={styles.photo}
@@ -530,12 +555,12 @@ export const VTCPublicProfileScreen: React.FC<VTCPublicProfileScreenProps> = ({
                 >
                   {uploading ? (
                     <>
-                      <ActivityIndicator size="small" color="#a5b4fc" />
+                      <ActivityIndicator size="small" color="#0ea5e9" />
                       <Text style={styles.uploadButtonText}>Upload...</Text>
                     </>
                   ) : (
                     <>
-                      <Ionicons name="camera" size={20} color="#a5b4fc" />
+                      <Ionicons name="camera" size={20} color="#0ea5e9" />
                       <Text style={styles.uploadButtonText}>
                         {photoUrl ? 'Changer' : 'Ajouter'}
                       </Text>
@@ -580,7 +605,7 @@ export const VTCPublicProfileScreen: React.FC<VTCPublicProfileScreenProps> = ({
               style={[styles.input, styles.textArea]}
               value={bio}
               onChangeText={setBio}
-              placeholder="Chauffeur VTC professionnel à Toulouse..."
+              placeholder="Chauffeur privé professionnel à Toulouse..."
               placeholderTextColor="#94a3b8"
               multiline
               numberOfLines={4}
@@ -712,7 +737,7 @@ export const VTCPublicProfileScreen: React.FC<VTCPublicProfileScreenProps> = ({
           {/* Analytics */}
           {profile && (
             <View style={styles.analyticsCard}>
-              <Ionicons name="stats-chart" size={20} color="#6366f1" />
+              <Ionicons name="stats-chart" size={20} color="#0ea5e9" />
               <Text style={styles.analyticsText}>
                 <Text style={styles.analyticsCount}>{profile.view_count}</Text> vues
               </Text>
@@ -727,7 +752,7 @@ export const VTCPublicProfileScreen: React.FC<VTCPublicProfileScreenProps> = ({
               activeOpacity={0.8}
             >
               <LinearGradient
-                colors={['#6366f1', '#4f46e5']}
+                colors={['#0ea5e9', '#06b6d4']}
                 style={styles.saveButton}
               >
                 {saving ? (
@@ -750,7 +775,7 @@ export const VTCPublicProfileScreen: React.FC<VTCPublicProfileScreenProps> = ({
                   onPress={handleOpenLink}
                   activeOpacity={0.7}
                 >
-                  <Ionicons name="open-outline" size={18} color="#6366f1" />
+                  <Ionicons name="open-outline" size={18} color="#0ea5e9" />
                   <Text style={styles.secondaryButtonText}>Voir mon profil</Text>
                 </TouchableOpacity>
 
@@ -759,7 +784,7 @@ export const VTCPublicProfileScreen: React.FC<VTCPublicProfileScreenProps> = ({
                   onPress={handleShare}
                   activeOpacity={0.7}
                 >
-                  <Ionicons name="share-social" size={18} color="#6366f1" />
+                  <Ionicons name="share-social" size={18} color="#0ea5e9" />
                   <Text style={styles.secondaryButtonText}>Partager</Text>
                 </TouchableOpacity>
               </>
@@ -785,22 +810,24 @@ const styles = StyleSheet.create({
     paddingBottom: 16,
     backgroundColor: '#0f172a',
     borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255, 255, 255, 0.1)',
+    borderBottomColor: '#334155',
     zIndex: 10,
-    elevation: 10, // Pour Android
+    elevation: 10,
   },
   backButton: {
     width: 40,
     height: 40,
-    borderRadius: 20,
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    borderRadius: 12,
+    backgroundColor: '#1e293b',
+    borderWidth: 1,
+    borderColor: '#334155',
     alignItems: 'center',
     justifyContent: 'center',
   },
   headerTitle: {
     fontSize: 18,
     fontWeight: '700',
-    color: '#fff',
+    color: '#f8fafc',
   },
   headerRight: {
     width: 40,
@@ -823,17 +850,57 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scrollContent: {
-    padding: 20,
+    paddingHorizontal: 20,
+    paddingTop: 20,
     paddingBottom: 40,
+  },
+  heroWrap: {
+    height: 100,
+    borderRadius: 18,
+    overflow: 'hidden',
+    marginBottom: 24,
+    backgroundColor: '#1e293b',
+  },
+  heroImage: {
+    ...StyleSheet.absoluteFillObject,
+  },
+  heroOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(15, 23, 42, 0.75)',
+  },
+  heroContent: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    gap: 14,
+  },
+  heroIconWrap: {
+    width: 48,
+    height: 48,
+    borderRadius: 14,
+    backgroundColor: 'rgba(14, 165, 233, 0.35)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  heroText: {
+    flex: 1,
+    fontSize: 14,
+    lineHeight: 20,
+    color: '#e2e8f0',
+    fontWeight: '500',
   },
   intro: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
-    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    backgroundColor: '#1e293b',
     padding: 16,
-    borderRadius: 12,
-    marginBottom: 24,
+    borderRadius: 14,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: '#334155',
   },
   introText: {
     flex: 1,
@@ -842,33 +909,39 @@ const styles = StyleSheet.create({
     lineHeight: 20,
   },
   section: {
-    marginBottom: 24,
+    backgroundColor: '#1e293b',
+    borderRadius: 14,
+    padding: 16,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: '#334155',
   },
   sectionTitle: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: '#fff',
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#64748b',
     marginBottom: 12,
+    letterSpacing: 0.3,
   },
   label: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#cbd5e1',
+    color: '#e2e8f0',
     marginBottom: 6,
     marginTop: 12,
   },
   input: {
-    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    backgroundColor: '#0f172a',
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.1)',
+    borderColor: '#334155',
     borderRadius: 12,
     padding: 12,
     fontSize: 15,
-    color: '#fff',
+    color: '#f8fafc',
   },
   readonlyInput: {
-    backgroundColor: 'rgba(255, 255, 255, 0.02)',
-    borderColor: 'rgba(255, 255, 255, 0.05)',
+    backgroundColor: 'rgba(15, 23, 42, 0.6)',
+    borderColor: '#334155',
     justifyContent: 'center',
   },
   readonlyText: {
@@ -882,9 +955,9 @@ const styles = StyleSheet.create({
   slugContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    backgroundColor: '#0f172a',
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.1)',
+    borderColor: '#334155',
     borderRadius: 12,
     paddingLeft: 12,
   },
@@ -898,19 +971,18 @@ const styles = StyleSheet.create({
     padding: 12,
     paddingLeft: 8,
     fontSize: 15,
-    color: '#fff',
+    color: '#f8fafc',
   },
   hint: {
     fontSize: 12,
     color: '#64748b',
     marginTop: 4,
-    fontStyle: 'italic',
   },
   photoContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 16,
-    marginTop: 12,
+    marginTop: 8,
   },
   photoWrapper: {
     position: 'relative',
@@ -919,24 +991,24 @@ const styles = StyleSheet.create({
     width: 100,
     height: 100,
     borderRadius: 50,
-    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    backgroundColor: '#334155',
     borderWidth: 2,
-    borderColor: 'rgba(99, 102, 241, 0.5)',
+    borderColor: '#0ea5e9',
   },
   photoPlaceholder: {
     width: 100,
     height: 100,
     borderRadius: 50,
-    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    backgroundColor: '#334155',
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 2,
-    borderColor: 'rgba(255, 255, 255, 0.1)',
+    borderColor: '#334155',
     borderStyle: 'dashed',
     gap: 8,
   },
   uploadingText: {
-    color: '#a5b4fc',
+    color: '#0ea5e9',
     fontSize: 11,
     fontWeight: '600',
     textAlign: 'center',
@@ -946,7 +1018,7 @@ const styles = StyleSheet.create({
   },
   photoUploadedHint: {
     fontSize: 12,
-    color: '#10b981',
+    color: '#22c55e',
     marginTop: 8,
     textAlign: 'center',
     lineHeight: 16,
@@ -956,15 +1028,15 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
-    backgroundColor: 'rgba(99, 102, 241, 0.1)',
+    backgroundColor: 'rgba(14, 165, 233, 0.15)',
     borderWidth: 1,
-    borderColor: '#6366f1',
+    borderColor: '#0ea5e9',
     paddingVertical: 12,
     paddingHorizontal: 20,
     borderRadius: 12,
   },
   uploadButtonText: {
-    color: '#a5b4fc',
+    color: '#38bdf8',
     fontSize: 15,
     fontWeight: '600',
   },
@@ -972,11 +1044,11 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    backgroundColor: '#0f172a',
     padding: 14,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.1)',
+    borderColor: '#334155',
   },
   toggleContent: {
     flex: 1,
@@ -984,23 +1056,23 @@ const styles = StyleSheet.create({
   toggleLabel: {
     fontSize: 15,
     fontWeight: '600',
-    color: '#fff',
+    color: '#e2e8f0',
     marginBottom: 2,
   },
   toggleHint: {
     fontSize: 13,
-    color: '#94a3b8',
+    color: '#64748b',
   },
   toggle: {
     width: 48,
     height: 28,
     borderRadius: 14,
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    backgroundColor: '#334155',
     padding: 2,
     justifyContent: 'center',
   },
   toggleActive: {
-    backgroundColor: '#6366f1',
+    backgroundColor: '#0ea5e9',
   },
   toggleThumb: {
     width: 24,
@@ -1016,21 +1088,21 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
-    backgroundColor: 'rgba(99, 102, 241, 0.1)',
-    padding: 12,
-    borderRadius: 12,
-    marginBottom: 20,
+    backgroundColor: '#1e293b',
+    padding: 14,
+    borderRadius: 14,
+    marginBottom: 16,
     borderWidth: 1,
-    borderColor: 'rgba(99, 102, 241, 0.2)',
+    borderColor: '#334155',
   },
   analyticsText: {
     fontSize: 14,
-    color: '#cbd5e1',
+    color: '#94a3b8',
   },
   analyticsCount: {
     fontSize: 20,
     fontWeight: '700',
-    color: '#a5b4fc',
+    color: '#0ea5e9',
   },
   actions: {
     gap: 12,
@@ -1040,8 +1112,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
-    paddingVertical: 14,
-    borderRadius: 12,
+    paddingVertical: 18,
+    borderRadius: 18,
   },
   saveButtonText: {
     fontSize: 16,
@@ -1053,16 +1125,16 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
-    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    backgroundColor: '#1e293b',
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.1)',
-    borderRadius: 12,
+    borderColor: '#334155',
+    borderRadius: 14,
     paddingVertical: 12,
   },
   secondaryButtonText: {
     fontSize: 15,
     fontWeight: '600',
-    color: '#a5b4fc',
+    color: '#0ea5e9',
   },
 });
 

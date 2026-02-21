@@ -76,12 +76,12 @@ export const AddressAutocomplete: React.FC<AddressAutocompleteProps> = ({
 
       {/* Input avec icônes */}
       <View style={[styles.inputContainer, (externalError || apiError) && styles.inputError]}>
-        <Ionicons name="location-outline" size={20} color="#64748b" style={styles.icon} />
+        <Ionicons name="location-outline" size={20} color="#94a3b8" style={styles.icon} />
         
         <TextInput
           style={styles.input}
           placeholder={placeholder}
-          placeholderTextColor="#64748b"
+          placeholderTextColor="#94a3b8"
           value={inputValue}
           onChangeText={handleChangeText}
           onFocus={() => setShowSuggestions(true)}
@@ -159,16 +159,16 @@ const styles = StyleSheet.create({
   label: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#e2e8f0',
+    color: '#cbd5e1',
     marginBottom: 8,
   },
   inputContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#1e293b',
+    backgroundColor: 'transparent',
     borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#334155',
+    borderWidth: 1.5,
+    borderColor: '#475569',
     paddingHorizontal: 12,
     height: 50,
   },
@@ -181,7 +181,7 @@ const styles = StyleSheet.create({
   input: {
     flex: 1,
     fontSize: 16,
-    color: '#f1f5f9',
+    color: '#ffffff',
     paddingVertical: 0,
   },
   rightIcon: {

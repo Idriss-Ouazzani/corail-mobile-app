@@ -12,11 +12,24 @@ import {
   RefreshControl,
   KeyboardAvoidingView,
   Platform,
+  Image,
+  Linking,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { apiClient } from '../services/api';
-import { firebaseAuth } from '../services/firebase';
+import { useAuth } from '../contexts/AuthContext';
+
+const GROUP_HERO_IMAGE = 'https://images.unsplash.com/photo-1522071820081-009f0129c71c?w=800&q=80';
+
+/** Numéro au format international pour WhatsApp (ex: 0612345678 → 33612345678) */
+function phoneForWhatsApp(phone: string): string {
+  const digits = phone.replace(/\D/g, '');
+  if (digits.startsWith('33') && digits.length >= 11) return digits;
+  if (digits.startsWith('0') && digits.length === 10) return '33' + digits.slice(1);
+  if (digits.length >= 9) return '33' + digits.replace(/^0/, '');
+  return digits;
+}
 
 interface Member {
   id: string;
@@ -49,6 +62,7 @@ interface GroupDetailScreenProps {
 }
 
 export const GroupDetailScreen: React.FC<GroupDetailScreenProps> = ({ group, onBack }) => {
+  const { user } = useAuth();
   const [members, setMembers] = useState<Member[]>([]);
   const [pendingInvitations, setPendingInvitations] = useState<PendingInvitation[]>([]);
   const [loading, setLoading] = useState(true);
@@ -58,7 +72,7 @@ export const GroupDetailScreen: React.FC<GroupDetailScreenProps> = ({ group, onB
   const [invitePhone, setInvitePhone] = useState('');
   const [inviting, setInviting] = useState(false);
 
-  const currentUserId = firebaseAuth.currentUser?.uid;
+  const currentUserId = user?.id;
   const currentUserMember = members.find(m => m.isCurrentUser);
   const currentUserIsAdmin = currentUserMember?.isAdmin || false;
   const admins = members.filter(m => m.isAdmin);
@@ -212,133 +226,123 @@ export const GroupDetailScreen: React.FC<GroupDetailScreenProps> = ({ group, onB
   if (loading) {
     return (
       <View style={styles.container}>
-        <LinearGradient colors={['#1e293b', '#0f172a']} style={styles.header}>
+        <View style={styles.header}>
           <TouchableOpacity onPress={onBack} style={styles.backButton}>
-            <Ionicons name="arrow-back" size={24} color="#f1f5f9" />
+            <Ionicons name="arrow-back" size={24} color="#e2e8f0" />
           </TouchableOpacity>
           <Text style={styles.headerTitle}>{group.name}</Text>
-          <View style={{ width: 40 }} />
-        </LinearGradient>
+          <View style={styles.headerRight} />
+        </View>
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#ff6b47" />
+          <ActivityIndicator size="large" color="#0ea5e9" />
           <Text style={styles.loadingText}>Chargement...</Text>
         </View>
       </View>
     );
   }
 
-  return (
-    <View style={styles.container}>
-      {/* Header */}
-      <LinearGradient colors={['#1e293b', '#0f172a']} style={styles.header}>
-        <TouchableOpacity onPress={onBack} style={styles.backButton}>
-          <Ionicons name="arrow-back" size={24} color="#f1f5f9" />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>{group.name}</Text>
-        {currentUserIsAdmin && (
-          <TouchableOpacity
-            style={styles.inviteHeaderButton}
-            onPress={() => setShowInviteModal(true)}
-          >
-            <Ionicons name="person-add" size={22} color="#ff6b47" />
+  const handleWhatsApp = (member: Member) => {
+    if (!member.phone?.trim()) return;
+    const num = phoneForWhatsApp(member.phone);
+    Linking.openURL(`https://wa.me/${num}`).catch(() => Alert.alert('Erreur', 'Impossible d\'ouvrir WhatsApp'));
+  };
+
+  const handleCall = (member: Member) => {
+    if (!member.phone?.trim()) return;
+    const tel = member.phone.replace(/\s/g, '');
+    Linking.openURL(`tel:${tel.startsWith('+') ? tel : '+' + tel}`).catch(() => Alert.alert('Erreur', 'Impossible d\'appeler'));
+  };
+
+  const renderMemberRow = (member: Member, isAdmin: boolean) => (
+    <View key={member.id} style={styles.memberCard}>
+      <View style={[styles.memberAvatar, { backgroundColor: (group.color || '#0ea5e9') + '35' }]}>
+        <Text style={styles.memberAvatarText}>
+          {member.name?.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2) || '??'}
+        </Text>
+      </View>
+      <View style={styles.memberInfo}>
+        <View style={styles.memberNameRow}>
+          <Text style={styles.memberName}>{member.name}</Text>
+          {member.isCurrentUser && (
+            <View style={styles.youBadge}>
+              <Text style={styles.youBadgeText}>Vous</Text>
+            </View>
+          )}
+          {isAdmin && (
+            <View style={styles.adminBadgeSmall}>
+              <Ionicons name="shield-checkmark" size={12} color="#fbbf24" />
+            </View>
+          )}
+        </View>
+        <Text style={styles.memberEmail} numberOfLines={1}>{member.email}</Text>
+      </View>
+      <View style={styles.memberActions}>
+        {member.phone?.trim() ? (
+          <>
+            <TouchableOpacity style={styles.actionIcon} onPress={() => handleWhatsApp(member)} activeOpacity={0.7}>
+              <Ionicons name="logo-whatsapp" size={22} color="#25D366" />
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.actionIcon} onPress={() => handleCall(member)} activeOpacity={0.7}>
+              <Ionicons name="call" size={20} color="#0ea5e9" />
+            </TouchableOpacity>
+          </>
+        ) : null}
+        {currentUserIsAdmin && !member.isCurrentUser && (
+          <TouchableOpacity style={styles.actionIcon} onPress={() => handleRemoveMember(member)} activeOpacity={0.7}>
+            <Ionicons name="person-remove-outline" size={20} color="#94a3b8" />
           </TouchableOpacity>
         )}
-        {!currentUserIsAdmin && <View style={{ width: 40 }} />}
-      </LinearGradient>
+      </View>
+    </View>
+  );
+
+  return (
+    <View style={styles.container}>
+      <View style={styles.header}>
+        <TouchableOpacity onPress={onBack} style={styles.backButton}>
+          <Ionicons name="arrow-back" size={24} color="#e2e8f0" />
+        </TouchableOpacity>
+        <Text style={styles.headerTitle} numberOfLines={1}>{group.name}</Text>
+        {currentUserIsAdmin ? (
+          <TouchableOpacity style={styles.inviteHeaderButton} onPress={() => setShowInviteModal(true)}>
+            <Ionicons name="person-add" size={22} color="#0ea5e9" />
+          </TouchableOpacity>
+        ) : (
+          <View style={styles.headerRight} />
+        )}
+      </View>
 
       <ScrollView
-        style={styles.content}
+        style={styles.scrollView}
+        contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor="#0ea5e9" />}
       >
-        {/* Group Info */}
-        <View style={styles.groupInfoCard}>
-          <LinearGradient
-            colors={[`${group.color || '#0ea5e9'}20`, `${group.color || '#0ea5e9'}05`]}
-            style={styles.groupInfoGradient}
-          >
-            <View style={[styles.groupInfoIcon, { backgroundColor: `${group.color || '#0ea5e9'}30` }]}>
-              <Ionicons name={(group.icon || 'people') as any} size={40} color={group.color || '#0ea5e9'} />
+        {/* Hero (même photo que liste Groupes) */}
+        <View style={styles.heroWrap}>
+          <Image source={{ uri: GROUP_HERO_IMAGE }} style={styles.heroImage} resizeMode="cover" />
+          <View style={styles.heroOverlay} />
+          <View style={styles.heroContent}>
+            <View style={[styles.heroIconWrap, { backgroundColor: (group.color || '#0ea5e9') + '40' }]}>
+              <Ionicons name={(group.icon || 'people') as any} size={28} color="#fff" />
             </View>
-            <View style={styles.groupInfoContent}>
-              <Text style={styles.groupInfoName}>{group.name}</Text>
-              <Text style={styles.groupInfoDesc}>{group.description || 'Aucune description'}</Text>
-              <View style={styles.groupInfoMeta}>
-                <Ionicons name="people" size={16} color="#94a3b8" />
-                <Text style={styles.groupInfoMetaText}>{members.length} membre{members.length > 1 ? 's' : ''}</Text>
+            <View style={styles.heroTextBlock}>
+              <Text style={styles.heroTitle}>{group.name}</Text>
+              <Text style={styles.heroSubtitle} numberOfLines={2}>{group.description || 'Aucune description'}</Text>
+              <View style={styles.heroMeta}>
+                <Ionicons name="people" size={14} color="#94a3b8" />
+                <Text style={styles.heroMetaText}>{members.length} membre{members.length > 1 ? 's' : ''}</Text>
               </View>
             </View>
-          </LinearGradient>
+          </View>
         </View>
 
-        {/* Admins */}
-        {admins.length > 0 && (
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>
-              <Ionicons name="shield-checkmark" size={18} color="#fbbf24" /> Administrateurs ({admins.length})
-            </Text>
-            {admins.map((member) => (
-              <View key={member.id} style={styles.memberCard}>
-                <View style={styles.memberAvatar}>
-                  <Text style={styles.memberAvatarText}>
-                    {member.name?.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2) || '??'}
-                  </Text>
-                </View>
-                <View style={styles.memberInfo}>
-                  <View style={styles.memberNameRow}>
-                    <Text style={styles.memberName}>{member.name}</Text>
-                    {member.isCurrentUser && (
-                      <View style={styles.youBadge}>
-                        <Text style={styles.youBadgeText}>Vous</Text>
-                      </View>
-                    )}
-                  </View>
-                  <Text style={styles.memberEmail}>{member.email}</Text>
-                </View>
-                <View style={styles.adminBadge}>
-                  <Ionicons name="shield-checkmark" size={16} color="#fbbf24" />
-                </View>
-              </View>
-            ))}
-          </View>
-        )}
-
-        {/* Members */}
-        {regularMembers.length > 0 && (
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>
-              <Ionicons name="people" size={18} color="#0ea5e9" /> Membres ({regularMembers.length})
-            </Text>
-            {regularMembers.map((member) => (
-              <View key={member.id} style={styles.memberCard}>
-                <View style={styles.memberAvatar}>
-                  <Text style={styles.memberAvatarText}>
-                    {member.name?.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2) || '??'}
-                  </Text>
-                </View>
-                <View style={styles.memberInfo}>
-                  <View style={styles.memberNameRow}>
-                    <Text style={styles.memberName}>{member.name}</Text>
-                    {member.isCurrentUser && (
-                      <View style={styles.youBadge}>
-                        <Text style={styles.youBadgeText}>Vous</Text>
-                      </View>
-                    )}
-                  </View>
-                  <Text style={styles.memberEmail}>{member.email}</Text>
-                </View>
-                {currentUserIsAdmin && !member.isCurrentUser && (
-                  <TouchableOpacity
-                    style={styles.removeMemberButton}
-                    onPress={() => handleRemoveMember(member)}
-                  >
-                    <Ionicons name="close-circle" size={24} color="#ef4444" />
-                  </TouchableOpacity>
-                )}
-              </View>
-            ))}
-          </View>
-        )}
+        {/* Membres (admins + membres dans une seule liste élégante) */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Membres du groupe</Text>
+          {admins.map((member) => renderMemberRow(member, true))}
+          {regularMembers.map((member) => renderMemberRow(member, false))}
+        </View>
 
         {/* Pending Invitations */}
         {currentUserIsAdmin && pendingInvitations.length > 0 && (
@@ -386,12 +390,17 @@ export const GroupDetailScreen: React.FC<GroupDetailScreenProps> = ({ group, onB
         animationType="slide"
         onRequestClose={() => setShowInviteModal(false)}
       >
-        <View style={styles.modalOverlay}>
-          <KeyboardAvoidingView 
-            behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-            style={{ flex: 1, justifyContent: 'center' }}
-          >
-            <View style={styles.modalContent}>
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          style={styles.modalOverlay}
+          keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
+        >
+          <TouchableOpacity
+            style={styles.modalOverlayTouchable}
+            activeOpacity={1}
+            onPress={() => setShowInviteModal(false)}
+          />
+          <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>Inviter un membre</Text>
               <TouchableOpacity onPress={() => setShowInviteModal(false)}>
@@ -399,46 +408,52 @@ export const GroupDetailScreen: React.FC<GroupDetailScreenProps> = ({ group, onB
               </TouchableOpacity>
             </View>
 
-            <Text style={styles.modalLabel}>Email</Text>
-            <TextInput
-              style={styles.modalInput}
-              placeholder="email@exemple.com"
-              placeholderTextColor="#64748b"
-              value={inviteEmail}
-              onChangeText={setInviteEmail}
-              keyboardType="email-address"
-              autoCapitalize="none"
-            />
-
-            <Text style={styles.modalLabel}>Ou téléphone</Text>
-            <TextInput
-              style={styles.modalInput}
-              placeholder="+33 6 12 34 56 78"
-              placeholderTextColor="#64748b"
-              value={invitePhone}
-              onChangeText={setInvitePhone}
-              keyboardType="phone-pad"
-            />
-
-            <TouchableOpacity
-              style={styles.modalButton}
-              onPress={handleInvite}
-              disabled={inviting}
+            <ScrollView
+              style={styles.inviteModalScroll}
+              keyboardShouldPersistTaps="handled"
+              showsVerticalScrollIndicator={false}
+              contentContainerStyle={styles.inviteModalScrollContent}
             >
-              <LinearGradient colors={['#ff6b47', '#f97316']} style={styles.modalButtonGradient}>
-                {inviting ? (
-                  <ActivityIndicator color="#fff" />
-                ) : (
-                  <>
-                    <Ionicons name="send" size={20} color="#fff" />
-                    <Text style={styles.modalButtonText}>Envoyer l'invitation</Text>
-                  </>
-                )}
-              </LinearGradient>
-            </TouchableOpacity>
+              <Text style={styles.modalLabel}>Email</Text>
+              <TextInput
+                style={styles.modalInput}
+                placeholder="email@exemple.com"
+                placeholderTextColor="#64748b"
+                value={inviteEmail}
+                onChangeText={setInviteEmail}
+                keyboardType="email-address"
+                autoCapitalize="none"
+              />
+
+              <Text style={styles.modalLabel}>Ou téléphone</Text>
+              <TextInput
+                style={styles.modalInput}
+                placeholder="+33 6 12 34 56 78"
+                placeholderTextColor="#64748b"
+                value={invitePhone}
+                onChangeText={setInvitePhone}
+                keyboardType="phone-pad"
+              />
+
+              <TouchableOpacity
+                style={styles.modalButton}
+                onPress={handleInvite}
+                disabled={inviting}
+              >
+                <LinearGradient colors={['#0ea5e9', '#06b6d4']} style={styles.modalButtonGradient}>
+                  {inviting ? (
+                    <ActivityIndicator color="#fff" />
+                  ) : (
+                    <>
+                      <Ionicons name="send" size={20} color="#fff" />
+                      <Text style={styles.modalButtonText}>Envoyer l'invitation</Text>
+                    </>
+                  )}
+                </LinearGradient>
+              </TouchableOpacity>
+            </ScrollView>
           </View>
-          </KeyboardAvoidingView>
-        </View>
+        </KeyboardAvoidingView>
       </Modal>
     </View>
   );
@@ -453,28 +468,38 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingTop: 50,
+    paddingTop: Platform.OS === 'ios' ? 60 : 24,
     paddingBottom: 16,
-    paddingHorizontal: 16,
+    paddingHorizontal: 20,
+    backgroundColor: '#0f172a',
+    borderBottomWidth: 1,
+    borderBottomColor: '#334155',
   },
   backButton: {
     width: 40,
     height: 40,
-    borderRadius: 20,
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    borderRadius: 12,
+    backgroundColor: '#1e293b',
+    borderWidth: 1,
+    borderColor: '#334155',
     alignItems: 'center',
     justifyContent: 'center',
   },
   headerTitle: {
-    fontSize: 20,
+    flex: 1,
+    fontSize: 18,
     fontWeight: '700',
-    color: '#f1f5f9',
+    color: '#f8fafc',
+    marginHorizontal: 12,
+  },
+  headerRight: {
+    width: 40,
   },
   inviteHeaderButton: {
     width: 40,
     height: 40,
-    borderRadius: 20,
-    backgroundColor: 'rgba(255, 107, 71, 0.2)',
+    borderRadius: 12,
+    backgroundColor: 'rgba(14, 165, 233, 0.25)',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -488,96 +513,118 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#94a3b8',
   },
-  content: {
+  scrollView: {
     flex: 1,
-    padding: 16,
   },
-  groupInfoCard: {
-    marginBottom: 24,
-    borderRadius: 16,
+  scrollContent: {
+    paddingHorizontal: 20,
+    paddingTop: 20,
+    paddingBottom: 40,
+  },
+  heroWrap: {
+    height: 120,
+    borderRadius: 18,
     overflow: 'hidden',
+    marginBottom: 24,
+    backgroundColor: '#1e293b',
   },
-  groupInfoGradient: {
-    padding: 20,
+  heroImage: {
+    ...StyleSheet.absoluteFillObject,
+  },
+  heroOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(15, 23, 42, 0.75)',
+  },
+  heroContent: {
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    gap: 14,
   },
-  groupInfoIcon: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
+  heroIconWrap: {
+    width: 52,
+    height: 52,
+    borderRadius: 14,
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: 16,
   },
-  groupInfoContent: {
+  heroTextBlock: {
     flex: 1,
+    minWidth: 0,
   },
-  groupInfoName: {
-    fontSize: 20,
+  heroTitle: {
+    fontSize: 18,
     fontWeight: '700',
-    color: '#f1f5f9',
+    color: '#f8fafc',
     marginBottom: 4,
   },
-  groupInfoDesc: {
-    fontSize: 14,
-    color: '#cbd5e1',
-    marginBottom: 8,
+  heroSubtitle: {
+    fontSize: 13,
+    color: '#94a3b8',
+    lineHeight: 18,
+    marginBottom: 6,
   },
-  groupInfoMeta: {
+  heroMeta: {
     flexDirection: 'row',
     alignItems: 'center',
+    gap: 6,
   },
-  groupInfoMetaText: {
-    fontSize: 14,
+  heroMetaText: {
+    fontSize: 13,
     color: '#94a3b8',
-    marginLeft: 6,
   },
   section: {
     marginBottom: 24,
   },
   sectionTitle: {
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: '600',
-    color: '#f1f5f9',
+    color: '#94a3b8',
     marginBottom: 12,
+    letterSpacing: 0.3,
   },
   memberCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(255, 255, 255, 0.05)',
-    borderRadius: 12,
-    padding: 12,
-    marginBottom: 8,
+    backgroundColor: '#1e293b',
+    borderRadius: 14,
+    padding: 14,
+    marginBottom: 10,
+    borderWidth: 1,
+    borderColor: '#334155',
   },
   memberAvatar: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: '#334155',
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 12,
   },
   memberAvatarText: {
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: '600',
-    color: '#f1f5f9',
+    color: '#f8fafc',
   },
   memberInfo: {
     flex: 1,
+    minWidth: 0,
   },
   memberNameRow: {
     flexDirection: 'row',
     alignItems: 'center',
+    flexWrap: 'wrap',
+    gap: 6,
   },
   memberName: {
     fontSize: 15,
     fontWeight: '600',
-    color: '#f1f5f9',
+    color: '#e2e8f0',
   },
   youBadge: {
-    backgroundColor: 'rgba(14, 165, 233, 0.2)',
+    backgroundColor: 'rgba(14, 165, 233, 0.25)',
     paddingHorizontal: 8,
     paddingVertical: 2,
     borderRadius: 6,
@@ -593,16 +640,24 @@ const styles = StyleSheet.create({
     color: '#94a3b8',
     marginTop: 2,
   },
-  adminBadge: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
+  adminBadgeSmall: {
     backgroundColor: 'rgba(251, 191, 36, 0.2)',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 8,
+  },
+  memberActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  actionIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    backgroundColor: 'rgba(15, 23, 42, 0.6)',
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  removeMemberButton: {
-    padding: 4,
   },
   invitationCard: {
     flexDirection: 'row',
@@ -662,12 +717,22 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0, 0, 0, 0.75)',
     justifyContent: 'flex-end',
   },
+  modalOverlayTouchable: {
+    flex: 1,
+  },
   modalContent: {
     backgroundColor: '#1e293b',
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
     padding: 24,
-    paddingBottom: 40,
+    paddingBottom: 32,
+    maxHeight: '85%',
+  },
+  inviteModalScroll: {
+    maxHeight: 340,
+  },
+  inviteModalScrollContent: {
+    paddingBottom: 24,
   },
   modalHeader: {
     flexDirection: 'row',

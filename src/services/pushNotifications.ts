@@ -13,6 +13,8 @@ import { supabase } from '../lib/supabase';
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
     shouldShowAlert: true,
+    shouldShowBanner: true,
+    shouldShowList: true,
     shouldPlaySound: true,
     shouldSetBadge: true,
   }),
@@ -126,16 +128,17 @@ export function setupNotificationListeners(
     // Gérer les actions selon le type de notification
     const data = response.notification.request.content.data;
     
+    // Pour ouvrir l'écran des devis au tap : passer un onNotificationResponse qui navigue
+    // vers l'écran Devis (ex. avec data.quote_id). data.type peut être 'quote_accepted' ou 'quote_refused'.
     if (data.type === 'quote_accepted' || data.type === 'quote_refused') {
-      // TODO: Naviguer vers l'écran des devis
-      console.log('📊 Ouvrir le devis:', data.quote_id);
+      console.log('📊 Notification devis:', data.quote_id);
     }
   });
 
-  // Fonction de nettoyage
+  // Fonction de nettoyage (utiliser .remove() sur les EventSubscription)
   return () => {
-    Notifications.removeNotificationSubscription(receivedListener);
-    Notifications.removeNotificationSubscription(responseListener);
+    if (typeof receivedListener?.remove === 'function') receivedListener.remove();
+    if (typeof responseListener?.remove === 'function') responseListener.remove();
   };
 }
 
@@ -149,7 +152,7 @@ export async function sendTestNotification() {
       body: 'Les notifications fonctionnent correctement !',
       data: { type: 'test' },
     },
-    trigger: { seconds: 1 },
+    trigger: { type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL, seconds: 1, repeats: false },
   });
 }
 

@@ -12,6 +12,8 @@ import * as PushTokenService from './pushTokens';
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
     shouldShowAlert: true,
+    shouldShowBanner: true,
+    shouldShowList: true,
     shouldPlaySound: true,
     shouldSetBadge: true,
   }),
@@ -36,6 +38,15 @@ const PREFS_KEY = '@notification_preferences';
 
 export async function requestNotificationPermissions(): Promise<boolean> {
   try {
+    // Nettoyer les anciennes notifications planifiées au démarrage
+    // Cela évite les notifications obsolètes (ex: crédits faibles alors que l'utilisateur a maintenant >2 crédits)
+    try {
+      await Notifications.cancelAllScheduledNotificationsAsync();
+      console.log('🧹 Notifications planifiées nettoyées au démarrage');
+    } catch (cleanupError) {
+      console.warn('⚠️ Erreur nettoyage notifications:', cleanupError);
+    }
+    
     const { status: existingStatus } = await Notifications.getPermissionsAsync();
     let finalStatus = existingStatus;
 
@@ -146,12 +157,54 @@ export async function scheduleRideReminder(
         data: { rideId, type: 'ride_reminder' },
         sound: true,
       },
-      trigger: { type: 'timeInterval', seconds: secondsUntilReminder, repeats: false },
+      trigger: { type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL, seconds: secondsUntilReminder, repeats: false },
     });
 
     console.log(`✅ Notification planifiée pour ${reminderTime.toLocaleString()}`);
   } catch (error) {
     console.error('❌ Erreur planification notification:', error);
+  }
+}
+
+/**
+ * 1b. Rappel de course 1 minute avant (démarrage imminent)
+ */
+export async function scheduleRideImminentReminder(
+  rideId: string,
+  scheduledAt: string,
+  pickupAddress: string,
+  dropoffAddress: string
+): Promise<void> {
+  const prefs = await getNotificationPreferences();
+  if (!prefs.enabled || !prefs.rideReminders) return;
+
+  try {
+    const rideTime = new Date(scheduledAt);
+    const reminderTime = new Date(rideTime.getTime() - 60 * 1000); // 1 minute avant
+    
+    // Calculer le nombre de secondes jusqu'au rappel
+    const secondsUntilReminder = Math.floor((reminderTime.getTime() - Date.now()) / 1000);
+
+    // Ne pas planifier si c'est trop proche (< 5 secondes) ou dans le passé
+    if (secondsUntilReminder < 5) {
+      console.log('⏰ Démarrage imminent trop proche, pas de notification');
+      return;
+    }
+
+    await Notifications.scheduleNotificationAsync({
+      content: {
+        title: '🚀 Démarrage imminent de votre course',
+        body: `${pickupAddress} → ${dropoffAddress}`,
+        data: { rideId, type: 'ride_imminent' },
+        sound: true,
+        priority: 'high',
+      },
+      trigger: { type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL, seconds: secondsUntilReminder, repeats: false },
+    });
+
+    console.log(`✅ Notification "démarrage imminent" planifiée pour ${reminderTime.toLocaleString()}`);
+  } catch (error) {
+    console.error('❌ Erreur planification notification imminent:', error);
   }
 }
 
@@ -192,7 +245,7 @@ export async function scheduleDailySummary(ridesCount: number): Promise<void> {
         data: { type: 'daily_summary' },
         sound: true,
       },
-      trigger: { type: 'timeInterval', seconds: secondsUntilTomorrow, repeats: false },
+      trigger: { type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL, seconds: secondsUntilTomorrow, repeats: false },
     });
 
     console.log(`✅ Résumé quotidien planifié pour demain 8h`);
@@ -216,7 +269,7 @@ export async function notifyNewRidesAvailable(count: number): Promise<void> {
         data: { type: 'new_rides' },
         sound: true,
       },
-      trigger: { type: 'timeInterval', seconds: 1, repeats: false },
+      trigger: { type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL, seconds: 1, repeats: false },
     });
 
     console.log(`✅ Notification nouvelles courses envoyée (${count})`);
@@ -244,7 +297,7 @@ export async function notifyQRCodeReady(): Promise<void> {
         data: { type: 'qr_ready' },
         sound: true,
       },
-      trigger: { type: 'timeInterval', seconds: 1, repeats: false },
+      trigger: { type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL, seconds: 1, repeats: false },
     });
 
     await AsyncStorage.setItem('@qr_notification_sent', 'true');
@@ -255,11 +308,12 @@ export async function notifyQRCodeReady(): Promise<void> {
 }
 
 /**
- * 5. Alerte crédits faibles
+ * 5. Alerte crédits faibles (uniquement si 0 ou 1 crédit)
  */
 export async function notifyLowCredits(credits: number): Promise<void> {
   const prefs = await getNotificationPreferences();
-  if (!prefs.enabled || !prefs.lowCredits || credits >= 2) return;
+  // Ne notifier QUE si crédits === 0 ou crédits === 1
+  if (!prefs.enabled || !prefs.lowCredits || credits < 0 || credits >= 2) return;
 
   try {
     // Éviter le spam : max 1 notif par jour
@@ -279,7 +333,7 @@ export async function notifyLowCredits(credits: number): Promise<void> {
         data: { type: 'low_credits' },
         sound: true,
       },
-      trigger: { type: 'timeInterval', seconds: 1, repeats: false },
+      trigger: { type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL, seconds: 1, repeats: false },
     });
 
     await AsyncStorage.setItem('@low_credits_notif', new Date().toISOString());
@@ -304,7 +358,7 @@ export async function notifyBadgeEarned(badgeName: string, badgeDescription: str
         data: { type: 'badge_earned' },
         sound: true,
       },
-      trigger: { type: 'timeInterval', seconds: 1, repeats: false },
+      trigger: { type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL, seconds: 1, repeats: false },
     });
 
     console.log(`✅ Notification badge envoyée: ${badgeName}`);
@@ -333,7 +387,7 @@ export async function notifyGroupInvitation(
         data: { type: 'group_invitation' },
         sound: true,
       },
-      trigger: { type: 'timeInterval', seconds: 1, repeats: false },
+      trigger: { type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL, seconds: 1, repeats: false },
     });
 
     // Push notification
@@ -377,7 +431,7 @@ export async function notifyCompleteRide(rideId: string, scheduledAt: string): P
         data: { rideId, type: 'complete_reminder' },
         sound: true,
       },
-      trigger: { type: 'timeInterval', seconds: secondsUntilReminder, repeats: false },
+      trigger: { type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL, seconds: secondsUntilReminder, repeats: false },
     });
 
     console.log(`✅ Rappel "terminer course" planifié`);
@@ -406,7 +460,7 @@ export async function notifyRideClaimed(
         data: { type: 'ride_claimed' },
         sound: true,
       },
-      trigger: { type: 'timeInterval', seconds: 1, repeats: false },
+      trigger: { type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL, seconds: 1, repeats: false },
     });
 
     // Push notification (si l'app est fermée/background)
@@ -506,7 +560,7 @@ export async function sendTestNotification(): Promise<void> {
         data: { type: 'test' },
         sound: true,
       },
-      trigger: { type: 'timeInterval', seconds: 1, repeats: false },
+      trigger: { type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL, seconds: 1, repeats: false },
     });
 
     console.log('✅ Notification test envoyée');
@@ -516,3 +570,23 @@ export async function sendTestNotification(): Promise<void> {
   }
 }
 
+/**
+ * Test : notification "devis accepté" – au tap, l'app ouvre l'écran Mes Devis
+ */
+export async function sendTestQuoteNotification(): Promise<void> {
+  try {
+    await Notifications.scheduleNotificationAsync({
+      content: {
+        title: '✅ Devis accepté',
+        body: 'Un client a accepté votre devis. Appuyez pour ouvrir Mes Devis.',
+        data: { type: 'quote_accepted', quote_id: 'test-quote-123' },
+        sound: true,
+      },
+      trigger: { type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL, seconds: 1, repeats: false },
+    });
+    console.log('✅ Notification devis test envoyée');
+  } catch (error) {
+    console.error('❌ Erreur notification devis test:', error);
+    throw error;
+  }
+}

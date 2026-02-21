@@ -26,19 +26,11 @@ function LegalNoticeContent() {
       <Text style={styles.lastUpdated}>Dernière mise à jour : 4 janvier 2026</Text>
 
       <Section title="1. Éditeur de l'application">
-        <InfoBlock label="Dénomination sociale" value="Corail VTC" />
-        <InfoBlock label="Forme juridique" value="[SAS, SARL, Auto-entrepreneur...]" />
-        <InfoBlock label="Capital social" value="[Montant] €" />
-        <InfoBlock label="SIREN" value="[XXX XXX XXX]" />
-        <InfoBlock label="SIRET" value="[XXX XXX XXX XXXXX]" />
-        <InfoBlock label="N° TVA intracommunautaire" value="[FR XX XXXXXXXXX]" />
-        <InfoBlock 
-          label="Siège social" 
-          value="[Adresse complète]\n[Code postal] [Ville]\nFrance" 
-        />
-        <InfoBlock label="Téléphone" value="[+33 X XX XX XX XX]" />
-        <InfoBlock label="Email" value="contact@corail.app" />
-        <InfoBlock label="Directeur de publication" value="[Nom du responsable légal]" />
+        <InfoBlock label="Nom du projet" value="Corail VTC" />
+        <InfoBlock label="Contact" value="contact@corail.app" />
+        <Text style={styles.disclaimer}>
+          Cette application est actuellement exploitée en phase de test, sans activité commerciale et sans structure juridique immatriculée. Les informations légales complètes (forme juridique, SIREN, SIRET, siège social, directeur de publication) seront publiées dès l'immatriculation de l'éditeur (micro-entreprise, société, etc.). En l'état, aucun revenu n'est généré par ce service.
+        </Text>
       </Section>
 
       <Section title="2. Hébergement">
@@ -263,6 +255,14 @@ const styles = StyleSheet.create({
     lineHeight: 22,
     color: '#cbd5e1',
     marginBottom: 12,
+  },
+  disclaimer: {
+    fontSize: 14,
+    lineHeight: 22,
+    color: '#94a3b8',
+    marginTop: 8,
+    marginBottom: 12,
+    fontStyle: 'italic',
   },
   bold: {
     fontWeight: '700',

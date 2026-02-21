@@ -28,6 +28,18 @@ class ApiClient {
     return supabaseApi.getRides();
   }
 
+  async listMarketplaceRides(options?: { filterType?: 'all' | 'public' | 'groups'; limit?: number }) {
+    const rides = await supabaseApi.getRides();
+    const limit = options?.limit ?? 50;
+    const list = Array.isArray(rides) ? rides.slice(0, limit) : [];
+    return { data: list };
+  }
+
+  async listMyRides() {
+    const rides = await supabaseApi.getMyRides('claimed');
+    return { data: Array.isArray(rides) ? rides : [] };
+  }
+
   async getMyRides(type: 'claimed' | 'published' = 'claimed') {
     return supabaseApi.getMyRides(type);
   }
@@ -70,6 +82,9 @@ class ApiClient {
     visibility: 'PUBLIC' | 'GROUP';
     vehicle_type: 'STANDARD' | 'ELECTRIC' | 'VAN' | 'PREMIUM' | 'LUXURY';
     group_id?: string;
+    client_name: string;
+    client_phone?: string;
+    client_email?: string;
   }) {
     return supabaseApi.publishPersonalRide(personalRideId, options);
   }
@@ -80,6 +95,10 @@ class ApiClient {
 
   async deletePersonalRide(personalRideId: string) {
     return supabaseApi.deletePersonalRide(personalRideId);
+  }
+
+  async updatePersonalRide(personalRideId: string, updates: any) {
+    return supabaseApi.updatePersonalRide(personalRideId, updates);
   }
 
   async completePersonalRide(personalRideId: string) {
@@ -117,8 +136,7 @@ class ApiClient {
   }
 
   async getGroup(groupId: string) {
-    // TODO: Implémenter si besoin
-    return null;
+    return supabaseApi.getGroup(groupId);
   }
 
   // PLANNING
@@ -129,9 +147,16 @@ class ApiClient {
     });
   }
 
-  async createPlanningEvent(event: any) {
-    // TODO: Implement if needed
-    return event;
+  async createPlanningEvent(event: {
+    title: string;
+    event_type: 'RIDE' | 'MEETING' | 'MAINTENANCE' | 'PERSONAL' | 'OTHER';
+    start_time: string;
+    end_time: string;
+    location?: string;
+    notes?: string;
+    ride_id?: string;
+  }) {
+    return supabaseApi.createPlanningEvent(event);
   }
 
   async checkPlanningConflicts(start_time: string, end_time: string) {
@@ -139,17 +164,13 @@ class ApiClient {
   }
 
   // ACTIVITY
-  async getRecentActivity(limit: number = 20) {
-    return supabaseApi.getRecentActivity(limit);
+  async getRecentActivity(limit: number = 20, offset: number = 0) {
+    return supabaseApi.getRecentActivity(limit, offset);
   }
 
   // BADGES
   async getAllBadges() {
     return supabaseApi.getAllBadges();
-  }
-
-  async getUserBadges(userId: string) {
-    return supabaseApi.getUserBadges(userId);
   }
 
   // GROUPS
@@ -220,6 +241,20 @@ class ApiClient {
     return supabaseApi.createQuote(quoteData);
   }
 
+  async sendQuoteEmail(emailData: {
+    clientEmail: string;
+    clientName: string;
+    quoteUrl: string;
+    price: string;
+    date: string;
+    time: string;
+    pickupAddress: string;
+    dropoffAddress: string;
+    driverName?: string;
+  }) {
+    return supabaseApi.sendQuoteEmail(emailData);
+  }
+
   async listQuotes(filters?: any) {
     return supabaseApi.listQuotes(filters);
   }
@@ -230,6 +265,18 @@ class ApiClient {
 
   async getQuoteByToken(token: string) {
     return supabaseApi.getQuoteByToken(token);
+  }
+
+  async listInvoices(filters?: any) {
+    return supabaseApi.listInvoices(filters);
+  }
+
+  async getInvoiceByRide(sourceType: 'RIDE' | 'PERSONAL', sourceId: string) {
+    return supabaseApi.getInvoiceByRide(sourceType, sourceId);
+  }
+
+  async createInvoice(sourceType: 'RIDE' | 'PERSONAL', sourceId: string) {
+    return supabaseApi.createInvoice(sourceType, sourceId);
   }
 
   // VTC PUBLIC PROFILE
@@ -253,8 +300,32 @@ class ApiClient {
     return supabaseApi.updateUserPhoto(photoUrl);
   }
 
+  async updateUserProfile(updates: { siren?: string; phone?: string; professional_card_number?: string }) {
+    return supabaseApi.updateUserProfile(updates);
+  }
+
   async convertPublishedToPersonal(rideId: string) {
     return supabaseApi.convertPublishedToPersonal(rideId);
+  }
+
+  async getDriverRideRequestsPendingCount(): Promise<number> {
+    return supabaseApi.getDriverRideRequestsPendingCount();
+  }
+
+  async getDriverRideRequests() {
+    return supabaseApi.getDriverRideRequests();
+  }
+
+  async getDriverRideRequestById(id: string) {
+    return supabaseApi.getDriverRideRequestById(id);
+  }
+
+  async acceptDriverRideRequest(requestId: string) {
+    return supabaseApi.acceptDriverRideRequest(requestId);
+  }
+
+  async refuseDriverRideRequest(requestId: string) {
+    return supabaseApi.refuseDriverRideRequest(requestId);
   }
 
   // RGPD

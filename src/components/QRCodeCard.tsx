@@ -11,25 +11,21 @@ interface QRCodeCardProps {
     phone?: string;
     email: string;
     company?: string;
-    siren?: string;
     professionalCardNumber?: string;
   };
+  /** Contenu encodé dans le QR : URL du profil public OU vCard (coordonnées) */
+  qrValue: string;
+  /** Texte sous le QR (ex: "Scannez pour voir mon profil" ou "Scannez pour mes coordonnées") */
+  footerLabel?: string;
   size?: number;
 }
 
-export const QRCodeCard: React.FC<QRCodeCardProps> = ({ userData, size = 250 }) => {
-  // Données à encoder dans le QR code (format vCard pour ajout automatique aux contacts)
-  // ⚠️ Important : Contact direct chauffeur (B2B), Corail n'est pas intermédiaire
-  const vCardData = `BEGIN:VCARD
-VERSION:3.0
-FN:${userData.name}
-TEL;TYPE=CELL:${userData.phone || ''}
-EMAIL:${userData.email}
-${userData.company ? `ORG:${userData.company}` : ''}
-${userData.siren ? `NOTE:SIREN ${userData.siren}` : ''}
-${userData.professionalCardNumber ? `NOTE:Carte professionnelle ${userData.professionalCardNumber}` : ''}
-END:VCARD`;
-
+export const QRCodeCard: React.FC<QRCodeCardProps> = ({
+  userData,
+  qrValue,
+  footerLabel = 'Scannez pour voir mon profil',
+  size = 250,
+}) => {
   return (
     <View style={styles.container}>
       <LinearGradient
@@ -46,7 +42,7 @@ END:VCARD`;
         <View style={styles.qrContainer}>
           <View style={styles.qrBackground}>
             <QRCode
-              value={vCardData}
+              value={qrValue}
               size={size}
               backgroundColor="white"
               color="#0f172a"
@@ -71,18 +67,18 @@ END:VCARD`;
             <Ionicons name="mail" size={16} color="#94a3b8" />
             <Text style={styles.infoText}>{userData.email}</Text>
           </View>
-          {userData.siren && (
+          {userData.professionalCardNumber && (
             <View style={styles.infoRow}>
-              <Ionicons name="business" size={16} color="#94a3b8" />
-              <Text style={styles.infoText}>SIREN: {userData.siren}</Text>
+              <Ionicons name="card" size={16} color="#94a3b8" />
+              <Text style={styles.infoText}>VTC: {userData.professionalCardNumber}</Text>
             </View>
           )}
         </View>
 
         {/* Footer instruction */}
         <View style={styles.footer}>
-          <Ionicons name="scan" size={20} color="#ff6b47" />
-          <Text style={styles.footerText}>Scannez pour m'ajouter à vos contacts</Text>
+          <Ionicons name="scan" size={20} color="#0ea5e9" />
+          <Text style={styles.footerText}>{footerLabel}</Text>
         </View>
       </LinearGradient>
     </View>
@@ -91,13 +87,13 @@ END:VCARD`;
 
 const styles = StyleSheet.create({
   container: {
-    borderRadius: 24,
+    borderRadius: 18,
     overflow: 'hidden',
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.3,
-    shadowRadius: 16,
-    elevation: 12,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 12,
+    elevation: 6,
   },
   card: {
     padding: 24,
@@ -121,12 +117,12 @@ const styles = StyleSheet.create({
   qrBackground: {
     backgroundColor: 'white',
     padding: 16,
-    borderRadius: 20,
-    shadowColor: '#ff6b47',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.15,
-    shadowRadius: 12,
-    elevation: 8,
+    borderRadius: 16,
+    shadowColor: '#0ea5e9',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 4,
   },
   userInfo: {
     width: '100%',
@@ -153,16 +149,16 @@ const styles = StyleSheet.create({
   footer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(255, 107, 71, 0.1)',
+    backgroundColor: 'rgba(14, 165, 233, 0.12)',
     paddingVertical: 12,
     paddingHorizontal: 20,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: 'rgba(255, 107, 71, 0.2)',
+    borderColor: 'rgba(14, 165, 233, 0.2)',
   },
   footerText: {
     fontSize: 13,
-    color: '#ff6b47',
+    color: '#0ea5e9',
     fontWeight: '600',
     marginLeft: 10,
   },

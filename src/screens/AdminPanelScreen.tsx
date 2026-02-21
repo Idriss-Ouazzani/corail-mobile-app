@@ -91,8 +91,9 @@ export const AdminPanelScreen: React.FC<AdminPanelScreenProps> = ({ onBack }) =>
         {
           text: 'Rejeter ❌',
           style: 'destructive',
-          onPress: async (reason) => {
-            if (!reason || reason.trim() === '') {
+          onPress: async (value?: string) => {
+            const reason = value ?? '';
+            if (!reason.trim()) {
               Alert.alert('Erreur', 'Veuillez indiquer une raison');
               return;
             }

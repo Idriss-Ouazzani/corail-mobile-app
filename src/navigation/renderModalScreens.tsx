@@ -17,6 +17,7 @@ import QRCodeScreen from '../screens/QRCodeScreen';
 import PersonalRidesScreen from '../screens/PersonalRidesScreen';
 import CreateQuoteScreen from '../screens/CreateQuoteScreen';
 import MyQuotesScreen from '../screens/MyQuotesScreen';
+import MyInvoicesScreen from '../screens/MyInvoicesScreen';
 import PlanningScreen from '../screens/PlanningScreen';
 import AdminPanelScreen from '../screens/AdminPanelScreen';
 import GroupsScreen from '../screens/GroupsScreen';
@@ -24,6 +25,7 @@ import GroupDetailScreen from '../screens/GroupDetailScreen';
 import CreateRideScreen from '../screens/CreateRideScreen';
 import RideDetailScreen from '../screens/RideDetailScreen';
 import { VTCPublicProfileScreen } from '../screens/VTCPublicProfileScreen';
+import DriverRequestsScreen from '../screens/DriverRequestsScreen';
 import PrivacyPolicyScreen from '../screens/PrivacyPolicyScreen';
 import TermsOfServiceScreen from '../screens/TermsOfServiceScreen';
 import LegalNoticeScreen from '../screens/LegalNoticeScreen';
@@ -35,9 +37,11 @@ interface ModalScreensProps {
   userFullName: string;
   userEmail: string;
   userPhone: string;
+  userPhotoUrl: string;
   userSiren: string;
   userProfessionalCard: string;
   currentUserId: string;
+  verificationStatus: string | null;
   
   // Personal Info
   showPersonalInfo: boolean;
@@ -75,6 +79,10 @@ interface ModalScreensProps {
   showMyQuotes: boolean;
   setShowMyQuotes: (show: boolean) => void;
   
+  // Invoices
+  showMyInvoices: boolean;
+  setShowMyInvoices: (show: boolean) => void;
+  
   // Planning
   showPlanning: boolean;
   setShowPlanning: (show: boolean) => void;
@@ -86,6 +94,9 @@ interface ModalScreensProps {
   // VTC Profile
   showVTCProfile: boolean;
   setShowVTCProfile: (show: boolean) => void;
+  // Driver requests (from public page)
+  showDriverRequests: boolean;
+  setShowDriverRequests: (show: boolean) => void;
   
   // Legal Pages
   showPrivacyPolicy: boolean;
@@ -106,7 +117,7 @@ interface ModalScreensProps {
   // Create Ride
   showCreateRide: boolean;
   setShowCreateRide: (show: boolean) => void;
-  createRideMode: 'marketplace' | 'personal';
+  createRideMode: 'create' | 'publish';
   handleCreateRide: (ride: any) => Promise<void>;
   
   // Ride Detail
@@ -115,6 +126,7 @@ interface ModalScreensProps {
   selectedPersonalRide: any; // PersonalRide type
   setSelectedPersonalRide: (ride: any) => void;
   showPublishModal: boolean;
+  setShowPublishModal: (show: boolean) => void;
   userCredits: number;
   handleClaimRide: (ride: any) => Promise<any>;
   handleDeleteRide: (rideId: string, visibility: string) => Promise<void>;
@@ -128,15 +140,17 @@ interface ModalScreensProps {
  * Retourne le premier écran modal actif, ou null si aucun
  * Cette fonction est appelée directement dans le render de App
  */
-export function renderModalScreens(props: ModalScreensProps): JSX.Element | null {
+export function renderModalScreens(props: ModalScreensProps): React.ReactElement | null {
   const {
     user,
     userFullName,
     userEmail,
     userPhone,
+    userPhotoUrl,
     userSiren,
     userProfessionalCard,
     currentUserId,
+    verificationStatus,
     showPersonalInfo,
     setShowPersonalInfo,
     showNotifications,
@@ -155,6 +169,8 @@ export function renderModalScreens(props: ModalScreensProps): JSX.Element | null
     setShowPersonalRides,
     showCreateQuote,
     setShowCreateQuote,
+    showMyInvoices,
+    setShowMyInvoices,
     showMyQuotes,
     setShowMyQuotes,
     showPlanning,
@@ -163,6 +179,8 @@ export function renderModalScreens(props: ModalScreensProps): JSX.Element | null
     setShowAdminPanel,
     showVTCProfile,
     setShowVTCProfile,
+    showDriverRequests,
+    setShowDriverRequests,
     showPrivacyPolicy,
     setShowPrivacyPolicy,
     showTermsOfService,
@@ -184,6 +202,7 @@ export function renderModalScreens(props: ModalScreensProps): JSX.Element | null
     selectedPersonalRide,
     setSelectedPersonalRide,
     showPublishModal,
+    setShowPublishModal,
     userCredits,
     handleClaimRide,
     handleDeleteRide,
@@ -235,17 +254,33 @@ export function renderModalScreens(props: ModalScreensProps): JSX.Element | null
     );
   }
 
+  // 📬 Demandes reçues (page publique)
+  if (showDriverRequests) {
+    return (
+      <DriverRequestsScreen
+        onBack={() => setShowDriverRequests(false)}
+        onRequestAccepted={() => {
+          setShowDriverRequests(false);
+          loadPersonalRides();
+        }}
+      />
+    );
+  }
+
   // 📱 QR Code Screen
   if (showQRCode) {
     return (
       <QRCodeScreen
         onBack={() => setShowQRCode(false)}
+        onNavigateToProfile={() => {
+          setShowQRCode(false);
+          setShowVTCProfile(true);
+        }}
         userData={{
           name: userFullName || user?.displayName || 'Utilisateur',
           email: userEmail,
           phone: userPhone || undefined,
           company: undefined, // B2B: Pas d'intermédiaire, contact direct chauffeur
-          siren: userSiren || undefined,
           professionalCardNumber: userProfessionalCard || undefined,
         }}
       />
@@ -263,6 +298,15 @@ export function renderModalScreens(props: ModalScreensProps): JSX.Element | null
       <CreateQuoteScreen
         onBack={() => setShowCreateQuote(false)}
         onQuoteSent={() => setShowCreateQuote(false)}
+      />
+    );
+  }
+
+  // 🧾 My Invoices Screen
+  if (showMyInvoices) {
+    return (
+      <MyInvoicesScreen
+        onBack={() => setShowMyInvoices(false)}
       />
     );
   }
@@ -288,6 +332,8 @@ export function renderModalScreens(props: ModalScreensProps): JSX.Element | null
         currentUserEmail={userEmail}
         currentUserName={userFullName}
         currentUserPhone={userPhone}
+        currentUserProfessionalCard={userProfessionalCard}
+        currentUserPhotoUrl={userPhotoUrl}
       />
     );
   }
@@ -356,6 +402,7 @@ export function renderModalScreens(props: ModalScreensProps): JSX.Element | null
     return (
       <CreateRideScreen
         mode={createRideMode}
+        verificationStatus={verificationStatus}
         onBack={() => setShowCreateRide(false)}
         onCreate={async (ride) => {
           try {
@@ -379,6 +426,10 @@ export function renderModalScreens(props: ModalScreensProps): JSX.Element | null
         currentUserId={currentUserId}
         userCredits={userCredits}
         onBack={() => setSelectedPersonalRide(null)}
+        onPublish={() => {
+          // Ouvrir le modal de publication
+          setShowPublishModal(true);
+        }}
         onDelete={async () => {
           try {
             const apiClient = require('../services/api').apiClient;
@@ -412,11 +463,24 @@ export function renderModalScreens(props: ModalScreensProps): JSX.Element | null
           try {
             const updatedRide = await handleClaimRide(selectedRide);
             if (updatedRide) {
-              // Mettre à jour la course affichée avec les nouvelles infos
               setSelectedRide(updatedRide);
+              return;
+            }
+            // Si handleClaimRide a retourné null (ex. vérification), refetch quand même au cas où le claim aurait réussi
+            const apiClient = require('../services/api').apiClient;
+            const refetched = await apiClient.getRide(selectedRide.id);
+            if (refetched && String(refetched.status).toUpperCase() === 'CLAIMED' && refetched.picker_id) {
+              setSelectedRide(refetched);
             }
           } catch (error) {
-            // L'erreur est déjà loggée et affichée par le hook
+            // En cas d'erreur, refetch pour afficher l'état réel (boutons Accepter/Proposer si claim a réussi)
+            try {
+              const apiClient = require('../services/api').apiClient;
+              const refetched = await apiClient.getRide(selectedRide.id);
+              if (refetched && String(refetched.status).toUpperCase() === 'CLAIMED' && refetched.picker_id) {
+                setSelectedRide(refetched);
+              }
+            } catch (_) {}
           }
         }}
         onDelete={async () => {
@@ -442,6 +506,7 @@ export function renderModalScreens(props: ModalScreensProps): JSX.Element | null
             // L'erreur est déjà loggée et affichée par le hook
           }
         }}
+        onRideUpdated={(updatedRide) => setSelectedRide(updatedRide)}
         onConvertToPersonal={async () => {
           try {
             const apiClient = require('../services/api').apiClient;

@@ -27,6 +27,24 @@ export default function MarketplaceFiltersBar({
 
   return (
     <View style={styles.filtersRow}>
+      {/* Bouton Tri / Filtres en premier (plus visible) */}
+      <TouchableOpacity
+        style={[styles.filterIconButton, activeFiltersCount > 0 && styles.filterIconButtonActive]}
+        onPress={onShowAdvancedFilters}
+        activeOpacity={0.7}
+      >
+        <Ionicons
+          name="options"
+          size={18}
+          color={activeFiltersCount > 0 ? '#fff' : '#7dd3fc'}
+        />
+        {activeFiltersCount > 0 && (
+          <View style={styles.filterBadge}>
+            <Text style={styles.filterBadgeText}>{activeFiltersCount}</Text>
+          </View>
+        )}
+      </TouchableOpacity>
+
       {filters.map((filter) => (
         <TouchableOpacity
           key={filter.key}
@@ -36,33 +54,15 @@ export default function MarketplaceFiltersBar({
         >
           <Ionicons 
             name={filter.icon as any} 
-            size={16} 
-            color={activeFilter === filter.key ? '#fff' : '#7dd3fc'} 
-            style={{ marginRight: 6 }}
+            size={15} 
+            color={activeFilter === filter.key ? '#fff' : '#94a3b8'} 
+            style={{ marginRight: 5 }}
           />
           <Text style={[styles.filterText, activeFilter === filter.key && styles.filterTextActive]}>
             {filter.label}
           </Text>
         </TouchableOpacity>
       ))}
-      
-      {/* Advanced Filters Button - Icon Only */}
-      <TouchableOpacity
-        style={[styles.filterIconButton, activeFiltersCount > 0 && styles.filterIconButtonActive]}
-        onPress={onShowAdvancedFilters}
-        activeOpacity={0.7}
-      >
-        <Ionicons
-          name="options"
-          size={20}
-          color={activeFiltersCount > 0 ? '#fff' : '#7dd3fc'}
-        />
-        {activeFiltersCount > 0 && (
-          <View style={styles.filterBadge}>
-            <Text style={styles.filterBadgeText}>{activeFiltersCount}</Text>
-          </View>
-        )}
-      </TouchableOpacity>
     </View>
   );
 }
@@ -76,55 +76,55 @@ const styles = StyleSheet.create({
   filterChip: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#1e293b',
+    backgroundColor: 'rgba(30, 41, 59, 0.7)',
     paddingVertical: 8,
-    paddingHorizontal: 14,
-    borderRadius: 20,
+    paddingHorizontal: 11,
+    borderRadius: 10,
     borderWidth: 1,
-    borderColor: '#334155',
+    borderColor: 'rgba(51, 65, 85, 0.6)',
   },
   filterChipActive: {
-    backgroundColor: '#6366f1',
-    borderColor: '#6366f1',
+    backgroundColor: '#0ea5e9',
+    borderColor: '#0ea5e9',
   },
   filterText: {
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: '600',
-    color: '#7dd3fc',
+    color: '#94a3b8',
   },
   filterTextActive: {
     color: '#fff',
   },
   filterIconButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: '#1e293b',
+    width: 36,
+    height: 36,
+    borderRadius: 10,
+    backgroundColor: 'rgba(30, 41, 59, 0.7)',
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1,
-    borderColor: '#334155',
+    borderColor: 'rgba(51, 65, 85, 0.6)',
     position: 'relative',
   },
   filterIconButtonActive: {
-    backgroundColor: '#6366f1',
-    borderColor: '#6366f1',
+    backgroundColor: '#0ea5e9',
+    borderColor: '#0ea5e9',
   },
   filterBadge: {
     position: 'absolute',
-    top: -4,
-    right: -4,
-    backgroundColor: '#ff6b47',
-    borderRadius: 10,
-    minWidth: 18,
-    height: 18,
+    top: -3,
+    right: -3,
+    backgroundColor: '#0ea5e9',
+    borderRadius: 8,
+    minWidth: 16,
+    height: 16,
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: 4,
   },
   filterBadgeText: {
     color: '#fff',
-    fontSize: 10,
+    fontSize: 9,
     fontWeight: '700',
   },
 });

@@ -1,15 +1,9 @@
 /**
  * Écran de gestion des notifications
- * Intègre le nouveau service de notifications
  */
 
 import React from 'react';
-import {
-  View,
-  StyleSheet,
-  TouchableOpacity,
-} from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
+import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { NotificationSettings } from '../components/NotificationSettings';
 
@@ -20,18 +14,13 @@ interface NotificationsScreenProps {
 export const NotificationsScreen: React.FC<NotificationsScreenProps> = ({ onBack }) => {
   return (
     <View style={styles.container}>
-      {/* Header */}
-      <LinearGradient
-        colors={['#1e293b', '#0f172a']}
-        style={styles.header}
-      >
-        <TouchableOpacity onPress={onBack} style={styles.backButton}>
-          <Ionicons name="arrow-back" size={24} color="#f1f5f9" />
+      <View style={styles.header}>
+        <TouchableOpacity onPress={onBack} style={styles.backButton} activeOpacity={0.7}>
+          <Ionicons name="arrow-back" size={24} color="#e2e8f0" />
         </TouchableOpacity>
-        <View style={{ width: 40 }} />
-      </LinearGradient>
-
-      {/* Paramètres de notifications */}
+        <Text style={styles.headerTitle}>Notifications</Text>
+        <View style={styles.headerRight} />
+      </View>
       <NotificationSettings />
     </View>
   );
@@ -40,23 +29,36 @@ export const NotificationsScreen: React.FC<NotificationsScreenProps> = ({ onBack
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F9FAFB',
+    backgroundColor: '#0f172a',
   },
   header: {
-    paddingTop: 50,
-    paddingBottom: 20,
-    paddingHorizontal: 20,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    paddingTop: 60,
+    paddingBottom: 16,
+    paddingHorizontal: 20,
+    backgroundColor: '#0f172a',
+    borderBottomWidth: 1,
+    borderBottomColor: '#334155',
   },
   backButton: {
     width: 40,
     height: 40,
-    borderRadius: 20,
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
-    justifyContent: 'center',
+    borderRadius: 12,
+    backgroundColor: '#1e293b',
+    borderWidth: 1,
+    borderColor: '#334155',
     alignItems: 'center',
+    justifyContent: 'center',
+  },
+  headerTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#f8fafc',
+  },
+  headerRight: {
+    width: 40,
   },
 });
 

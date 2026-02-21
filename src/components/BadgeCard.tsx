@@ -9,7 +9,7 @@ interface Badge {
   description: string;
   icon: string;
   color: string;
-  rarity: 'COMMON' | 'RARE' | 'EPIC' | 'LEGENDARY';
+  rarity?: 'COMMON' | 'RARE' | 'EPIC' | 'LEGENDARY';
   earned_at?: string;
 }
 
@@ -19,7 +19,7 @@ interface BadgeCardProps {
 }
 
 export const BadgeCard: React.FC<BadgeCardProps> = ({ badge, size = 'medium' }) => {
-  const getRarityGradient = (rarity: string): string[] => {
+  const getRarityGradient = (rarity: string = 'COMMON'): [string, string, string] => {
     switch (rarity) {
       case 'LEGENDARY':
         return ['#fbbf24', '#f59e0b', '#d97706'];
@@ -70,12 +70,12 @@ export const BadgeCard: React.FC<BadgeCardProps> = ({ badge, size = 'medium' }) 
   return (
     <View style={[styles.container, currentSize.container]}>
       <LinearGradient
-        colors={getRarityGradient(badge.rarity)}
+        colors={getRarityGradient(badge.rarity ?? 'COMMON')}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
         style={[
           styles.gradient,
-          { borderColor: getRarityBorder(badge.rarity) },
+          { borderColor: getRarityBorder(badge.rarity ?? 'COMMON') },
         ]}
       >
         {/* Rarity shine effect */}

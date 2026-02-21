@@ -13,13 +13,14 @@ import {
   Alert,
   Platform,
   ActivityIndicator,
-  Linking,
-  Clipboard,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { apiClient } from '../services/api';
+import { ShareQuoteModal } from '../components/ShareQuoteModal';
+import { useAuth } from '../contexts/AuthContext';
+import { getQuoteUrl } from '../constants/urls';
 
 interface CreateQuoteScreenProps {
   onBack: () => void;
@@ -27,9 +28,12 @@ interface CreateQuoteScreenProps {
 }
 
 export default function CreateQuoteScreen({ onBack, onQuoteSent }: CreateQuoteScreenProps) {
+  const { user } = useAuth();
+  
   // Form state
   const [clientName, setClientName] = useState('');
   const [clientPhone, setClientPhone] = useState('');
+  const [clientEmail, setClientEmail] = useState('');
   const [pickupAddress, setPickupAddress] = useState('');
   const [dropoffAddress, setDropoffAddress] = useState('');
   const [selectedDate, setSelectedDate] = useState(new Date());
@@ -38,6 +42,8 @@ export default function CreateQuoteScreen({ onBack, onQuoteSent }: CreateQuoteSc
   const [price, setPrice] = useState('');
   const [notes, setNotes] = useState('');
   const [sending, setSending] = useState(false);
+  const [showShareModal, setShowShareModal] = useState(false);
+  const [createdQuote, setCreatedQuote] = useState<any>(null);
 
   // Format date for display
   const formatDateDisplay = (date: Date): string => {
@@ -80,8 +86,8 @@ export default function CreateQuoteScreen({ onBack, onQuoteSent }: CreateQuoteSc
       Alert.alert('Erreur', 'Veuillez saisir le nom du client');
       return;
     }
-    if (!clientPhone.trim()) {
-      Alert.alert('Erreur', 'Veuillez saisir le téléphone du client');
+    if (!clientPhone.trim() && !clientEmail.trim()) {
+      Alert.alert('Erreur', 'Veuillez renseigner au moins un email OU un téléphone pour contacter le client');
       return;
     }
     if (!pickupAddress.trim()) {
@@ -125,7 +131,7 @@ export default function CreateQuoteScreen({ onBack, onQuoteSent }: CreateQuoteSc
       }
 
       // Construire le lien du devis
-      const quoteUrl = `https://corail-quotes-web.vercel.app/q/${response.token}`;
+      const quoteUrl = getQuoteUrl(response.token);
       
       // Formater la date pour le message
       const dateFormatted = selectedDate.toLocaleDateString('fr-FR', {
@@ -134,80 +140,21 @@ export default function CreateQuoteScreen({ onBack, onQuoteSent }: CreateQuoteSc
       });
       const timeFormatted = `${selectedDate.getHours().toString().padStart(2, '0')}h${selectedDate.getMinutes().toString().padStart(2, '0')}`;
       
-      // Message WhatsApp
-      const whatsappMessage = `Bonjour,\nVoici votre devis VTC pour le ${dateFormatted} à ${timeFormatted}.\nMontant : ${price} €.\n\n👉 Consulter et valider :\n${quoteUrl}`;
+      // Préparer les données pour le modal de partage
+      setCreatedQuote({
+        quoteUrl,
+        clientName: clientName.trim(),
+        clientEmail: clientEmail.trim() || undefined,
+        clientPhone: clientPhone.trim() || undefined,
+        price,
+        date: dateFormatted,
+        time: timeFormatted,
+        pickupAddress: pickupAddress.trim(),
+        dropoffAddress: dropoffAddress.trim(),
+      });
       
-      // Nettoyer le numéro de téléphone (enlever espaces, tirets, etc.)
-      const cleanPhone = clientPhone.replace(/[\s\-\(\)]/g, '');
-      
-      // Ouvrir WhatsApp
-      const whatsappUrl = `whatsapp://send?phone=${cleanPhone}&text=${encodeURIComponent(whatsappMessage)}`;
-      
-      Alert.alert(
-        '✅ Devis créé !',
-        `Le devis a été créé pour ${clientName}.\n\nComment souhaitez-vous l'envoyer ?`,
-        [
-          {
-            text: 'Copier le lien',
-            onPress: () => {
-              Clipboard.setString(quoteUrl);
-              Alert.alert(
-                '✅ Lien copié !',
-                `Le lien du devis a été copié.\n\nVous pouvez maintenant l'envoyer par SMS, email, etc.\n\n${quoteUrl}`,
-                [
-                  {
-                    text: 'OK',
-                    onPress: () => {
-                      onQuoteSent?.();
-                      onBack();
-                    },
-                  },
-                ]
-              );
-            },
-          },
-          {
-            text: 'WhatsApp',
-            onPress: async () => {
-              try {
-                const canOpen = await Linking.canOpenURL(whatsappUrl);
-                if (canOpen) {
-                  await Linking.openURL(whatsappUrl);
-                  onQuoteSent?.();
-                  onBack();
-                } else {
-                  // Copier automatiquement le lien
-                  Clipboard.setString(quoteUrl);
-                  Alert.alert(
-                    'WhatsApp non disponible',
-                    `WhatsApp n'est pas installé sur cet appareil.\n\n✅ Le lien a été copié dans votre presse-papiers !\n\nVous pouvez l'envoyer par SMS, email ou tout autre moyen.\n\nLien : ${quoteUrl}`,
-                    [
-                      {
-                        text: 'Copier à nouveau',
-                        onPress: () => {
-                          Clipboard.setString(quoteUrl);
-                          Alert.alert('✅ Copié !', 'Le lien a été copié dans votre presse-papiers.');
-                        },
-                      },
-                      {
-                        text: 'OK',
-                        style: 'default',
-                        onPress: () => {
-                          onQuoteSent?.();
-                          onBack();
-                        },
-                      },
-                    ]
-                  );
-                }
-              } catch (error) {
-                console.error('Erreur ouverture WhatsApp:', error);
-                Alert.alert('Erreur', 'Impossible d\'ouvrir WhatsApp');
-              }
-            },
-          },
-        ]
-      );
+      // Afficher le modal de partage
+      setShowShareModal(true);
     } catch (error: any) {
       console.error('❌ Erreur envoi devis:', error);
       Alert.alert(
@@ -222,26 +169,27 @@ export default function CreateQuoteScreen({ onBack, onQuoteSent }: CreateQuoteSc
   return (
     <View style={styles.container}>
       {/* Header */}
-      <LinearGradient colors={['#1e293b', '#0f172a']} style={styles.header}>
-        <View style={styles.headerContent}>
-          <TouchableOpacity onPress={onBack} style={styles.backButton} activeOpacity={0.7}>
-            <Ionicons name="arrow-back" size={24} color="#fff" />
-          </TouchableOpacity>
-          <View style={styles.headerTitleContainer}>
-            <Ionicons name="document-text" size={24} color="#ff6b47" />
-            <Text style={styles.headerTitle}>Créer un devis</Text>
-          </View>
-          <View style={{ width: 40 }} />
-        </View>
-      </LinearGradient>
+      <View style={styles.header}>
+        <TouchableOpacity onPress={onBack} style={styles.backButton} activeOpacity={0.7}>
+          <Ionicons name="arrow-back" size={24} color="#e2e8f0" />
+        </TouchableOpacity>
+        <Text style={styles.headerTitle}>Créer un devis</Text>
+        <View style={styles.headerRight} />
+      </View>
 
       {/* Form */}
-      <ScrollView style={styles.form} showsVerticalScrollIndicator={false}>
+      <ScrollView style={styles.form} contentContainerStyle={styles.formContent} showsVerticalScrollIndicator={false}>
+        {/* Intro */}
+        <View style={styles.intro}>
+          <Ionicons name="document-text-outline" size={24} color="#0ea5e9" />
+          <Text style={styles.introText}>
+            Renseignez les informations client et les détails de la course. Un lien unique sera généré pour que le client consulte et accepte le devis en ligne. Vous pourrez ensuite le partager par WhatsApp ou email.
+          </Text>
+        </View>
+
         {/* Client Info Section */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>
-            <Ionicons name="person" size={16} color="#ff6b47" /> Informations client
-          </Text>
+          <Text style={styles.sectionTitle}>Informations client</Text>
 
           <View style={styles.inputGroup}>
             <Text style={styles.label}>Nom du client *</Text>
@@ -255,7 +203,7 @@ export default function CreateQuoteScreen({ onBack, onQuoteSent }: CreateQuoteSc
           </View>
 
           <View style={styles.inputGroup}>
-            <Text style={styles.label}>Téléphone *</Text>
+            <Text style={styles.label}>Téléphone</Text>
             <TextInput
               style={styles.input}
               value={clientPhone}
@@ -265,13 +213,32 @@ export default function CreateQuoteScreen({ onBack, onQuoteSent }: CreateQuoteSc
               keyboardType="phone-pad"
             />
           </View>
+
+          <View style={styles.inputGroup}>
+            <Text style={styles.label}>Email</Text>
+            <TextInput
+              style={styles.input}
+              value={clientEmail}
+              onChangeText={setClientEmail}
+              placeholder="Ex: client@email.com"
+              placeholderTextColor="#64748b"
+              keyboardType="email-address"
+              autoCapitalize="none"
+              autoCorrect={false}
+            />
+          </View>
+
+          <View style={styles.contactNote}>
+            <Ionicons name="information-circle-outline" size={16} color="#94a3b8" />
+            <Text style={styles.contactNoteText}>
+              Au moins un contact (téléphone ou email) est requis
+            </Text>
+          </View>
         </View>
 
         {/* Trip Details Section */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>
-            <Ionicons name="car" size={16} color="#ff6b47" /> Détails de la course
-          </Text>
+          <Text style={styles.sectionTitle}>Détails de la course</Text>
 
           <View style={styles.inputGroup}>
             <Text style={styles.label}>Départ *</Text>
@@ -306,7 +273,7 @@ export default function CreateQuoteScreen({ onBack, onQuoteSent }: CreateQuoteSc
                 onPress={() => setShowDatePicker(true)}
                 activeOpacity={0.7}
               >
-                <Ionicons name="calendar" size={20} color="#ff6b47" />
+                <Ionicons name="calendar" size={20} color="#0ea5e9" />
                 <Text style={styles.dateTimeText}>{formatDateDisplay(selectedDate)}</Text>
               </TouchableOpacity>
             </View>
@@ -318,7 +285,7 @@ export default function CreateQuoteScreen({ onBack, onQuoteSent }: CreateQuoteSc
                 onPress={() => setShowTimePicker(true)}
                 activeOpacity={0.7}
               >
-                <Ionicons name="time" size={20} color="#ff6b47" />
+                <Ionicons name="time" size={20} color="#0ea5e9" />
                 <Text style={styles.dateTimeText}>{formatTimeDisplay(selectedDate)}</Text>
               </TouchableOpacity>
             </View>
@@ -327,9 +294,7 @@ export default function CreateQuoteScreen({ onBack, onQuoteSent }: CreateQuoteSc
 
         {/* Pricing Section */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>
-            <Ionicons name="cash" size={16} color="#ff6b47" /> Prix
-          </Text>
+          <Text style={styles.sectionTitle}>Prix</Text>
 
           <View style={styles.inputGroup}>
             <Text style={styles.label}>Montant TTC (€) *</Text>
@@ -346,9 +311,7 @@ export default function CreateQuoteScreen({ onBack, onQuoteSent }: CreateQuoteSc
 
         {/* Notes Section */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>
-            <Ionicons name="create" size={16} color="#ff6b47" /> Notes (optionnel)
-          </Text>
+          <Text style={styles.sectionTitle}>Notes (optionnel)</Text>
 
           <View style={styles.inputGroup}>
             <TextInput
@@ -367,7 +330,7 @@ export default function CreateQuoteScreen({ onBack, onQuoteSent }: CreateQuoteSc
         <View style={styles.infoBox}>
           <Ionicons name="information-circle" size={20} color="#0ea5e9" />
           <Text style={styles.infoText}>
-            Le client recevra un message WhatsApp avec un lien pour consulter et accepter ce devis.
+            Après création, vous pourrez copier le lien ou l'envoyer par WhatsApp / email. Le client pourra consulter et accepter le devis en ligne.
           </Text>
         </View>
 
@@ -379,7 +342,7 @@ export default function CreateQuoteScreen({ onBack, onQuoteSent }: CreateQuoteSc
           activeOpacity={0.9}
         >
           <LinearGradient
-            colors={sending ? ['#64748b', '#475569'] : ['#ff6b47', '#ff8a6d']}
+            colors={sending ? ['#64748b', '#475569'] : ['#0ea5e9', '#06b6d4']}
             style={styles.sendButtonGradient}
           >
             {sending ? (
@@ -419,6 +382,30 @@ export default function CreateQuoteScreen({ onBack, onQuoteSent }: CreateQuoteSc
           is24Hour={true}
         />
       )}
+
+      {/* Modal de partage du devis */}
+      {createdQuote && (
+        <ShareQuoteModal
+          visible={showShareModal}
+          onClose={() => {
+            setShowShareModal(false);
+            onQuoteSent?.();
+            onBack();
+          }}
+          quoteUrl={createdQuote.quoteUrl}
+          quoteData={{
+            clientName: createdQuote.clientName,
+            clientEmail: createdQuote.clientEmail,
+            clientPhone: createdQuote.clientPhone,
+            price: createdQuote.price,
+            date: createdQuote.date,
+            time: createdQuote.time,
+            pickupAddress: createdQuote.pickupAddress,
+            dropoffAddress: createdQuote.dropoffAddress,
+          }}
+          driverName={user?.displayName || user?.email?.split('@')[0]}
+        />
+      )}
     </View>
   );
 }
@@ -429,59 +416,91 @@ const styles = StyleSheet.create({
     backgroundColor: '#0f172a',
   },
   header: {
-    paddingTop: 60,
-    paddingBottom: 20,
-    paddingHorizontal: 20,
-  },
-  headerContent: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    paddingTop: 60,
+    paddingBottom: 16,
+    paddingHorizontal: 20,
+    backgroundColor: '#0f172a',
+    borderBottomWidth: 1,
+    borderBottomColor: '#334155',
   },
   backButton: {
-    padding: 8,
-    marginLeft: -8,
-  },
-  headerTitleContainer: {
-    flexDirection: 'row',
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    backgroundColor: '#1e293b',
+    borderWidth: 1,
+    borderColor: '#334155',
     alignItems: 'center',
-    gap: 8,
+    justifyContent: 'center',
   },
   headerTitle: {
-    fontSize: 20,
+    fontSize: 18,
     fontWeight: '700',
-    color: '#fff',
+    color: '#f8fafc',
+  },
+  headerRight: {
+    width: 40,
   },
   form: {
     flex: 1,
+  },
+  formContent: {
     paddingHorizontal: 20,
+    paddingTop: 16,
+    paddingBottom: 40,
+  },
+  intro: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 12,
+    backgroundColor: '#1e293b',
+    padding: 16,
+    borderRadius: 14,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: '#334155',
+  },
+  introText: {
+    flex: 1,
+    fontSize: 14,
+    color: '#94a3b8',
+    lineHeight: 20,
   },
   section: {
-    marginTop: 24,
+    backgroundColor: '#1e293b',
+    borderRadius: 14,
+    padding: 16,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: '#334155',
   },
   sectionTitle: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: '#e2e8f0',
-    marginBottom: 16,
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#64748b',
+    marginBottom: 12,
+    letterSpacing: 0.3,
   },
   inputGroup: {
-    marginBottom: 16,
+    marginBottom: 14,
   },
   label: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#94a3b8',
-    marginBottom: 8,
+    color: '#e2e8f0',
+    marginBottom: 6,
   },
   input: {
-    backgroundColor: '#1e293b',
+    backgroundColor: '#0f172a',
     borderWidth: 1,
     borderColor: '#334155',
     borderRadius: 12,
-    padding: 14,
+    padding: 12,
     fontSize: 15,
-    color: '#e2e8f0',
+    color: '#f8fafc',
   },
   textArea: {
     minHeight: 80,
@@ -493,11 +512,11 @@ const styles = StyleSheet.create({
   dateTimeButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#1e293b',
+    backgroundColor: '#0f172a',
     borderWidth: 1,
     borderColor: '#334155',
     borderRadius: 12,
-    padding: 14,
+    padding: 12,
     gap: 8,
   },
   dateTimeText: {
@@ -508,23 +527,24 @@ const styles = StyleSheet.create({
   infoBox: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(14, 165, 233, 0.1)',
+    backgroundColor: '#1e293b',
     borderWidth: 1,
-    borderColor: 'rgba(14, 165, 233, 0.3)',
-    borderRadius: 12,
+    borderColor: '#334155',
+    borderRadius: 14,
     padding: 16,
-    marginTop: 24,
+    marginTop: 8,
+    marginBottom: 8,
     gap: 12,
   },
   infoText: {
     flex: 1,
     fontSize: 13,
-    color: '#7dd3fc',
+    color: '#94a3b8',
     lineHeight: 18,
   },
   sendButton: {
-    marginTop: 24,
-    borderRadius: 16,
+    marginTop: 16,
+    borderRadius: 18,
     overflow: 'hidden',
   },
   sendButtonDisabled: {
@@ -541,6 +561,22 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '700',
     color: '#fff',
+  },
+  contactNote: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(100, 116, 139, 0.1)',
+    borderWidth: 1,
+    borderColor: '#334155',
+    borderRadius: 10,
+    padding: 12,
+    gap: 8,
+  },
+  contactNoteText: {
+    flex: 1,
+    fontSize: 12,
+    color: '#64748b',
+    lineHeight: 16,
   },
 });
 

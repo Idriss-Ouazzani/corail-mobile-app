@@ -1,13 +1,15 @@
 /**
  * Supabase Client - Remplace Databricks
+ * Sur React Native / Expo : utilisation explicite d'AsyncStorage pour la persistance de session.
  */
 
 import { createClient } from '@supabase/supabase-js';
 import Constants from 'expo-constants';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // Charger les variables depuis expo-constants (fonctionne avec EAS Build)
-const SUPABASE_URL = Constants.expoConfig?.extra?.supabaseUrl;
-const SUPABASE_ANON_KEY = Constants.expoConfig?.extra?.supabaseAnonKey;
+export const SUPABASE_URL = Constants.expoConfig?.extra?.supabaseUrl;
+export const SUPABASE_ANON_KEY = Constants.expoConfig?.extra?.supabaseAnonKey;
 
 if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
   console.error('⚠️ Supabase credentials not configured!');
@@ -18,9 +20,11 @@ if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
 
 export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
   auth: {
+    storage: AsyncStorage,
     autoRefreshToken: true,
     persistSession: true,
     detectSessionInUrl: false,
+    flowType: 'pkce',
   },
 });
 

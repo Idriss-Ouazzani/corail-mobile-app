@@ -57,7 +57,14 @@ export function usePersonalRides(currentUserId: string | null) {
 
   const publishPersonalRide = useCallback(async (
     rideId: string, 
-    options: { visibility: string; vehicle_type: string },
+    options: {
+      visibility: 'PUBLIC' | 'GROUP';
+      vehicle_type: 'STANDARD' | 'ELECTRIC' | 'VAN' | 'PREMIUM' | 'LUXURY';
+      group_id?: string;
+      client_name: string;
+      client_phone?: string;
+      client_email?: string;
+    },
     loadCredits?: () => Promise<void>
   ) => {
     try {

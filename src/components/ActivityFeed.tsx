@@ -5,12 +5,16 @@ import {
   StyleSheet,
   ScrollView,
   RefreshControl,
+  TouchableOpacity,
+  ActivityIndicator,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { apiClient } from '../services/api';
 import { ActivityItemSkeleton } from './skeletons';
 
 interface ActivityFeedProps {
+  verificationStatus?: string | null;
+  onRefreshVerification?: () => Promise<void>;
   limit?: number;
 }
 
@@ -28,20 +32,28 @@ interface Activity {
   ride_visibility?: string;
 }
 
-const ActivityFeed: React.FC<ActivityFeedProps> = ({ limit = 20 }) => {
+const ITEMS_PER_PAGE = 10;
+
+const ActivityFeed: React.FC<ActivityFeedProps> = ({ verificationStatus, onRefreshVerification, limit }) => {
   const [activities, setActivities] = useState<Activity[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [hasMore, setHasMore] = useState(true);
 
   useEffect(() => {
     loadActivities();
   }, []);
 
-  const loadActivities = async () => {
+  const loadActivities = async (reset: boolean = true) => {
     try {
-      setLoading(true);
-      const data = await apiClient.getRecentActivity(limit);
+      if (reset) {
+        setLoading(true);
+        setActivities([]);
+      }
+      const data = await apiClient.getRecentActivity(ITEMS_PER_PAGE, 0);
       setActivities(data);
+      setHasMore(data.length === ITEMS_PER_PAGE);
     } catch (error: any) {
       console.error('❌ Erreur chargement activités:', error);
       // Gérer l'erreur gracieusement si la table n'existe pas encore
@@ -53,9 +65,30 @@ const ActivityFeed: React.FC<ActivityFeedProps> = ({ limit = 20 }) => {
     }
   };
 
+  const loadMoreActivities = async () => {
+    if (loadingMore || !hasMore) return;
+
+    try {
+      setLoadingMore(true);
+      const offset = activities.length;
+      const data = await apiClient.getRecentActivity(ITEMS_PER_PAGE, offset);
+      
+      if (data.length > 0) {
+        setActivities(prev => [...prev, ...data]);
+        setHasMore(data.length === ITEMS_PER_PAGE);
+      } else {
+        setHasMore(false);
+      }
+    } catch (error: any) {
+      console.error('❌ Erreur chargement plus d\'activités:', error);
+    } finally {
+      setLoadingMore(false);
+    }
+  };
+
   const handleRefresh = async () => {
     setRefreshing(true);
-    await loadActivities();
+    await loadActivities(true);
     setRefreshing(false);
   };
 
@@ -325,6 +358,24 @@ const ActivityFeed: React.FC<ActivityFeedProps> = ({ limit = 20 }) => {
         );
       })}
 
+      {/* Bouton Voir plus */}
+      {hasMore && (
+        <TouchableOpacity 
+          style={styles.loadMoreButton} 
+          onPress={loadMoreActivities}
+          disabled={loadingMore}
+        >
+          {loadingMore ? (
+            <ActivityIndicator color="#6366f1" size="small" />
+          ) : (
+            <>
+              <Ionicons name="chevron-down-circle-outline" size={20} color="#6366f1" />
+              <Text style={styles.loadMoreText}>Voir plus</Text>
+            </>
+          )}
+        </TouchableOpacity>
+      )}
+
       <View style={{ height: 20 }} />
     </ScrollView>
   );
@@ -465,6 +516,24 @@ const styles = StyleSheet.create({
   activityTime: {
     fontSize: 12,
     color: '#64748b',
+  },
+  loadMoreButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#1e293b',
+    borderRadius: 12,
+    paddingVertical: 14,
+    paddingHorizontal: 20,
+    marginTop: 12,
+    borderWidth: 1,
+    borderColor: '#334155',
+    gap: 8,
+  },
+  loadMoreText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#6366f1',
   },
 });
 

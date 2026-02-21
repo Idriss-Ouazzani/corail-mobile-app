@@ -12,18 +12,20 @@ import {
   TouchableOpacity,
   StatusBar,
 } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 
 interface ToolsScreenProps {
+  verificationStatus: string | null;
+  onRefreshVerification: () => Promise<void>;
   onOpenQRCode: () => void;
   onOpenPersonalRides: () => void;
   onOpenPlanning: () => void;
   onOpenQuotes: () => void;
   onOpenVTCProfile: () => void;
+  onOpenInvoices: () => void;
 }
 
-export default function ToolsScreen({ onOpenQRCode, onOpenPersonalRides, onOpenPlanning, onOpenQuotes, onOpenVTCProfile }: ToolsScreenProps) {
+export default function ToolsScreen({ verificationStatus, onRefreshVerification, onOpenQRCode, onOpenPersonalRides, onOpenPlanning, onOpenQuotes, onOpenVTCProfile, onOpenInvoices }: ToolsScreenProps) {
   return (
     <View style={styles.container}>
       <StatusBar barStyle="light-content" />
@@ -32,141 +34,61 @@ export default function ToolsScreen({ onOpenQRCode, onOpenPersonalRides, onOpenP
         {/* Header */}
         <View style={styles.header}>
           <Text style={styles.headerTitle}>Suivi</Text>
-          <Text style={styles.headerSubtitle}>Outils professionnels pour chauffeurs VTC</Text>
+          <Text style={styles.headerSubtitle}>Vos outils chauffeur privé</Text>
         </View>
 
-        {/* Section Outils principaux */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Outils principaux</Text>
 
-          {/* QR Code Pro */}
-          <TouchableOpacity
-            style={styles.toolButton}
-            onPress={onOpenQRCode}
-            activeOpacity={0.8}
-          >
-            <LinearGradient
-              colors={['#ff6b47', '#ff8a6d']}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 0 }}
-              style={styles.toolGradient}
-            >
-              <View style={styles.toolLeft}>
-                <View style={styles.toolIconContainer}>
-                  <Ionicons name="qr-code" size={28} color="#fff" />
-                </View>
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.toolTitle}>QR Code Pro</Text>
-                  <Text style={styles.toolDescription}>Partagez vos coordonnées</Text>
-                </View>
+          <View style={styles.toolsRow}>
+            <TouchableOpacity style={[styles.toolCard, styles.toolCardAmber]} onPress={onOpenQuotes} activeOpacity={0.8}>
+              <View style={[styles.toolCardIcon, styles.toolCardIconAmber]}>
+                <Ionicons name="document-text" size={26} color="#f59e0b" />
               </View>
-              <Ionicons name="chevron-forward" size={24} color="rgba(255,255,255,0.8)" />
-            </LinearGradient>
-          </TouchableOpacity>
+              <Text style={styles.toolCardTitle}>Devis</Text>
+            </TouchableOpacity>
 
-          {/* Enregistrer une course */}
-          <TouchableOpacity
-            style={styles.toolButton}
-            onPress={onOpenPersonalRides}
-            activeOpacity={0.8}
-          >
-            <LinearGradient
-              colors={['#6366f1', '#8b5cf6']}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 0 }}
-              style={styles.toolGradient}
-            >
-              <View style={styles.toolLeft}>
-                <View style={styles.toolIconContainer}>
-                  <Ionicons name="add-circle" size={28} color="#fff" />
-                </View>
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.toolTitle}>Mes Courses</Text>
-                  <Text style={styles.toolDescription}>Gérez vos courses facilement</Text>
-                </View>
+            <TouchableOpacity style={[styles.toolCard, styles.toolCardGreen]} onPress={onOpenPlanning} activeOpacity={0.8}>
+              <View style={[styles.toolCardIcon, styles.toolCardIconGreen]}>
+                <Ionicons name="calendar" size={26} color="#10b981" />
               </View>
-              <Ionicons name="chevron-forward" size={24} color="rgba(255,255,255,0.8)" />
-            </LinearGradient>
-          </TouchableOpacity>
+              <Text style={styles.toolCardTitle}>Planning</Text>
+            </TouchableOpacity>
+          </View>
 
-          {/* Planning */}
-          <TouchableOpacity
-            style={styles.toolButton}
-            onPress={onOpenPlanning}
-            activeOpacity={0.8}
-          >
-            <LinearGradient
-              colors={['#10b981', '#059669']}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 0 }}
-              style={styles.toolGradient}
-            >
-              <View style={styles.toolLeft}>
-                <View style={styles.toolIconContainer}>
-                  <Ionicons name="calendar" size={28} color="#fff" />
-                </View>
-                <View>
-                  <Text style={styles.toolTitle}>Planning</Text>
-                  <Text style={styles.toolDescription}>Organisez votre emploi du temps</Text>
-                </View>
+          <View style={styles.toolsRow}>
+            <TouchableOpacity style={[styles.toolCard, styles.toolCardIndigo]} onPress={onOpenPersonalRides} activeOpacity={0.8}>
+              <View style={[styles.toolCardIcon, styles.toolCardIconIndigo]}>
+                <Ionicons name="car-sport" size={26} color="#6366f1" />
               </View>
-              <Ionicons name="chevron-forward" size={24} color="rgba(255,255,255,0.8)" />
-            </LinearGradient>
-          </TouchableOpacity>
+              <Text style={styles.toolCardTitle}>Courses</Text>
+            </TouchableOpacity>
 
-          {/* Mes Devis */}
-          <TouchableOpacity
-            style={styles.toolButton}
-            onPress={onOpenQuotes}
-            activeOpacity={0.8}
-          >
-            <LinearGradient
-              colors={["#f59e0b", "#f97316"]}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 0 }}
-              style={styles.toolGradient}
-            >
-              <View style={styles.toolLeft}>
-                <View style={styles.toolIconContainer}>
-                  <Ionicons name="document-text" size={28} color="#fff" />
-                </View>
-                <View>
-                  <Text style={styles.toolTitle}>Mes Devis</Text>
-                  <Text style={styles.toolDescription}>Gérez vos devis VTC</Text>
-                </View>
+            <TouchableOpacity style={[styles.toolCard, styles.toolCardRose]} onPress={onOpenQRCode} activeOpacity={0.8}>
+              <View style={[styles.toolCardIcon, styles.toolCardIconRose]}>
+                <Ionicons name="qr-code" size={26} color="#f43f5e" />
               </View>
-              <Ionicons name="chevron-forward" size={24} color="rgba(255,255,255,0.8)" />
-            </LinearGradient>
-          </TouchableOpacity>
+              <Text style={styles.toolCardTitle}>QR Code</Text>
+            </TouchableOpacity>
+          </View>
 
-          {/* Ma Page Publique */}
-          <TouchableOpacity
-            style={styles.toolButton}
-            onPress={onOpenVTCProfile}
-            activeOpacity={0.8}
-          >
-            <LinearGradient
-              colors={['#0ea5e9', '#06b6d4']}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 0 }}
-              style={styles.toolGradient}
-            >
-              <View style={styles.toolLeft}>
-                <View style={styles.toolIconContainer}>
-                  <Ionicons name="globe-outline" size={28} color="#fff" />
-                </View>
-                <View>
-                  <Text style={styles.toolTitle}>Ma Page Publique</Text>
-                  <Text style={styles.toolDescription}>Créez votre vitrine VTC</Text>
-                </View>
+          <View style={styles.toolsRow}>
+            <TouchableOpacity style={[styles.toolCard, styles.toolCardCyan]} onPress={onOpenVTCProfile} activeOpacity={0.8}>
+              <View style={[styles.toolCardIcon, styles.toolCardIconCyan]}>
+                <Ionicons name="globe-outline" size={26} color="#0ea5e9" />
               </View>
-              <Ionicons name="chevron-forward" size={24} color="rgba(255,255,255,0.8)" />
-            </LinearGradient>
-          </TouchableOpacity>
+              <Text style={styles.toolCardTitle}>Page Publique</Text>
+            </TouchableOpacity>
 
+            <TouchableOpacity style={[styles.toolCard, styles.toolCardViolet]} onPress={onOpenInvoices} activeOpacity={0.8}>
+              <View style={[styles.toolCardIcon, styles.toolCardIconViolet]}>
+                <Ionicons name="receipt" size={26} color="#a78bfa" />
+              </View>
+              <Text style={styles.toolCardTitle}>Factures</Text>
+            </TouchableOpacity>
+          </View>
         </View>
 
-        {/* Section Outils à venir */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Bientôt disponibles</Text>
 
@@ -233,7 +155,7 @@ const styles = StyleSheet.create({
   },
   header: {
     paddingTop: 60,
-    paddingBottom: 20,
+    paddingBottom: 8,
     paddingHorizontal: 20,
   },
   headerTitle: {
@@ -252,53 +174,63 @@ const styles = StyleSheet.create({
     marginBottom: 32,
   },
   sectionTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: '#e2e8f0',
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#64748b',
     marginBottom: 12,
     letterSpacing: 0.3,
   },
-  toolButton: {
-    borderRadius: 16,
-    overflow: 'hidden',
-    marginBottom: 12,
-  },
-  toolGradient: {
+  toolsRow: {
     flexDirection: 'row',
-    alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 20,
-    paddingVertical: 20,
+    marginBottom: 12,
+    gap: 12,
   },
-  toolLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 16,
+  toolCard: {
     flex: 1,
-  },
-  toolIconContainer: {
-    width: 56,
-    height: 56,
+    backgroundColor: '#1e293b',
     borderRadius: 14,
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    borderWidth: 1,
+    borderColor: '#334155',
+    borderTopWidth: 3,
+    borderTopColor: 'transparent',
     alignItems: 'center',
     justifyContent: 'center',
+    paddingVertical: 20,
+    paddingHorizontal: 12,
+    minHeight: 100,
   },
-  toolTitle: {
-    fontSize: 17,
-    fontWeight: '700',
-    color: '#fff',
-    marginBottom: 2,
+  toolCardAmber:   { borderTopColor: '#f59e0b' },
+  toolCardGreen:   { borderTopColor: '#10b981' },
+  toolCardIndigo:  { borderTopColor: '#6366f1' },
+  toolCardRose:    { borderTopColor: '#f43f5e' },
+  toolCardCyan:    { borderTopColor: '#0ea5e9' },
+  toolCardViolet:  { borderTopColor: '#8b5cf6' },
+  toolCardIcon: {
+    width: 48,
+    height: 48,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 10,
   },
-  toolDescription: {
-    fontSize: 13,
-    color: 'rgba(255, 255, 255, 0.8)',
+  toolCardIconAmber:  { backgroundColor: 'rgba(245, 158, 11, 0.2)' },
+  toolCardIconGreen: { backgroundColor: 'rgba(16, 185, 129, 0.2)' },
+  toolCardIconIndigo: { backgroundColor: 'rgba(99, 102, 241, 0.2)' },
+  toolCardIconRose:  { backgroundColor: 'rgba(244, 63, 94, 0.2)' },
+  toolCardIconCyan:  { backgroundColor: 'rgba(14, 165, 233, 0.2)' },
+  toolCardIconViolet: { backgroundColor: 'rgba(139, 92, 246, 0.2)' },
+  toolCardTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#e2e8f0',
+    textAlign: 'center',
   },
   comingSoonCard: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#1e293b',
-    borderRadius: 16,
+    borderRadius: 14,
     padding: 16,
     marginBottom: 12,
     borderWidth: 1,
@@ -308,7 +240,7 @@ const styles = StyleSheet.create({
     width: 48,
     height: 48,
     borderRadius: 12,
-    backgroundColor: 'rgba(100, 116, 139, 0.1)',
+    backgroundColor: 'rgba(100, 116, 139, 0.15)',
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 12,
@@ -319,7 +251,7 @@ const styles = StyleSheet.create({
   comingSoonTitle: {
     fontSize: 15,
     fontWeight: '600',
-    color: '#cbd5e1',
+    color: '#e2e8f0',
     marginBottom: 4,
   },
   comingSoonDescription: {
@@ -328,7 +260,7 @@ const styles = StyleSheet.create({
     lineHeight: 16,
   },
   comingSoonBadge: {
-    backgroundColor: 'rgba(99, 102, 241, 0.1)',
+    backgroundColor: 'rgba(14, 165, 233, 0.15)',
     paddingHorizontal: 10,
     paddingVertical: 4,
     borderRadius: 8,
@@ -336,9 +268,10 @@ const styles = StyleSheet.create({
   comingSoonBadgeText: {
     fontSize: 11,
     fontWeight: '700',
-    color: '#6366f1',
+    color: '#0ea5e9',
     textTransform: 'uppercase',
     letterSpacing: 0.5,
   },
 });
+
 

@@ -8,7 +8,6 @@ import {
   ActivityIndicator,
   RefreshControl,
 } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { BadgeCard } from '../components/BadgeCard';
 import { apiClient } from '../services/api';
@@ -53,13 +52,14 @@ export const BadgesScreen: React.FC<BadgesScreenProps> = ({ onBack, currentUserI
       
       // Fusionner les données pour créer la liste complète avec statut
       const earnedIds = new Set(userBadgesData.map((ub: any) => ub.badge_id));
-      const mergedBadges = allBadgesData.map((badge: Badge) => {
-        const userBadge = userBadgesData.find((ub: any) => ub.badge_id === badge.id);
-        return {
+      const mergedBadges: UserBadge[] = allBadgesData.map((badge: Badge) => {
+        const userBadge = userBadgesData.find((ub: any) => ub.badge_id === badge.id) as { earned_at?: string; progress?: number } | undefined;
+        const row: UserBadge = {
           ...badge,
           earned_at: userBadge?.earned_at,
           progress: userBadge?.progress,
         };
+        return row;
       });
 
       setUserBadges(mergedBadges);
@@ -123,7 +123,7 @@ export const BadgesScreen: React.FC<BadgesScreenProps> = ({ onBack, currentUserI
   if (loading) {
     return (
       <View style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}>
-        <ActivityIndicator size="large" color="#ff6b47" />
+        <ActivityIndicator size="large" color="#0ea5e9" />
         <Text style={styles.loadingText}>Chargement des badges...</Text>
       </View>
     );
@@ -131,32 +131,26 @@ export const BadgesScreen: React.FC<BadgesScreenProps> = ({ onBack, currentUserI
 
   return (
     <View style={styles.container}>
-      {/* Header */}
-      <LinearGradient
-        colors={['#1e293b', '#0f172a']}
-        style={styles.header}
-      >
+      {/* Header épuré */}
+      <View style={styles.header}>
         <TouchableOpacity onPress={onBack} style={styles.backButton}>
           <Ionicons name="arrow-back" size={24} color="#f1f5f9" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Mes Badges</Text>
         <View style={{ width: 40 }} />
-      </LinearGradient>
+      </View>
 
       <ScrollView
         style={styles.content}
         showsVerticalScrollIndicator={false}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#ff6b47" />}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#0ea5e9" />}
       >
-        {/* Progress Card */}
+        {/* Progress Card épurée */}
         <View style={styles.progressCard}>
-          <LinearGradient
-            colors={['#ff6b47', '#ff8a6d']}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-            style={styles.progressGradient}
-          >
-            <Ionicons name="trophy" size={32} color="#fff" />
+          <View style={styles.progressGradient}>
+            <View style={styles.progressIconWrap}>
+              <Ionicons name="trophy" size={28} color="#0ea5e9" />
+            </View>
             <View style={styles.progressInfo}>
               <Text style={styles.progressTitle}>Collection</Text>
               <Text style={styles.progressStats}>
@@ -166,7 +160,7 @@ export const BadgesScreen: React.FC<BadgesScreenProps> = ({ onBack, currentUserI
             <View style={styles.progressPercentage}>
               <Text style={styles.progressPercentageText}>{completionPercentage}%</Text>
             </View>
-          </LinearGradient>
+          </View>
           <View style={styles.progressBar}>
             <View style={[styles.progressBarFill, { width: `${completionPercentage}%` }]} />
           </View>
@@ -269,6 +263,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#0f172a',
   },
   header: {
+    backgroundColor: '#0f172a',
     paddingTop: 50,
     paddingBottom: 20,
     paddingHorizontal: 20,
@@ -280,7 +275,7 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    backgroundColor: '#1e293b',
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -303,51 +298,60 @@ const styles = StyleSheet.create({
   },
   progressCard: {
     marginBottom: 24,
-    borderRadius: 20,
+    borderRadius: 18,
     overflow: 'hidden',
+    backgroundColor: '#1e293b',
     borderWidth: 1,
-    borderColor: 'rgba(255, 107, 71, 0.3)',
+    borderColor: 'rgba(255, 255, 255, 0.06)',
   },
   progressGradient: {
     flexDirection: 'row',
     alignItems: 'center',
     padding: 20,
   },
+  progressIconWrap: {
+    width: 52,
+    height: 52,
+    borderRadius: 14,
+    backgroundColor: 'rgba(14, 165, 233, 0.2)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
   progressInfo: {
     flex: 1,
     marginLeft: 16,
   },
   progressTitle: {
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: '600',
-    color: 'rgba(255, 255, 255, 0.9)',
+    color: '#94a3b8',
     marginBottom: 4,
   },
   progressStats: {
     fontSize: 20,
     fontWeight: '700',
-    color: '#fff',
+    color: '#f1f5f9',
   },
   progressPercentage: {
-    width: 60,
-    height: 60,
-    borderRadius: 30,
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    width: 52,
+    height: 52,
+    borderRadius: 14,
+    backgroundColor: 'rgba(14, 165, 233, 0.15)',
     justifyContent: 'center',
     alignItems: 'center',
   },
   progressPercentageText: {
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: '700',
-    color: '#fff',
+    color: '#0ea5e9',
   },
   progressBar: {
-    height: 8,
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    height: 6,
+    backgroundColor: '#334155',
   },
   progressBarFill: {
     height: '100%',
-    backgroundColor: '#10b981',
+    backgroundColor: '#0ea5e9',
   },
   filtersRow: {
     flexDirection: 'row',
@@ -358,15 +362,15 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 16,
     paddingVertical: 10,
-    borderRadius: 12,
+    borderRadius: 14,
     marginRight: 10,
-    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    backgroundColor: '#1e293b',
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.1)',
+    borderColor: 'rgba(255, 255, 255, 0.06)',
   },
   filterChipActive: {
-    backgroundColor: '#ff6b47',
-    borderColor: '#ff6b47',
+    backgroundColor: '#0ea5e9',
+    borderColor: '#0ea5e9',
   },
   filterText: {
     fontSize: 14,

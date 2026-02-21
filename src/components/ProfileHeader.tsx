@@ -3,7 +3,7 @@
  */
 
 import React from 'react';
-import { View, Text, StyleSheet, Image } from 'react-native';
+import { View, Text, StyleSheet, Image, TouchableOpacity } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 
@@ -15,6 +15,7 @@ interface ProfileHeaderProps {
   userCredits: number;
   badgesCount: number;
   completedRidesCount: number;
+  onChangePhoto?: () => void;
 }
 
 export default function ProfileHeader({
@@ -25,49 +26,42 @@ export default function ProfileHeader({
   userCredits,
   badgesCount,
   completedRidesCount,
+  onChangePhoto,
 }: ProfileHeaderProps) {
   return (
     <View style={styles.profileHeader}>
-      {photoUrl ? (
-        <Image 
-          source={{ uri: photoUrl }} 
-          style={styles.profilePhoto}
-        />
-      ) : (
-        <LinearGradient colors={['#ff6b47', '#ff8a6d']} style={styles.profileAvatar}>
-          <Text style={styles.profileAvatarText}>{initials}</Text>
-        </LinearGradient>
-      )}
-      <View style={styles.profileBadge}>
-        <Ionicons name="sparkles" size={10} color="#000" style={{ marginRight: 4 }} />
-        <Text style={styles.profileBadgeText}>Gratuit</Text>
-      </View>
+      <TouchableOpacity onPress={onChangePhoto} activeOpacity={0.8}>
+        <View style={styles.avatarContainer}>
+          {photoUrl ? (
+            <Image source={{ uri: photoUrl }} style={styles.profilePhoto} />
+          ) : (
+            <LinearGradient colors={['#0ea5e9', '#06b6d4']} style={styles.profileAvatar}>
+              <Text style={styles.profileAvatarText}>{initials}</Text>
+            </LinearGradient>
+          )}
+          <View style={styles.editPhotoIcon}>
+            <Ionicons name="camera" size={14} color="#fff" />
+          </View>
+        </View>
+      </TouchableOpacity>
       <Text style={styles.profileName}>{displayName}</Text>
       <Text style={styles.profileEmail}>{displayEmail}</Text>
 
-      {/* Stats */}
+      {/* Stats — style accueil (todayRow) */}
       <View style={styles.profileStats}>
         <View style={styles.profileStatItem}>
           <Text style={styles.profileStatValue}>{userCredits}</Text>
-          <Text style={styles.profileStatLabel}>
-            <View style={{ width: 12, height: 12, borderRadius: 6, backgroundColor: '#ff6b47', alignItems: 'center', justifyContent: 'center', marginRight: 4 }}>
-              <Text style={{ color: '#fff', fontSize: 8, fontWeight: 'bold' }}>C</Text>
-            </View> Crédits
-          </Text>
+          <Text style={styles.profileStatLabel}>Crédits</Text>
         </View>
         <View style={styles.profileStatDivider} />
         <View style={styles.profileStatItem}>
           <Text style={styles.profileStatValue}>{badgesCount}</Text>
-          <Text style={styles.profileStatLabel}>
-            <Ionicons name="trophy" size={12} color="#fbbf24" /> Badges
-          </Text>
+          <Text style={styles.profileStatLabel}>Badges</Text>
         </View>
         <View style={styles.profileStatDivider} />
         <View style={styles.profileStatItem}>
           <Text style={styles.profileStatValue}>{completedRidesCount}</Text>
-          <Text style={styles.profileStatLabel}>
-            <Ionicons name="car-sport" size={12} color="#0ea5e9" /> Courses
-          </Text>
+          <Text style={styles.profileStatLabel}>Courses</Text>
         </View>
       </View>
     </View>
@@ -77,91 +71,86 @@ export default function ProfileHeader({
 const styles = StyleSheet.create({
   profileHeader: {
     alignItems: 'center',
-    paddingTop: 50,
-    paddingBottom: 30,
-    paddingHorizontal: 20,
-    borderBottomWidth: 1,
-    borderBottomColor: 'rgba(30, 41, 59, 0.3)',
+    paddingTop: 0,
+    paddingBottom: 24,
+  },
+  avatarContainer: {
+    position: 'relative',
+    marginBottom: 14,
+  },
+  editPhotoIcon: {
+    position: 'absolute',
+    bottom: 0,
+    right: 0,
+    backgroundColor: '#0ea5e9',
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 2,
+    borderColor: '#0f172a',
   },
   profileAvatar: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
+    width: 72,
+    height: 72,
+    borderRadius: 36,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 12,
   },
   profilePhoto: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    marginBottom: 12,
+    width: 72,
+    height: 72,
+    borderRadius: 36,
     borderWidth: 2,
-    borderColor: '#ff6b47',
+    borderColor: '#334155',
   },
   profileAvatarText: {
-    fontSize: 32,
+    fontSize: 26,
     fontWeight: '700',
     color: '#fff',
-  },
-  profileBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#fbbf24',
-    borderRadius: 12,
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    marginBottom: 12,
-  },
-  profileBadgeText: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: '#000',
   },
   profileName: {
     fontSize: 22,
     fontWeight: '700',
-    color: '#e2e8f0',
+    color: '#f8fafc',
     marginBottom: 4,
+    letterSpacing: -0.3,
   },
   profileEmail: {
     fontSize: 14,
-    color: '#94a3b8',
+    color: '#64748b',
     marginBottom: 20,
   },
   profileStats: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-around',
     width: '100%',
     backgroundColor: '#1e293b',
-    borderRadius: 16,
+    borderRadius: 14,
     paddingVertical: 16,
     paddingHorizontal: 20,
+    borderWidth: 1,
+    borderColor: '#334155',
   },
   profileStatItem: {
-    alignItems: 'center',
     flex: 1,
-    minWidth: 0, // Permet au flex de shrink correctement
+    alignItems: 'center',
   },
   profileStatValue: {
-    fontSize: 22, // Réduit légèrement pour les grands nombres
+    fontSize: 20,
     fontWeight: '700',
-    color: '#e2e8f0',
-    marginBottom: 4,
+    color: '#f8fafc',
   },
   profileStatLabel: {
-    fontSize: 11, // Réduit légèrement pour éviter le wrap
-    color: '#94a3b8',
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    flexWrap: 'nowrap', // Empêche le retour à la ligne
+    fontSize: 12,
+    color: '#64748b',
+    marginTop: 4,
   },
   profileStatDivider: {
     width: 1,
-    height: 40,
     backgroundColor: '#334155',
+    marginVertical: 4,
   },
 });
 

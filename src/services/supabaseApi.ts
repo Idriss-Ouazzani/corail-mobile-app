@@ -4,7 +4,9 @@
  */
 
 import { supabase } from '../lib/supabase';
+import Constants from 'expo-constants';
 import type { Ride } from '../types';
+import { getQuoteUrl } from '../constants/urls';
 
 // ============================================================================
 // HELPER: Get current user ID from Firebase token
@@ -35,18 +37,43 @@ export const addCreditsSecure = async (
   if (!currentUserId) throw new Error('User not authenticated');
 
   try {
-    const { data, error } = await supabase.functions.invoke('add-credits', {
-      body: {
+    // Récupérer les credentials depuis la config
+    const SUPABASE_URL = Constants.expoConfig?.extra?.supabaseUrl;
+    const ANON_KEY = Constants.expoConfig?.extra?.supabaseAnonKey;
+    
+    if (!SUPABASE_URL || !ANON_KEY) {
+      throw new Error('Supabase configuration missing');
+    }
+    
+    // Récupérer le JWT utilisateur pour la validation côté serveur
+    const { data: sessionData } = await supabase.auth.getSession();
+    const userToken = sessionData.session?.access_token;
+    
+    if (!userToken) {
+      throw new Error('User not authenticated');
+    }
+    
+    // Appeler l'Edge Function avec ANON_KEY + JWT utilisateur
+    const response = await fetch(`${SUPABASE_URL}/functions/v1/add-credits`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${ANON_KEY}`,
+        'x-user-token': userToken,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
         userId: currentUserId,
         amount,
         reason,
         metadata,
-      },
+      }),
     });
 
-    if (error) {
-      console.error('❌ Error calling add-credits function:', error);
-      throw error;
+    const data = await response.json();
+
+    if (!response.ok) {
+      console.error('❌ HTTP Error:', response.status, data);
+      throw new Error(`HTTP ${response.status}: ${JSON.stringify(data)}`);
     }
 
     if (data?.error) {
@@ -54,7 +81,6 @@ export const addCreditsSecure = async (
       throw new Error(data.error);
     }
 
-    console.log('✅ Credits added successfully:', data);
     return data;
   } catch (error: any) {
     console.error('❌ Failed to add credits:', error);
@@ -117,18 +143,25 @@ export const submitVerification = async (verificationData: {
 }) => {
   if (!currentUserId) throw new Error('User not authenticated');
 
+  // Utiliser UPDATE au lieu de UPSERT car le user existe déjà (créé par handle_new_user)
   const { data, error } = await supabase
     .from('users')
-    .upsert({
-      id: currentUserId,
-      ...verificationData,
+    .update({
+      full_name: verificationData.full_name,
+      phone: verificationData.phone,
+      siren: verificationData.siren,
+      professional_card_number: verificationData.professional_card_number,
       verification_status: 'PENDING',
       verification_submitted_at: new Date().toISOString(),
     })
+    .eq('id', currentUserId)
     .select()
     .single();
 
-  if (error) throw new Error(error.message);
+  if (error) {
+    console.error('❌ Erreur submitVerification:', error);
+    throw new Error(error.message);
+  }
   
   console.log('✅ Vérification soumise pour:', verificationData.email || currentUserId);
   return data;
@@ -258,6 +291,10 @@ export const createRide = async (rideData: {
   distance_km?: number;
   duration_minutes?: number;
   group_id?: string;
+  client_name?: string;
+  client_phone?: string;
+  client_email?: string;
+  notes?: string;
 }): Promise<Ride> => {
   if (!currentUserId) throw new Error('User not authenticated');
 
@@ -275,7 +312,7 @@ export const createRide = async (rideData: {
   if (rideError) throw new Error(rideError.message);
 
   // Add credit (via secure Edge Function)
-  await addCreditsSecure(1, 'RIDE_PUBLISHED', {
+  await addCreditsSecure(1, 'PUBLISH_RIDE', {
     ride_id: ride.id,
     description: 'Published ride on marketplace',
   });
@@ -317,7 +354,7 @@ export const claimRide = async (rideId: string) => {
   // Deduct credit (via secure Edge Function)
   console.log('🔵 AVANT déduction crédit (claimRide)');
   try {
-    await addCreditsSecure(-1, 'RIDE_CLAIMED', {
+    await addCreditsSecure(-1, 'CLAIM_RIDE', {
       ride_id: rideId,
       description: 'Claimed ride from marketplace',
     });
@@ -377,7 +414,7 @@ export const completeRide = async (rideId: string) => {
   if (error) throw new Error(error.message);
 
   // Bonus credit for completing (via secure Edge Function)
-  await addCreditsSecure(1, 'RIDE_COMPLETED', {
+  await addCreditsSecure(1, 'COMPLETE_RIDE_BONUS', {
     ride_id: rideId,
     description: 'Bonus for completing ride',
   });
@@ -390,6 +427,27 @@ export const completeRide = async (rideId: string) => {
     ride_id: rideId,
   });
 
+  return data;
+};
+
+/**
+ * Mettre à jour le prix d'une course après prise en charge (demande client).
+ * Le chauffeur peut proposer un autre tarif que le budget client.
+ */
+export const updateRidePriceAfterClaim = async (rideId: string, priceCents: number) => {
+  if (!currentUserId) throw new Error('User not authenticated');
+  const { data, error } = await supabase
+    .from('rides')
+    .update({
+      price_cents: Math.round(priceCents),
+      updated_at: new Date().toISOString(),
+    })
+    .eq('id', rideId)
+    .eq('picker_id', currentUserId)
+    .eq('status', 'CLAIMED')
+    .select()
+    .single();
+  if (error) throw new Error(error.message);
   return data;
 };
 
@@ -418,7 +476,7 @@ export const deleteRide = async (rideId: string) => {
 
   // Si la course n'avait pas été prise (PUBLISHED), rembourser le crédit
   if (ride.status === 'PUBLISHED') {
-    await addCreditsSecure(-1, 'OTHER', {
+    await addCreditsSecure(-1, 'ADMIN_ADJUSTMENT', {
       ride_id: rideId,
       description: 'Refund for deleting unpicked ride',
     });
@@ -489,6 +547,7 @@ export const createPersonalRide = async (rideData: {
   duration_minutes?: number;
   client_name?: string;
   client_phone?: string;
+  client_email?: string;
   notes?: string;
   status?: string;
   quote_id?: string | null;
@@ -528,11 +587,23 @@ export const publishPersonalRide = async (
     visibility: 'PUBLIC' | 'GROUP';
     vehicle_type: 'STANDARD' | 'ELECTRIC' | 'VAN' | 'PREMIUM' | 'LUXURY';
     group_id?: string;
+    client_name: string;
+    client_phone?: string;
+    client_email?: string;
   }
 ) => {
   if (!currentUserId) throw new Error('User not authenticated');
 
-  // 1. Récupérer la course personnelle
+  // 1. Valider que les infos client sont fournies
+  if (!options.client_name) {
+    throw new Error('Le nom du client est obligatoire');
+  }
+  
+  if (!options.client_phone && !options.client_email) {
+    throw new Error('Au moins un contact (téléphone ou email) est requis');
+  }
+
+  // 2. Récupérer la course personnelle
   const { data: personalRide, error: fetchError } = await supabase
     .from('personal_rides')
     .select('*')
@@ -543,7 +614,21 @@ export const publishPersonalRide = async (
   if (fetchError) throw new Error(fetchError.message);
   if (!personalRide) throw new Error('Course personnelle non trouvée');
 
-  // 2. Créer une course marketplace avec les données de la course personnelle
+  // 3. Mettre à jour la course personnelle avec les infos client
+  const { error: updateError } = await supabase
+    .from('personal_rides')
+    .update({
+      client_name: options.client_name,
+      client_phone: options.client_phone || null,
+      client_email: options.client_email || null,
+    })
+    .eq('id', personalRideId);
+
+  if (updateError) {
+    console.warn('⚠️ Erreur mise à jour course personnelle:', updateError);
+  }
+
+  // 4. Créer une course marketplace avec les données de la course personnelle
   const { data: newRide, error: createError } = await supabase
     .from('rides')
     .insert({
@@ -554,6 +639,9 @@ export const publishPersonalRide = async (
       price_cents: personalRide.price_cents,
       distance_km: personalRide.distance_km,
       duration_minutes: personalRide.duration_minutes,
+      client_name: options.client_name,
+      client_phone: options.client_phone || null,
+      client_email: options.client_email || null,
       visibility: options.visibility,
       vehicle_type: options.vehicle_type,
       status: 'PUBLISHED',
@@ -564,10 +652,10 @@ export const publishPersonalRide = async (
 
   if (createError) throw new Error(createError.message);
 
-  // 3. Ajouter +1 crédit pour la publication (via secure Edge Function)
+  // 4. Ajouter +1 crédit pour la publication (via secure Edge Function)
   console.log('🔵 AVANT ajout crédit (publishPersonalRide)');
   try {
-    await addCreditsSecure(1, 'RIDE_PUBLISHED', {
+    await addCreditsSecure(1, 'PUBLISH_RIDE', {
       ride_id: newRide.id,
       description: `Published personal ride ${personalRideId} to marketplace`,
     });
@@ -577,7 +665,7 @@ export const publishPersonalRide = async (
     throw creditError;
   }
 
-  // 4. Supprimer la course personnelle (elle est maintenant publiée)
+  // 5. Supprimer la course personnelle (elle est maintenant publiée)
   const { error: deleteError } = await supabase
     .from('personal_rides')
     .delete()
@@ -675,6 +763,42 @@ export const deletePersonalRide = async (personalRideId: string) => {
   });
 
   return { success: true };
+};
+
+/**
+ * Mettre à jour une course personnelle (status, etc.)
+ */
+export const updatePersonalRide = async (personalRideId: string, updates: any) => {
+  if (!currentUserId) throw new Error('User not authenticated');
+
+  const { data, error } = await supabase
+    .from('personal_rides')
+    .update(updates)
+    .eq('id', personalRideId)
+    .eq('driver_id', currentUserId)
+    .select()
+    .single();
+
+  if (error) throw new Error(error.message);
+
+  // Si le statut change vers COMPLETED, log l'activité
+  if (updates.status === 'COMPLETED') {
+    await supabase.from('activity_log').insert({
+      user_id: currentUserId,
+      action_type: 'RIDE_COMPLETED',
+      description: 'Completed personal ride',
+      ride_id: personalRideId,
+    });
+  } else if (updates.status === 'CANCELLED') {
+    await supabase.from('activity_log').insert({
+      user_id: currentUserId,
+      action_type: 'RIDE_CANCELLED',
+      description: 'Cancelled personal ride',
+      ride_id: personalRideId,
+    });
+  }
+
+  return data;
 };
 
 /**
@@ -791,6 +915,29 @@ export const getUserBadges = async (userId: string) => {
   }));
 };
 
+/**
+ * Stats publiques d'un créateur (apporteur d'affaires) : publications, courses prises, badges.
+ * Utilisé dans la fiche Détails de la course pour afficher un mini-profil.
+ */
+export const getCreatorProfileStats = async (userId: string): Promise<{
+  publicationsCount: number;
+  ridesTakenCount: number;
+  badges: Array<{ id: string; name: string; icon?: string; color?: string }>;
+}> => {
+  const [pubRes, takenRes, badges] = await Promise.all([
+    supabase.from('rides').select('id', { count: 'exact', head: true }).eq('creator_id', userId),
+    supabase.from('rides').select('id', { count: 'exact', head: true }).not('picker_id', 'is', null).eq('picker_id', userId),
+    getUserBadges(userId),
+  ]);
+  const publicationsCount = pubRes.count ?? 0;
+  const ridesTakenCount = takenRes.count ?? 0;
+  return {
+    publicationsCount,
+    ridesTakenCount,
+    badges: badges.map((b: any) => ({ id: b.id, name: b.name, icon: b.icon, color: b.color })),
+  };
+};
+
 // ============================================================================
 // GROUPS
 // ============================================================================
@@ -848,6 +995,33 @@ export const listGroups = async () => {
   console.log('✅ Groupes mappés:', JSON.stringify(mappedGroups, null, 2));
   
   return mappedGroups;
+};
+
+export const getGroup = async (groupId: string) => {
+  if (!currentUserId) throw new Error('User not authenticated');
+
+  const { data, error } = await supabase
+    .from('groups')
+    .select(`
+      *,
+      group_members(count)
+    `)
+    .eq('id', groupId)
+    .single();
+
+  if (error) {
+    if (error.code === 'PGRST116') return null; // not found
+    throw new Error(error.message);
+  }
+
+  return {
+    id: data.id,
+    name: data.name,
+    description: data.description,
+    memberCount: (data as any).group_members?.[0]?.count ?? 0,
+    color: data.color,
+    icon: data.icon,
+  };
 };
 
 export const createGroup = async (groupData: {
@@ -1185,20 +1359,50 @@ export const getPlanningEvents = async (params: {
   return data;
 };
 
+export const createPlanningEvent = async (event: {
+  title: string;
+  event_type: 'RIDE' | 'MEETING' | 'MAINTENANCE' | 'PERSONAL' | 'OTHER';
+  start_time: string;
+  end_time: string;
+  location?: string;
+  notes?: string;
+  ride_id?: string;
+}) => {
+  if (!currentUserId) throw new Error('User not authenticated');
+
+  const { data, error } = await supabase
+    .from('planning_events')
+    .insert({
+      user_id: currentUserId,
+      title: event.title,
+      event_type: event.event_type,
+      start_time: event.start_time,
+      end_time: event.end_time,
+      location: event.location ?? null,
+      notes: event.notes ?? null,
+      ride_id: event.ride_id ?? null,
+    })
+    .select()
+    .single();
+
+  if (error) throw new Error(error.message);
+  return data;
+};
+
 // ============================================================================
 // ACTIVITY LOG
 // ============================================================================
 
-export const getRecentActivity = async (limit: number = 10) => {
+export const getRecentActivity = async (limit: number = 10, offset: number = 0) => {
   if (!currentUserId) throw new Error('User not authenticated');
 
-  // Récupérer les activités avec les détails des courses
+  // Récupérer les activités avec les détails des courses (pagination avec offset)
   const { data: activities, error } = await supabase
     .from('activity_log')
     .select('*')
     .eq('user_id', currentUserId)
     .order('created_at', { ascending: false })
-    .limit(limit);
+    .range(offset, offset + limit - 1);
 
   if (error) throw new Error(error.message);
 
@@ -1258,7 +1462,8 @@ export const getRecentActivity = async (limit: number = 10) => {
 
 export const createQuote = async (quoteData: {
   client_name: string;
-  client_phone: string;
+  client_phone?: string;
+  client_email?: string;
   pickup_address: string;
   dropoff_address: string;
   scheduled_date: string; // YYYY-MM-DD
@@ -1269,6 +1474,11 @@ export const createQuote = async (quoteData: {
   if (!currentUserId) {
     console.error('❌ createQuote - Pas de currentUserId !');
     throw new Error('User not authenticated');
+  }
+
+  // Valider qu'au moins un contact est fourni
+  if (!quoteData.client_phone && !quoteData.client_email) {
+    throw new Error('Au moins un contact (téléphone ou email) est requis');
   }
 
   console.log('🔍 createQuote - currentUserId:', currentUserId);
@@ -1292,10 +1502,79 @@ export const createQuote = async (quoteData: {
 
   console.log('✅ Quote created:', data.id);
   console.log('📦 Quote data:', JSON.stringify(data, null, 2));
-  
-  // TODO: Envoyer SMS au client via Edge Function
-  // Pour l'instant, juste retourner le devis
+
+  // Envoi SMS au client si numéro fourni (Edge Function send-quote-sms à déployer avec Twilio/etc.)
+  if (quoteData.client_phone && data?.id) {
+    try {
+      const token = (data as any).token;
+      const quoteUrl = token ? getQuoteUrl(token) : '';
+      await supabase.functions.invoke('send-quote-sms', {
+        body: {
+          to: quoteData.client_phone.replace(/\s/g, ''),
+          clientName: quoteData.client_name,
+          quoteUrl,
+          quoteId: data.id,
+        },
+      });
+    } catch (smsError) {
+      console.warn('⚠️ SMS non envoyé (Edge Function send-quote-sms absente ou erreur):', smsError);
+    }
+  }
+
   return data;
+};
+
+/**
+ * Envoyer un devis par email via Resend.io (Edge Function)
+ */
+export const sendQuoteEmail = async (emailData: {
+  clientEmail: string;
+  clientName: string;
+  quoteUrl: string;
+  price: string;
+  date: string;
+  time: string;
+  pickupAddress: string;
+  dropoffAddress: string;
+  driverName?: string;
+}) => {
+  console.log('📧 sendQuoteEmail - Envoi email via Edge Function:', emailData.clientEmail);
+  console.log('📧 Données envoyées:', JSON.stringify(emailData, null, 2));
+
+  // Utiliser fetch directement au lieu de supabase.functions.invoke pour plus de contrôle
+  const { SUPABASE_URL: supabaseUrl, SUPABASE_ANON_KEY: anonKey } = await import('../lib/supabase');
+  
+  console.log('📧 Supabase URL:', supabaseUrl);
+  console.log('📧 Anon Key:', anonKey ? 'Present' : 'Missing');
+
+  const url = `${supabaseUrl}/functions/v1/send-quote-email`;
+  
+  try {
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${anonKey}`,
+      },
+      body: JSON.stringify(emailData),
+    });
+
+    console.log('📧 HTTP Status:', response.status);
+    console.log('📧 HTTP OK:', response.ok);
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('❌ Response error:', errorText);
+      throw new Error(`HTTP ${response.status}: ${errorText}`);
+    }
+
+    const data = await response.json();
+    console.log('✅ Quote email sent successfully:', data);
+    return data;
+  } catch (error: any) {
+    console.error('❌ Fetch error:', error);
+    throw error;
+  }
 };
 
 export const listQuotes = async (filters?: {
@@ -1379,6 +1658,200 @@ export const getQuoteByToken = async (token: string) => {
   await supabase.rpc('mark_quote_viewed', { p_token: token });
 
   return data;
+};
+
+// ============================================================================
+// INVOICES
+// ============================================================================
+
+export const listInvoices = async (filters?: {
+  status?: 'ISSUED';
+  limit?: number;
+}) => {
+  if (!currentUserId) {
+    console.error('❌ listInvoices - Pas de currentUserId !');
+    throw new Error('User not authenticated');
+  }
+
+  console.log('🔍 listInvoices - currentUserId:', currentUserId);
+  console.log('🔍 listInvoices - filters:', filters);
+
+  // Récupérer d'abord le vtc_profile_id de l'utilisateur
+  const { data: vtcProfile, error: profileError } = await supabase
+    .from('vtc_profiles')
+    .select('id')
+    .eq('user_id', currentUserId)
+    .single();
+
+  if (profileError) {
+    // PGRST116 = pas de profil VTC, c'est normal pour un nouvel utilisateur
+    if (profileError.code === 'PGRST116') {
+      console.log('ℹ️ No VTC profile found for user (normal for new users)');
+      return { data: [], error: null };
+    }
+    console.error('❌ Error getting VTC profile:', profileError);
+    return { data: [], error: profileError };
+  }
+
+  if (!vtcProfile) {
+    console.log('ℹ️ No VTC profile found for user');
+    return { data: [], error: null };
+  }
+
+  let query = supabase
+    .from('invoices')
+    .select('*')
+    .eq('vtc_profile_id', vtcProfile.id)
+    .order('created_at', { ascending: false });
+
+  if (filters?.status) {
+    query = query.eq('status', filters.status);
+  }
+
+  if (filters?.limit) {
+    query = query.limit(filters.limit);
+  }
+
+  const { data, error } = await query;
+
+  if (error) {
+    console.error('❌ Error listing invoices:', error);
+    return { data: [], error };
+  }
+
+  console.log(`✅ Loaded ${data?.length || 0} invoices`);
+  console.log('📦 Invoices data:', JSON.stringify(data, null, 2));
+  
+  return { data: data || [], error: null };
+};
+
+export const getInvoiceByRide = async (sourceType: 'RIDE' | 'PERSONAL', sourceId: string) => {
+  if (!currentUserId) {
+    console.error('❌ getInvoiceByRide - Pas de currentUserId !');
+    throw new Error('User not authenticated');
+  }
+
+  console.log('🔍 getInvoiceByRide -', { sourceType, sourceId });
+
+  const { data, error } = await supabase
+    .from('invoices')
+    .select('*')
+    .eq('source_type', sourceType)
+    .eq('source_id', sourceId)
+    .single();
+
+  if (error && error.code !== 'PGRST116') { // PGRST116 = no rows
+    console.error('❌ Error getting invoice:', error);
+    return null;
+  }
+
+  return data;
+};
+
+export const createInvoice = async (sourceType: 'RIDE' | 'PERSONAL', sourceId: string) => {
+  if (!currentUserId) {
+    throw new Error('User not authenticated');
+  }
+
+  // Récupérer d'abord le vtc_profile_id de l'utilisateur
+  let { data: vtcProfile, error: profileError } = await supabase
+    .from('vtc_profiles')
+    .select('id')
+    .eq('user_id', currentUserId)
+    .single();
+
+  // Si pas de profil VTC, en créer un automatiquement
+  if (profileError && profileError.code === 'PGRST116') {
+    console.log('ℹ️ Pas de profil VTC, création automatique...');
+    try {
+      // Récupérer les infos de l'utilisateur
+      const { data: userData, error: userError } = await supabase
+        .from('users')
+        .select('full_name, email')
+        .eq('id', currentUserId)
+        .single();
+
+      if (userError) throw userError;
+
+      // Créer un profil VTC minimal
+      const slug = userData.full_name
+        ? userData.full_name.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '')
+        : `chauffeur-${currentUserId.slice(0, 8)}`;
+
+      const { data: newProfile, error: createError } = await supabase
+        .from('vtc_profiles')
+        .insert({
+          user_id: currentUserId,
+          slug,
+          display_name: userData.full_name || 'Chauffeur privé',
+          is_public: false,
+        })
+        .select('id')
+        .single();
+
+      if (createError) throw createError;
+
+      vtcProfile = newProfile;
+      console.log('✅ Profil VTC créé automatiquement:', vtcProfile.id);
+    } catch (error) {
+      console.error('❌ Erreur création profil VTC:', error);
+      throw new Error('Impossible de créer le profil VTC nécessaire pour les factures');
+    }
+  } else if (profileError || !vtcProfile) {
+    throw new Error('Erreur lors de la récupération du profil VTC');
+  }
+
+  console.log('🧾 createInvoice - Params:', { sourceType, sourceId, vtcProfileId: vtcProfile.id });
+
+  const { data, error } = await supabase.rpc('create_invoice', {
+    p_source_type: sourceType,
+    p_source_id: sourceId,
+    p_vtc_profile_id: vtcProfile.id,
+  });
+
+  if (error) {
+    console.error('❌ Error creating invoice (RPC):', error);
+    console.error('❌ Error details:', JSON.stringify(error, null, 2));
+    throw new Error(error.message);
+  }
+
+  console.log('✅ Invoice created (RPC response):', JSON.stringify(data, null, 2));
+  console.log('✅ Type of data:', typeof data, 'Is array:', Array.isArray(data));
+
+  // La RPC retourne un tableau (RETURNS TABLE), on prend le premier élément
+  if (!data || (Array.isArray(data) && data.length === 0)) {
+    throw new Error('La RPC n\'a pas retourné de données');
+  }
+
+  // Extraire les données de la facture (peut être un tableau ou un objet)
+  const invoiceData = Array.isArray(data) ? data[0] : data;
+  console.log('✅ Invoice data extracted:', JSON.stringify(invoiceData, null, 2));
+
+  if (!invoiceData || !invoiceData.id) {
+    throw new Error('Données de facture invalides');
+  }
+
+  // Récupérer la facture complète avec TOUTES les colonnes depuis la table
+  const { data: fullInvoice, error: fetchError } = await supabase
+    .from('invoices')
+    .select('*')
+    .eq('id', invoiceData.id)
+    .single();
+
+  if (fetchError) {
+    console.error('❌ Error fetching full invoice:', fetchError);
+    throw new Error('Facture créée mais impossible de la récupérer: ' + fetchError.message);
+  }
+
+  console.log('✅ Full invoice fetched:', JSON.stringify(fullInvoice, null, 2));
+  
+  if (!fullInvoice.public_token) {
+    console.error('❌ Invoice sans public_token!', fullInvoice);
+    throw new Error('Facture créée mais sans token public');
+  }
+
+  console.log('✅ Public token:', fullInvoice.public_token);
+  return fullInvoice;
 };
 
 // ============================================================================
@@ -1537,7 +2010,7 @@ export const convertPublishedToPersonal = async (rideId: string) => {
     }
 
     // 4. Retirer le crédit gagné lors de la publication (via Edge Function sécurisée)
-    await addCreditsSecure(-1, 'OTHER', {
+    await addCreditsSecure(-1, 'ADMIN_ADJUSTMENT', {
       ride_id: rideId,
       description: 'Converted published ride back to personal',
     });
@@ -1564,6 +2037,122 @@ export const convertPublishedToPersonal = async (rideId: string) => {
 };
 
 // ============================================================================
+// DRIVER RIDE REQUESTS (demandes depuis la page publique)
+// ============================================================================
+
+export const getDriverRideRequestsPendingCount = async (): Promise<number> => {
+  if (!currentUserId) return 0;
+  const { count, error } = await supabase
+    .from('driver_ride_requests')
+    .select('*', { count: 'exact', head: true })
+    .eq('driver_id', currentUserId)
+    .eq('status', 'PENDING');
+  if (error) {
+    console.warn('getDriverRideRequestsPendingCount:', error);
+    return 0;
+  }
+  return count ?? 0;
+};
+
+export const getDriverRideRequests = async () => {
+  if (!currentUserId) return [];
+  const { data, error } = await supabase
+    .from('driver_ride_requests')
+    .select('*')
+    .eq('driver_id', currentUserId)
+    .order('created_at', { ascending: false });
+  if (error) {
+    console.error('getDriverRideRequests:', error);
+    return [];
+  }
+  return data ?? [];
+};
+
+export const getDriverRideRequestById = async (id: string) => {
+  if (!currentUserId) throw new Error('User not authenticated');
+  const { data, error } = await supabase
+    .from('driver_ride_requests')
+    .select('*')
+    .eq('id', id)
+    .eq('driver_id', currentUserId)
+    .single();
+  if (error || !data) throw new Error('Demande introuvable');
+  return data;
+};
+
+export const acceptDriverRideRequest = async (requestId: string) => {
+  if (!currentUserId) throw new Error('User not authenticated');
+  const request = await getDriverRideRequestById(requestId);
+  if (request.status !== 'PENDING') {
+    throw new Error('Cette demande a déjà été traitée');
+  }
+  const { error: updateError } = await supabase
+    .from('driver_ride_requests')
+    .update({ status: 'ACCEPTED', updated_at: new Date().toISOString() })
+    .eq('id', requestId)
+    .eq('driver_id', currentUserId);
+  if (updateError) throw new Error(updateError.message);
+
+  const { error: insertError } = await supabase
+    .from('personal_rides')
+    .insert({
+      driver_id: currentUserId,
+      source: 'DIRECT_CLIENT',
+      pickup_address: request.pickup_address,
+      dropoff_address: request.dropoff_address,
+      scheduled_at: request.scheduled_at,
+      price_cents: request.price_cents,
+      distance_km: request.distance_km,
+      client_name: request.client_name,
+      client_phone: request.client_phone,
+      client_email: request.client_email,
+      notes: request.notes ? `${request.notes}\n(Demande depuis page publique)` : 'Demande depuis page publique',
+      status: 'SCHEDULED',
+    })
+    .select('id')
+    .single();
+  if (insertError) {
+    await supabase.from('driver_ride_requests').update({ status: 'PENDING', updated_at: new Date().toISOString() }).eq('id', requestId).eq('driver_id', currentUserId);
+    throw new Error(insertError.message);
+  }
+  return { success: true };
+};
+
+export const refuseDriverRideRequest = async (requestId: string) => {
+  if (!currentUserId) throw new Error('User not authenticated');
+  const request = await getDriverRideRequestById(requestId);
+  if (request.status !== 'PENDING') {
+    throw new Error('Cette demande a déjà été traitée');
+  }
+  const CREATOR_ID_CLIENT_WEB = 'corail-landing';
+  if (request.fallback_to_marketplace) {
+    const { error: rideError } = await supabase.from('rides').insert({
+      creator_id: CREATOR_ID_CLIENT_WEB,
+      pickup_address: request.pickup_address,
+      dropoff_address: request.dropoff_address,
+      scheduled_at: request.scheduled_at,
+      price_cents: request.price_cents ?? 0,
+      distance_km: request.distance_km,
+      notes: request.notes,
+      client_name: request.client_name,
+      client_email: request.client_email,
+      client_phone: request.client_phone,
+      status: 'PUBLISHED',
+      visibility: 'PUBLIC',
+      source: 'client',
+    });
+    if (rideError) console.warn('refuseDriverRideRequest: could not publish to marketplace', rideError);
+  }
+  const { error: updateError } = await supabase
+    .from('driver_ride_requests')
+    .update({ status: 'REFUSED', updated_at: new Date().toISOString() })
+    .eq('id', requestId)
+    .eq('driver_id', currentUserId);
+  if (updateError) throw new Error(updateError.message);
+  return { success: true };
+};
+
+// ============================================================================
 // USER PROFILE
 // ============================================================================
 
@@ -1582,6 +2171,41 @@ export const updateUserPhoto = async (photoUrl: string) => {
   }
 
   console.log('✅ User photo updated');
+  return { success: true };
+};
+
+/**
+ * Mise à jour du profil utilisateur (SIRET/SIREN, téléphone, carte pro)
+ * Permet de compléter ou modifier ces infos après l'inscription.
+ */
+export const updateUserProfile = async (updates: {
+  siren?: string;
+  phone?: string;
+  professional_card_number?: string;
+}) => {
+  if (!currentUserId) {
+    throw new Error('User not authenticated');
+  }
+
+  const updateData: Record<string, string> = {};
+  if (updates.siren !== undefined) updateData.siren = updates.siren.trim();
+  if (updates.phone !== undefined) updateData.phone = updates.phone.trim();
+  if (updates.professional_card_number !== undefined) updateData.professional_card_number = updates.professional_card_number.trim();
+
+  if (Object.keys(updateData).length === 0) {
+    return { success: true };
+  }
+
+  const { error } = await supabase
+    .from('users')
+    .update(updateData)
+    .eq('id', currentUserId);
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  console.log('✅ User profile updated');
   return { success: true };
 };
 
@@ -1783,12 +2407,14 @@ export const supabaseApi = {
   createPersonalRide,
   publishPersonalRide,
   deletePersonalRide,
+  updatePersonalRide,
   completePersonalRide,
   getPersonalRidesStats,
   getCredits,
   getAllBadges,
   getUserBadges,
   listGroups,
+  getGroup,
   createGroup,
   getGroupMembers,
   inviteToGroup,
@@ -1799,17 +2425,28 @@ export const supabaseApi = {
   getGroupPendingInvitations,
   cancelGroupInvitation,
   getPlanningEvents,
+  createPlanningEvent,
   getRecentActivity,
   createQuote,
+  sendQuoteEmail,
   listQuotes,
   getQuote,
   getQuoteByToken,
+  listInvoices,
+  getInvoiceByRide,
+  createInvoice,
   getMyVTCProfile,
   createVTCProfile,
   updateVTCProfile,
   deleteVTCProfile,
   updateUserPhoto,
+  updateUserProfile,
   convertPublishedToPersonal,
+  getDriverRideRequestsPendingCount,
+  getDriverRideRequests,
+  getDriverRideRequestById,
+  acceptDriverRideRequest,
+  refuseDriverRideRequest,
   requestDataExport,
   deleteAccount,
   acceptTerms,

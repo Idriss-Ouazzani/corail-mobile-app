@@ -103,7 +103,7 @@ export default function PersonalRidesScreen({ onClose }: { onClose: () => void }
     try {
       setLoading(true);
       const data = await apiClient.getPersonalRidesStats();
-      setStats(data);
+      setStats(data as Stats);
     } catch (error) {
       console.error('Error loading stats:', error);
       Alert.alert('Erreur', 'Impossible de charger les statistiques');

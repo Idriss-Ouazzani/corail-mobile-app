@@ -27,8 +27,8 @@ export default function ProfileGroupsSection({
 }: ProfileGroupsSectionProps) {
   if (!userGroups || userGroups.length === 0) {
     return (
-      <TouchableOpacity style={styles.emptyGroupCard} onPress={onShowGroups}>
-        <Ionicons name="add-circle-outline" size={40} color="#64748b" />
+      <TouchableOpacity style={styles.emptyGroupCard} onPress={onShowGroups} activeOpacity={0.7}>
+        <Ionicons name="add-circle-outline" size={36} color="#64748b" />
         <Text style={styles.emptyGroupText}>Créer votre premier groupe</Text>
         <Text style={styles.emptyGroupSubtext}>Partagez des courses avec vos collègues</Text>
       </TouchableOpacity>
@@ -38,9 +38,7 @@ export default function ProfileGroupsSection({
   return (
     <View style={styles.section}>
       <View style={styles.sectionHeader}>
-        <Text style={styles.sectionTitle}>
-          <Ionicons name="people" size={18} color="#0ea5e9" /> Mes Groupes
-        </Text>
+        <Text style={styles.sectionTitle}>Mes Groupes</Text>
         <TouchableOpacity activeOpacity={0.7} onPress={onShowGroups}>
           <Text style={styles.seeAllText}>Gérer ({userGroups.length})</Text>
         </TouchableOpacity>
@@ -53,14 +51,14 @@ export default function ProfileGroupsSection({
         {userGroups.map((group, index) => (
           <TouchableOpacity
             key={group.id || `group-${index}`}
-            style={[styles.groupCard, { borderColor: group.color || '#0ea5e9' }]}
+            style={[styles.groupCard, { borderLeftColor: group.color || '#0ea5e9' }]}
             onPress={() => onSelectGroup(group)}
             activeOpacity={0.7}
           >
-            <View style={[styles.groupIconWrapper, { backgroundColor: `${group.color || '#0ea5e9'}30` }]}>
-              <Ionicons name={(group.icon || 'people') as any} size={24} color={group.color || '#0ea5e9'} />
+            <View style={[styles.groupIconWrapper, { backgroundColor: `${group.color || '#0ea5e9'}20` }]}>
+              <Ionicons name={(group.icon || 'people') as any} size={22} color={group.color || '#0ea5e9'} />
             </View>
-            <Text style={styles.groupName}>{group.name}</Text>
+            <Text style={styles.groupName} numberOfLines={2}>{group.name}</Text>
             <Text style={styles.groupMemberCount}>
               {group.memberCount || 0} membre{(group.memberCount || 0) > 1 ? 's' : ''}
             </Text>
@@ -73,8 +71,7 @@ export default function ProfileGroupsSection({
 
 const styles = StyleSheet.create({
   section: {
-    marginBottom: 20,
-    paddingHorizontal: 20,
+    marginBottom: 16,
   },
   sectionHeader: {
     flexDirection: 'row',
@@ -83,37 +80,37 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   sectionTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: '#e2e8f0',
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#64748b',
+    letterSpacing: 0.3,
   },
   seeAllText: {
-    fontSize: 14,
+    fontSize: 13,
     color: '#0ea5e9',
     fontWeight: '600',
   },
   groupsScroll: {
-    paddingRight: 20,
+    paddingRight: 4,
     gap: 12,
   },
   groupCard: {
     backgroundColor: '#1e293b',
-    borderRadius: 16,
-    padding: 16,
-    width: 140,
+    borderRadius: 14,
+    padding: 14,
+    width: 130,
     alignItems: 'center',
-    borderWidth: 2,
+    borderWidth: 1,
+    borderColor: '#334155',
+    borderLeftWidth: 3,
   },
   groupIconWrapper: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
+    width: 42,
+    height: 42,
+    borderRadius: 12,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 12,
+    marginBottom: 10,
   },
   groupName: {
     fontSize: 14,
@@ -124,29 +121,28 @@ const styles = StyleSheet.create({
   },
   groupMemberCount: {
     fontSize: 12,
-    color: '#94a3b8',
+    color: '#64748b',
   },
   emptyGroupCard: {
     backgroundColor: '#1e293b',
-    borderRadius: 16,
-    padding: 32,
-    marginHorizontal: 20,
-    marginBottom: 20,
+    borderRadius: 14,
+    padding: 28,
+    marginBottom: 16,
     alignItems: 'center',
-    borderWidth: 2,
+    borderWidth: 1,
     borderColor: '#334155',
     borderStyle: 'dashed',
   },
   emptyGroupText: {
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: '600',
     color: '#e2e8f0',
-    marginTop: 12,
+    marginTop: 10,
     marginBottom: 4,
   },
   emptyGroupSubtext: {
-    fontSize: 14,
-    color: '#94a3b8',
+    fontSize: 13,
+    color: '#64748b',
     textAlign: 'center',
   },
 });

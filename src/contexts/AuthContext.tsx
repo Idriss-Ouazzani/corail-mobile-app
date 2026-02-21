@@ -1,15 +1,14 @@
 /**
  * AuthContext - Gestion centralisée de l'authentification
  * 
- * Extrait de App.tsx pour améliorer la maintenabilité
+ * ✅ Migré vers Supabase Auth (depuis Firebase)
  */
 
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { firebaseAuth } from '../services/firebase';
+import { supabaseAuth, type SupabaseUser } from '../services/supabaseAuth';
 import { apiClient } from '../services/api';
 import { logger } from '../services/logger';
 import analytics from '../services/analytics';
-import type { User as FirebaseUser } from 'firebase/auth';
 
 // ============================================================================
 // TYPES
@@ -17,7 +16,7 @@ import type { User as FirebaseUser } from 'firebase/auth';
 
 interface AuthContextType {
   // État utilisateur
-  user: FirebaseUser | null;
+  user: SupabaseUser | null;
   authLoading: boolean;
   
   // Données de vérification
@@ -52,8 +51,8 @@ interface AuthProviderProps {
 }
 
 export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
-  // États Firebase
-  const [user, setUser] = useState<FirebaseUser | null>(null);
+  // États Supabase Auth
+  const [user, setUser] = useState<SupabaseUser | null>(null);
   const [authLoading, setAuthLoading] = useState(true);
   
   // États de vérification
@@ -79,30 +78,21 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     try {
       setVerificationLoading(true);
       
-      // S'assurer que l'utilisateur existe dans Supabase avec son email Firebase
+      // Note: Avec Supabase Auth, l'utilisateur est automatiquement créé
+      // dans public.users via le trigger handle_new_user()
+      // Mais on le vérifie quand même au cas où
       if (user?.email) {
-        console.log('🔍 Vérification utilisateur Supabase pour:', user.email);
-        
-        // Essayer de créer l'utilisateur s'il n'existe pas
-        try {
-          await apiClient.createUser({
-            id: user.uid,
-            email: user.email,
-            full_name: user.displayName || '',
-          });
-          console.log('✅ Utilisateur créé/mis à jour dans Supabase');
-        } catch (createError: any) {
-          // Ignorer l'erreur si l'utilisateur existe déjà (duplicate key)
-          console.log('🔍 [DEBUG APK] createUser error:', createError.message);
-          if (!createError.message?.includes('duplicate') && !createError.message?.includes('already exists')) {
-            console.warn('⚠️ Erreur création utilisateur (peut-être déjà existant):', createError.message);
-          }
-        }
+        console.log('🔍 Vérification profil utilisateur pour:', user.email);
       }
       
       const response = await apiClient.getVerificationStatus();
       
+      console.log('🔍 [AuthContext] Response complète:', response);
+      
       const finalStatus = response.verification_status || 'UNVERIFIED';
+      
+      console.log('🔍 [AuthContext] verificationStatus:', finalStatus);
+      console.log('🔍 [AuthContext] has_accepted_terms:', response.has_accepted_terms);
       
       setVerificationStatus(finalStatus);
       setUserFullName(response.full_name || '');
@@ -118,7 +108,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       if (user) {
         try {
           await analytics.setUserProperties({
-            userId: user.uid,
+            userId: user.id,
             isAdmin: response.is_admin === true || response.is_admin === 'true',
             verificationStatus: response.verification_status || 'UNVERIFIED',
             totalCredits: 0, // Will be updated by AppDataContext
@@ -145,7 +135,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       // 📊 Analytics: Clear user properties
       await analytics.clearUserProperties();
       
-      await firebaseAuth.signOut();
+      await supabaseAuth.signOut();
       console.log('✅ Déconnexion réussie');
     } catch (error: any) {
       console.error('❌ Erreur déconnexion:', error);
@@ -158,24 +148,24 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   // ============================================================================
 
   /**
-   * Écouter les changements d'état d'authentification Firebase
+   * Écouter les changements d'état d'authentification Supabase
    */
   useEffect(() => {
-    const unsubscribe = firebaseAuth.onAuthStateChanged((firebaseUser) => {
-      setUser(firebaseUser);
+    const unsubscribe = supabaseAuth.onAuthStateChanged((supabaseUser) => {
+      setUser(supabaseUser);
       
-      if (firebaseUser) {
+      if (supabaseUser) {
         // Configurer l'API client avec le user ID
-        apiClient.setUserId(firebaseUser.uid);
+        apiClient.setUserId(supabaseUser.id);
         
         // 🎯 Configurer Sentry avec l'utilisateur
         logger.setUser(
-          firebaseUser.uid,
-          firebaseUser.email || undefined,
-          firebaseUser.displayName || undefined
+          supabaseUser.id,
+          supabaseUser.email || undefined,
+          supabaseUser.displayName || undefined
         );
         
-        console.log('✅ Utilisateur connecté:', firebaseUser.email);
+        console.log('✅ Utilisateur Supabase connecté:', supabaseUser.email);
       } else {
         // 🧹 Nettoyer toutes les données de la session précédente
         apiClient.clearAuth();
@@ -193,7 +183,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         // 🧹 Nettoyer l'utilisateur dans Sentry
         logger.clearUser();
         
-        console.log('❌ Utilisateur déconnecté - Cache nettoyé');
+        console.log('❌ Utilisateur Supabase déconnecté - Cache nettoyé');
       }
       
       setAuthLoading(false);

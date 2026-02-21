@@ -13,6 +13,7 @@ interface Badge {
   description: string;
   icon: string;
   color: string;
+  rarity?: 'COMMON' | 'RARE' | 'EPIC' | 'LEGENDARY';
   earned_at?: string;
 }
 
@@ -25,39 +26,43 @@ export default function ProfileBadgesSection({
   userBadges,
   onShowBadges,
 }: ProfileBadgesSectionProps) {
-  if (!userBadges || userBadges.length === 0) {
-    return null; // Pas d'affichage si pas de badges
-  }
-
-  const earnedBadges = userBadges.filter((b) => b.earned_at);
+  const list = userBadges || [];
+  const earnedBadges = list.filter((b) => b.earned_at);
 
   return (
     <View style={styles.section}>
       <View style={styles.sectionHeader}>
-        <Text style={styles.sectionTitle}>
-          <Ionicons name="trophy" size={18} color="#fbbf24" /> Badges
-        </Text>
+        <Text style={styles.sectionTitle}>Badges</Text>
         <TouchableOpacity activeOpacity={0.7} onPress={onShowBadges}>
-          <Text style={styles.seeAllText}>Voir plus ({earnedBadges.length}/{userBadges.length})</Text>
+          <Text style={styles.seeAllText}>
+            {list.length > 0 ? `Voir plus (${earnedBadges.length}/${list.length})` : 'Voir tout'}
+          </Text>
         </TouchableOpacity>
       </View>
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        contentContainerStyle={styles.badgesScroll}
-      >
-        {earnedBadges.slice(0, 5).map((badge, index) => (
-          <BadgeCard key={badge.id || `badge-${index}`} badge={badge} size="small" />
-        ))}
-      </ScrollView>
+      {earnedBadges.length > 0 ? (
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.badgesScroll}
+        >
+          {earnedBadges.slice(0, 5).map((badge, index) => (
+            <BadgeCard key={badge.id || `badge-${index}`} badge={badge} size="small" />
+          ))}
+        </ScrollView>
+      ) : (
+        <TouchableOpacity style={styles.emptyCta} onPress={onShowBadges} activeOpacity={0.7}>
+          <Ionicons name="medal-outline" size={24} color="#64748b" />
+          <Text style={styles.emptyCtaText}>Découvrir mes badges</Text>
+          <Ionicons name="chevron-forward" size={18} color="#64748b" />
+        </TouchableOpacity>
+      )}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   section: {
-    marginBottom: 20,
-    paddingHorizontal: 20,
+    marginBottom: 16,
   },
   sectionHeader: {
     flexDirection: 'row',
@@ -66,21 +71,36 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   sectionTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: '#e2e8f0',
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#64748b',
+    letterSpacing: 0.3,
   },
   seeAllText: {
-    fontSize: 14,
+    fontSize: 13,
     color: '#0ea5e9',
     fontWeight: '600',
   },
   badgesScroll: {
-    paddingRight: 20,
+    paddingRight: 4,
     gap: 12,
+  },
+  emptyCta: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#1e293b',
+    borderRadius: 12,
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.06)',
+    gap: 10,
+  },
+  emptyCtaText: {
+    flex: 1,
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#94a3b8',
   },
 });
 

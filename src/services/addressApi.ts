@@ -98,6 +98,13 @@ function formatCleanLabel(
     const cityPart = parts.find(p => p === city) || city;
     const postcodePart = parts.find(p => /^\d{5}$/.test(p)) || postcode;
     
+    // Vérifier si le mainName contient déjà le code postal et la ville
+    const alreadyHasPostcodeAndCity = mainName.includes(postcodePart) && mainName.includes(cityPart);
+    
+    if (alreadyHasPostcodeAndCity) {
+      return mainName; // Déjà complet, ne rien ajouter
+    }
+    
     if (cityPart && postcodePart) {
       return `${mainName}, ${postcodePart} ${cityPart}`;
     } else if (cityPart) {
@@ -107,7 +114,22 @@ function formatCleanLabel(
 
   // Format final propre
   if (postcode && city && parts.length > 0) {
-    return `${parts[0]}, ${postcode} ${city}`;
+    const mainPart = parts[0];
+    
+    // Vérifier si parts[0] contient déjà le code postal et la ville
+    const alreadyComplete = mainPart.includes(postcode) && mainPart.includes(city);
+    
+    if (alreadyComplete) {
+      return mainPart; // Déjà complet, ne pas dupliquer
+    }
+    
+    // Vérifier si parts[0] est juste le code postal + ville
+    const isJustPostcodeCity = mainPart.match(/^\d{5}\s+\w+$/);
+    if (isJustPostcodeCity) {
+      return mainPart; // C'est déjà dans le bon format
+    }
+    
+    return `${mainPart}, ${postcode} ${city}`;
   }
 
   // Fallback: nettoyer les virgules doubles

@@ -16,23 +16,23 @@ export default function MarketplaceHeader({ ridesCount, onCreateRide }: Marketpl
   return (
     <View style={styles.pageHeaderRow}>
       <View style={{ flex: 1 }}>
-        <Text style={styles.pageTitleCompact}>Market</Text>
+        <Text style={styles.pageTitle}>Annonces</Text>
         <Text style={styles.pageSubtitle}>
-          <Ionicons name="car-sport" size={14} color="#b9e6fe" /> {ridesCount} courses
+          {ridesCount} course{ridesCount !== 1 ? 's' : ''} disponible{ridesCount !== 1 ? 's' : ''}
         </Text>
       </View>
-      
-      {/* Publier button */}
       <TouchableOpacity
-        style={styles.createButtonCompact}
+        style={styles.createButton}
         onPress={onCreateRide}
-        activeOpacity={0.8}
+        activeOpacity={0.85}
       >
         <LinearGradient
           colors={['#10b981', '#059669']}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 0 }}
           style={styles.createButtonGradient}
         >
-          <Ionicons name="add" size={18} color="#fff" />
+          <Ionicons name="add-circle" size={20} color="#fff" />
           <Text style={styles.createButtonText}>Publier</Text>
         </LinearGradient>
       </TouchableOpacity>
@@ -45,38 +45,39 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: 20,
+    marginBottom: 16,
   },
-  pageTitleCompact: {
-    fontSize: 24,
-    fontWeight: '700',
-    color: '#e2e8f0',
-    marginBottom: 4,
+  pageTitle: {
+    fontSize: 22,
+    fontWeight: '800',
+    color: '#f1f5f9',
+    letterSpacing: -0.2,
   },
   pageSubtitle: {
-    fontSize: 13,
-    color: '#94a3b8',
+    fontSize: 14,
+    color: '#64748b',
+    marginTop: 2,
     fontWeight: '500',
   },
-  createButtonCompact: {
-    borderRadius: 12,
+  createButton: {
+    borderRadius: 14,
     overflow: 'hidden',
-    elevation: 4,
     shadowColor: '#10b981',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 6,
+    elevation: 3,
   },
   createButtonGradient: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingVertical: 10,
     paddingHorizontal: 16,
-    gap: 6,
+    gap: 8,
   },
   createButtonText: {
     color: '#fff',
-    fontSize: 14,
+    fontSize: 15,
     fontWeight: '700',
   },
 });

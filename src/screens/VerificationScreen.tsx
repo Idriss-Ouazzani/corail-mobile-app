@@ -41,8 +41,9 @@ export const VerificationScreen: React.FC<VerificationScreenProps> = ({ onBack, 
       Alert.alert('Erreur', 'Veuillez entrer votre numéro de carte professionnelle VTC');
       return;
     }
-    if (!siren.trim() || siren.length !== 9) {
-      Alert.alert('Erreur', 'Le numéro SIREN doit contenir 9 chiffres');
+    // SIREN optionnel : valider uniquement s'il est rempli
+    if (siren.trim() && siren.length !== 9) {
+      Alert.alert('Erreur', 'Le numéro SIREN doit contenir exactement 9 chiffres');
       return;
     }
 
@@ -62,9 +63,9 @@ export const VerificationScreen: React.FC<VerificationScreenProps> = ({ onBack, 
       });
 
       Alert.alert(
-        'Vérification soumise ! 🎉',
-        'Votre demande a été envoyée. Vous recevrez une notification une fois votre compte validé (24-48h).',
-        [{ text: 'OK', onPress: onSuccess }]
+        'Profil créé ! 🎉',
+        'Vous pouvez maintenant utiliser l\'application. Votre profil sera validé sous 24-48h, vous pourrez alors accéder à la marketplace.',
+        [{ text: 'Commencer', onPress: onSuccess }]
       );
     } catch (error: any) {
       console.error('Error submitting verification:', error);
@@ -146,7 +147,7 @@ export const VerificationScreen: React.FC<VerificationScreenProps> = ({ onBack, 
 
           <View style={styles.inputGroup}>
             <Text style={styles.inputLabel}>
-              <Ionicons name="business" size={16} color="#f1f5f9" /> Numéro SIREN *
+              <Ionicons name="business" size={16} color="#f1f5f9" /> Numéro SIREN <Text style={styles.optionalBadge}>(optionnel)</Text>
             </Text>
             <TextInput
               style={styles.input}
@@ -158,7 +159,7 @@ export const VerificationScreen: React.FC<VerificationScreenProps> = ({ onBack, 
               maxLength={9}
             />
             <Text style={styles.inputHint}>
-              9 chiffres, trouvable sur votre extrait Kbis
+              9 chiffres. Si vous n'avez pas de SIREN, vous pouvez laisser ce champ vide.
             </Text>
           </View>
         </View>
@@ -276,6 +277,12 @@ const styles = StyleSheet.create({
     color: '#64748b',
     marginTop: 6,
     lineHeight: 16,
+  },
+  optionalBadge: {
+    fontSize: 12,
+    color: '#94a3b8',
+    fontWeight: '400',
+    fontStyle: 'italic',
   },
   securityNotice: {
     flexDirection: 'row',

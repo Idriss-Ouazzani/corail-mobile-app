@@ -1,17 +1,21 @@
 /**
  * MyRidesList - Affiche les listes de courses selon l'onglet actif
+ * Pagination : 5 par section + "Voir plus". Section passées en style historique (grisée).
  */
 
-import React from 'react';
+import React, { useState, useCallback } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
+const PAGE_SIZE = 5;
+const INITIAL_PAGE_SIZE = 5;
+
 interface Ride {
   id: string;
-  pickup_address: string;
-  dropoff_address: string;
-  scheduled_at: string;
-  price_cents: number;
+  pickup_address?: string;
+  dropoff_address?: string;
+  scheduled_at?: string;
+  price_cents?: number;
   status: string;
   [key: string]: any;
 }
@@ -38,22 +42,30 @@ interface MyRidesListProps {
   onPublishPersonalRide?: (ride: Ride) => void; // Nouveau: pour publier une course perso
 }
 
-// Sous-composant pour afficher une course compacte
+// Sous-composant pour afficher une course compacte (isHistoric = passées ; isPastDue = date passée, à terminer)
 function CompactRideRow({ 
   ride, 
   onPress, 
   iconName, 
   iconColor, 
   opacity = 1, 
+  isHistoric = false,
+  isPastDue = false,
   showPublishButton = false, 
   onPublish,
   statusBadge,
   statusBadgeColor,
 }: any) {
+  const rowStyle = [
+    styles.compactRideRow,
+    isHistoric && styles.compactRideRowHistoric,
+    isPastDue && styles.compactRideRowPastDue,
+  ];
+  const textMuted = isHistoric || (opacity < 1 && !isPastDue);
   // Si le bouton publier existe, on a besoin d'un layout spécial
   if (showPublishButton && onPublish) {
     return (
-      <View style={[styles.compactRideRow, { opacity }]}>
+      <View style={[rowStyle, { opacity }]}>
         <TouchableOpacity
           style={[styles.compactRideLeft, { flex: 1 }]}
           onPress={() => onPress(ride)}
@@ -63,23 +75,30 @@ function CompactRideRow({
             <Ionicons name={iconName} size={20} color={iconColor?.replace('0.2', '1') || '#0ea5e9'} />
           </View>
           <View style={styles.compactRideInfo}>
-            <Text style={[styles.compactRideTime, opacity < 1 && { color: '#64748b' }]}>
-              {new Date(ride.scheduled_at).toLocaleDateString('fr-FR', { 
-                day: 'numeric', 
-                month: 'short',
-                hour: '2-digit',
-                minute: '2-digit'
-              })}
-            </Text>
+            <View style={styles.compactRideTimeRow}>
+              <Text style={[styles.compactRideTime, textMuted && styles.compactRideTimeMuted]}>
+                {new Date(ride.scheduled_at).toLocaleDateString('fr-FR', { 
+                  day: 'numeric', 
+                  month: 'short',
+                  hour: '2-digit',
+                  minute: '2-digit'
+                })}
+              </Text>
+              {isPastDue && (
+                <View style={styles.badgeATerminer}>
+                  <Text style={styles.badgeATerminerText}>À terminer</Text>
+                </View>
+              )}
+            </View>
             <View style={styles.compactRideRoute}>
-              <Ionicons name="location" size={12} color="#10b981" />
-              <Text style={styles.compactRideAddress} numberOfLines={1}>
+              <Ionicons name="location" size={14} color={isHistoric ? '#64748b' : '#34d399'} />
+              <Text style={[styles.compactRideAddress, textMuted && styles.compactRideAddressMuted]} numberOfLines={1}>
                 {ride.pickup_address}
               </Text>
             </View>
             <View style={styles.compactRideRoute}>
-              <Ionicons name="flag" size={12} color="#ff6b47" />
-              <Text style={styles.compactRideAddress} numberOfLines={1}>
+              <Ionicons name="flag" size={14} color={isHistoric ? '#64748b' : '#f97316'} />
+              <Text style={[styles.compactRideAddress, textMuted && styles.compactRideAddressMuted]} numberOfLines={1}>
                 {ride.dropoff_address}
               </Text>
             </View>
@@ -87,7 +106,7 @@ function CompactRideRow({
         </TouchableOpacity>
         
         <View style={styles.compactRideRight}>
-          <Text style={styles.compactRidePrice}>
+          <Text style={[styles.compactRidePrice, isHistoric && styles.compactRidePriceMuted]}>
             {(ride.price_cents / 100).toFixed(2)}€
           </Text>
           <TouchableOpacity
@@ -105,32 +124,39 @@ function CompactRideRow({
   // Layout par défaut : toute la ligne est cliquable
   return (
     <TouchableOpacity
-      style={[styles.compactRideRow, { opacity }]}
+      style={rowStyle}
       onPress={() => onPress(ride)}
       activeOpacity={0.7}
     >
       <View style={styles.compactRideLeft}>
-        <View style={[styles.compactRideIconWrapper, iconColor && { backgroundColor: iconColor }]}>
-          <Ionicons name={iconName} size={20} color={iconColor?.replace('0.2', '1') || '#0ea5e9'} />
+        <View style={[styles.compactRideIconWrapper, iconColor && { backgroundColor: iconColor }, isHistoric && styles.compactRideIconWrapperHistoric]}>
+          <Ionicons name={iconName} size={20} color={isHistoric ? '#64748b' : (iconColor?.replace('0.2', '1') || '#0ea5e9')} />
         </View>
         <View style={styles.compactRideInfo}>
-          <Text style={[styles.compactRideTime, opacity < 1 && { color: '#64748b' }]}>
-            {new Date(ride.scheduled_at).toLocaleDateString('fr-FR', { 
-              day: 'numeric', 
-              month: 'short',
-              hour: '2-digit',
-              minute: '2-digit'
-            })}
-          </Text>
+          <View style={styles.compactRideTimeRow}>
+            <Text style={[styles.compactRideTime, textMuted && styles.compactRideTimeMuted]}>
+              {new Date(ride.scheduled_at).toLocaleDateString('fr-FR', { 
+                day: 'numeric', 
+                month: 'short',
+                hour: '2-digit',
+                minute: '2-digit'
+              })}
+            </Text>
+            {isPastDue && (
+              <View style={styles.badgeATerminer}>
+                <Text style={styles.badgeATerminerText}>À terminer</Text>
+              </View>
+            )}
+          </View>
           <View style={styles.compactRideRoute}>
-            <Ionicons name="location" size={12} color="#10b981" />
-            <Text style={styles.compactRideAddress} numberOfLines={1}>
+            <Ionicons name="location" size={14} color={isHistoric ? '#64748b' : '#34d399'} />
+            <Text style={[styles.compactRideAddress, textMuted && styles.compactRideAddressMuted]} numberOfLines={1}>
               {ride.pickup_address}
             </Text>
           </View>
           <View style={styles.compactRideRoute}>
-            <Ionicons name="flag" size={12} color="#ff6b47" />
-            <Text style={styles.compactRideAddress} numberOfLines={1}>
+            <Ionicons name="flag" size={14} color={isHistoric ? '#64748b' : '#f97316'} />
+            <Text style={[styles.compactRideAddress, textMuted && styles.compactRideAddressMuted]} numberOfLines={1}>
               {ride.dropoff_address}
             </Text>
           </View>
@@ -139,7 +165,7 @@ function CompactRideRow({
       
       <View style={styles.compactRideRight}>
         <View style={styles.compactRidePriceContainer}>
-          <Text style={styles.compactRidePrice}>
+          <Text style={[styles.compactRidePrice, isHistoric && styles.compactRidePriceMuted]}>
             {(ride.price_cents / 100).toFixed(2)}€
           </Text>
           {statusBadge && (
@@ -148,7 +174,7 @@ function CompactRideRow({
             </View>
           )}
         </View>
-        <Ionicons name="chevron-forward" size={20} color="#64748b" />
+        <Ionicons name="chevron-forward" size={20} color={isHistoric ? '#475569' : '#64748b'} />
       </View>
     </TouchableOpacity>
   );
@@ -168,91 +194,77 @@ export default function MyRidesList({
   onPersonalRidePress,
   onPublishPersonalRide,
 }: MyRidesListProps) {
-  
+  const [limits, setLimits] = useState({
+    claimedEnCours: INITIAL_PAGE_SIZE,
+    claimedTerminees: INITIAL_PAGE_SIZE,
+    publishedEnLigne: INITIAL_PAGE_SIZE,
+    publishedPrises: INITIAL_PAGE_SIZE,
+    personalActives: INITIAL_PAGE_SIZE,
+  });
+  const setLimit = useCallback((key: keyof typeof limits, value: number) => {
+    setLimits((prev) => ({ ...prev, [key]: value }));
+  }, []);
+
+  const renderVoirPlus = (count: number, limitKey: keyof typeof limits) => {
+    if (count <= limits[limitKey]) return null;
+    const rest = count - limits[limitKey];
+    return (
+      <TouchableOpacity
+        style={styles.voirPlus}
+        onPress={() => setLimit(limitKey, limits[limitKey] + PAGE_SIZE)}
+        activeOpacity={0.7}
+      >
+        <Text style={styles.voirPlusText}>Voir plus (+{Math.min(rest, PAGE_SIZE)})</Text>
+      </TouchableOpacity>
+    );
+  };
+
   // CLAIMED TAB
   if (activeTab === 'claimed') {
+    const shownClaimed = claimedRides.slice(0, limits.claimedEnCours);
+    const shownCompleted = completedRides.slice(0, limits.claimedTerminees);
     return (
       <>
-        {/* Stats */}
-        <View style={styles.myRidesStats}>
-          <View style={[styles.statCard, { flex: 1, marginRight: 8 }]}>
-            <View style={[styles.statIconWrapper, { backgroundColor: 'rgba(14, 165, 233, 0.2)' }]}>
-              <Ionicons name="time" size={16} color="#0ea5e9" />
-            </View>
-            <Text style={styles.statValue}>{claimedRides.length}</Text>
-            <Text style={styles.statLabel}>En cours</Text>
-          </View>
-          <View style={[styles.statCard, { flex: 1, marginLeft: 8 }]}>
-            <View style={[styles.statIconWrapper, { backgroundColor: 'rgba(16, 185, 129, 0.2)' }]}>
-              <Ionicons name="checkmark-circle" size={16} color="#10b981" />
-            </View>
-            <Text style={styles.statValue}>{completedRides.length}</Text>
-            <Text style={styles.statLabel}>Terminées</Text>
-          </View>
-        </View>
-
-        {/* Claimed Rides - Compact View */}
         {claimedRides.length > 0 && (
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>
-              <Ionicons name="time" size={16} color="#0ea5e9" /> En cours
-            </Text>
-            {claimedRides.map((ride) => (
+            <Text style={styles.sectionLabel}>En cours</Text>
+            {shownClaimed.map((ride) => (
               <CompactRideRow
                 key={ride.id}
                 ride={ride}
                 onPress={onRidePress}
                 iconName="car-sport-outline"
                 iconColor="rgba(14, 165, 233, 0.2)"
+                isPastDue={ride.scheduled_at ? new Date(ride.scheduled_at).getTime() < Date.now() : false}
               />
             ))}
+            {renderVoirPlus(claimedRides.length, 'claimedEnCours')}
           </View>
         )}
 
-        {/* Completed Rides - Compact View */}
         {completedRides.length > 0 && (
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>
-              <Ionicons name="checkmark-circle" size={16} color="#10b981" /> Terminées
-            </Text>
-            {completedRides.map((ride) => (
+          <View style={[styles.section, styles.historicSection]}>
+            <Text style={styles.sectionLabelHistoric}>Passées (historique)</Text>
+            {shownCompleted.map((ride) => (
               <CompactRideRow
                 key={ride.id}
                 ride={ride}
                 onPress={onRidePress}
                 iconName="checkmark-circle-outline"
                 iconColor="rgba(16, 185, 129, 0.2)"
+                isHistoric={true}
               />
             ))}
+            {renderVoirPlus(completedRides.length, 'claimedTerminees')}
           </View>
         )}
 
-        {/* Historique */}
-        {historyClaimed.length > 0 && (
-          <View style={[styles.section, { marginTop: 16 }]}>
-            <Text style={[styles.sectionTitle, { color: '#64748b' }]}>
-              <Ionicons name="time-outline" size={16} color="#64748b" /> Historique
-            </Text>
-            {historyClaimed.map((ride) => (
-              <CompactRideRow
-                key={ride.id}
-                ride={ride}
-                onPress={onRidePress}
-                iconName="checkmark-done-outline"
-                iconColor="rgba(100, 116, 139, 0.2)"
-                opacity={0.6}
-              />
-            ))}
-          </View>
-        )}
-
-        {/* Empty state */}
         {claimedRides.length === 0 && completedRides.length === 0 && (
           <View style={styles.emptyState}>
             <Ionicons name="hand-right-outline" size={64} color="#475569" />
-            <Text style={styles.emptyStateText}>Aucune course prise</Text>
+            <Text style={styles.emptyStateText}>Aucune course à faire</Text>
             <Text style={styles.emptyStateSubtext}>
-              Consultez le marketplace pour prendre une course
+              Prenez une course dans Annonces pour la voir ici
             </Text>
           </View>
         )}
@@ -262,33 +274,14 @@ export default function MyRidesList({
   
   // PUBLISHED TAB
   if (activeTab === 'published') {
+    const shownEnLigne = activePublished.slice(0, limits.publishedEnLigne);
+    const shownPrises = claimedPublished.slice(0, limits.publishedPrises);
     return (
       <>
-        {/* Stats */}
-        <View style={styles.myRidesStats}>
-          <View style={[styles.statCard, { flex: 1, marginRight: 8 }]}>
-            <View style={[styles.statIconWrapper, { backgroundColor: 'rgba(16, 185, 129, 0.2)' }]}>
-              <Ionicons name="megaphone" size={16} color="#10b981" />
-            </View>
-            <Text style={styles.statValue}>{activePublished.length}</Text>
-            <Text style={styles.statLabel}>Actives</Text>
-          </View>
-          <View style={[styles.statCard, { flex: 1, marginLeft: 8 }]}>
-            <View style={[styles.statIconWrapper, { backgroundColor: 'rgba(14, 165, 233, 0.2)' }]}>
-              <Ionicons name="checkmark-circle" size={16} color="#0ea5e9" />
-            </View>
-            <Text style={styles.statValue}>{claimedPublished.length}</Text>
-            <Text style={styles.statLabel}>Prises</Text>
-          </View>
-        </View>
-
-        {/* Active Published */}
         {activePublished.length > 0 && (
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>
-              <Ionicons name="megaphone" size={16} color="#10b981" /> Actives
-            </Text>
-            {activePublished.map((ride) => (
+            <Text style={styles.sectionLabel}>En ligne</Text>
+            {shownEnLigne.map((ride) => (
               <CompactRideRow
                 key={ride.id}
                 ride={ride}
@@ -297,18 +290,17 @@ export default function MyRidesList({
                 iconColor="rgba(16, 185, 129, 0.2)"
                 statusBadge="PUBLIÉE"
                 statusBadgeColor="#10b981"
+                isPastDue={ride.scheduled_at ? new Date(ride.scheduled_at).getTime() < Date.now() : false}
               />
             ))}
+            {renderVoirPlus(activePublished.length, 'publishedEnLigne')}
           </View>
         )}
 
-        {/* Claimed Published */}
         {claimedPublished.length > 0 && (
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>
-              <Ionicons name="checkmark-circle" size={16} color="#0ea5e9" /> Prises
-            </Text>
-            {claimedPublished.map((ride) => (
+            <Text style={styles.sectionLabel}>Prises par un chauffeur</Text>
+            {shownPrises.map((ride) => (
               <CompactRideRow
                 key={ride.id}
                 ride={ride}
@@ -317,37 +309,19 @@ export default function MyRidesList({
                 iconColor="rgba(14, 165, 233, 0.2)"
                 statusBadge="PRISE"
                 statusBadgeColor="#0ea5e9"
+                isPastDue={ride.scheduled_at ? new Date(ride.scheduled_at).getTime() < Date.now() : false}
               />
             ))}
+            {renderVoirPlus(claimedPublished.length, 'publishedPrises')}
           </View>
         )}
 
-        {/* Historique */}
-        {historyPublished.length > 0 && (
-          <View style={[styles.section, { marginTop: 16 }]}>
-            <Text style={[styles.sectionTitle, { color: '#64748b' }]}>
-              <Ionicons name="time-outline" size={16} color="#64748b" /> Historique
-            </Text>
-            {historyPublished.map((ride) => (
-              <CompactRideRow
-                key={ride.id}
-                ride={ride}
-                onPress={onRidePress}
-                iconName="checkmark-done-outline"
-                iconColor="rgba(100, 116, 139, 0.2)"
-                opacity={0.6}
-              />
-            ))}
-          </View>
-        )}
-
-        {/* Empty state */}
         {activePublished.length === 0 && claimedPublished.length === 0 && (
           <View style={styles.emptyState}>
             <Ionicons name="megaphone-outline" size={64} color="#475569" />
-            <Text style={styles.emptyStateText}>Aucune course publiée</Text>
+            <Text style={styles.emptyStateText}>Aucune annonce en ligne</Text>
             <Text style={styles.emptyStateSubtext}>
-              Publiez une course pour la partager avec d'autres chauffeurs
+              Publiez une course depuis Annonces pour la proposer aux autres
             </Text>
           </View>
         )}
@@ -357,26 +331,13 @@ export default function MyRidesList({
   
   // PERSONAL TAB
   if (activeTab === 'personal') {
+    const shownPersonal = activePersonal.slice(0, limits.personalActives);
     return (
       <>
-        {/* Stats */}
-        <View style={styles.myRidesStats}>
-          <View style={[styles.statCard, { flex: 1 }]}>
-            <View style={[styles.statIconWrapper, { backgroundColor: 'rgba(139, 92, 246, 0.2)' }]}>
-              <Ionicons name="lock-closed" size={16} color="#8b5cf6" />
-            </View>
-            <Text style={styles.statValue}>{activePersonal.length}</Text>
-            <Text style={styles.statLabel}>Actives</Text>
-          </View>
-        </View>
-
-        {/* Active Personal */}
         {activePersonal.length > 0 && (
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>
-              <Ionicons name="lock-closed" size={16} color="#8b5cf6" /> Actives
-            </Text>
-            {activePersonal.map((ride) => (
+            <Text style={styles.sectionLabel}>Actives</Text>
+            {shownPersonal.map((ride) => (
               <CompactRideRow
                 key={ride.id}
                 ride={ride}
@@ -385,37 +346,19 @@ export default function MyRidesList({
                 iconColor="rgba(139, 92, 246, 0.2)"
                 showPublishButton={true}
                 onPublish={onPublishPersonalRide}
+                isPastDue={ride.scheduled_at ? new Date(ride.scheduled_at).getTime() < Date.now() : false}
               />
             ))}
+            {renderVoirPlus(activePersonal.length, 'personalActives')}
           </View>
         )}
 
-        {/* Historique */}
-        {historyPersonal.length > 0 && (
-          <View style={[styles.section, { marginTop: 16 }]}>
-            <Text style={[styles.sectionTitle, { color: '#64748b' }]}>
-              <Ionicons name="time-outline" size={16} color="#64748b" /> Historique
-            </Text>
-            {historyPersonal.map((ride) => (
-              <CompactRideRow
-                key={ride.id}
-                ride={ride}
-                onPress={onPersonalRidePress}
-                iconName="checkmark-done-outline"
-                iconColor="rgba(100, 116, 139, 0.2)"
-                opacity={0.6}
-              />
-            ))}
-          </View>
-        )}
-
-        {/* Empty state */}
-        {activePersonal.length === 0 && historyPersonal.length === 0 && (
+        {activePersonal.length === 0 && (
           <View style={styles.emptyState}>
             <Ionicons name="lock-closed-outline" size={64} color="#475569" />
-            <Text style={styles.emptyStateText}>Aucune course personnelle</Text>
+            <Text style={styles.emptyStateText}>Aucune course privée</Text>
             <Text style={styles.emptyStateSubtext}>
-              Créez une course privée pour votre propre usage
+              Créez une course (mode privé) pour votre usage uniquement
             </Text>
           </View>
         )}
@@ -427,62 +370,65 @@ export default function MyRidesList({
 }
 
 const styles = StyleSheet.create({
-  myRidesStats: {
-    flexDirection: 'row',
-    marginBottom: 16,
-    marginHorizontal: 20,
-  },
-  statCard: {
-    backgroundColor: '#1e293b',
-    borderRadius: 10,
-    paddingVertical: 10,
-    paddingHorizontal: 12,
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: '#334155',
-  },
-  statIconWrapper: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 6,
-  },
-  statValue: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: '#e2e8f0',
-    marginBottom: 2,
-  },
-  statLabel: {
-    fontSize: 11,
-    color: '#94a3b8',
-    fontWeight: '500',
-  },
   section: {
-    marginBottom: 16,
+    marginBottom: 12,
     marginHorizontal: 20,
   },
-  sectionTitle: {
-    fontSize: 14,
+  sectionLabel: {
+    fontSize: 11,
     fontWeight: '700',
-    color: '#e2e8f0',
-    marginBottom: 10,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
+    color: '#94a3b8',
+    textTransform: 'uppercase',
+    letterSpacing: 0.8,
+    marginBottom: 8,
+  },
+  sectionLabelHistoric: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#64748b',
+    textTransform: 'uppercase',
+    letterSpacing: 0.8,
+    marginBottom: 8,
+  },
+  historicSection: {
+    marginTop: 20,
+    paddingTop: 16,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(51, 65, 85, 0.6)',
+  },
+  sectionLabelMuted: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#64748b',
+    textTransform: 'uppercase',
+    letterSpacing: 0.8,
+    marginBottom: 8,
   },
   compactRideRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: '#1e293b',
+    backgroundColor: 'rgba(30, 41, 59, 0.7)',
     borderRadius: 12,
     padding: 12,
     marginBottom: 8,
     borderWidth: 1,
-    borderColor: '#334155',
+    borderColor: 'rgba(51, 65, 85, 0.5)',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.08,
+    shadowRadius: 4,
+    elevation: 1,
+  },
+  compactRideRowHistoric: {
+    backgroundColor: 'rgba(30, 41, 59, 0.5)',
+    borderColor: 'rgba(51, 65, 85, 0.35)',
+    opacity: 0.95,
+  },
+  compactRideRowPastDue: {
+    borderLeftWidth: 4,
+    borderLeftColor: '#f59e0b',
+    backgroundColor: 'rgba(245, 158, 11, 0.08)',
   },
   compactRideLeft: {
     flexDirection: 'row',
@@ -501,22 +447,36 @@ const styles = StyleSheet.create({
   compactRideInfo: {
     flex: 1,
   },
-  compactRideTime: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: '#e2e8f0',
+  compactRideTimeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+    gap: 8,
     marginBottom: 4,
+  },
+  compactRideTime: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#f1f5f9',
+  },
+  compactRideTimeMuted: {
+    color: '#64748b',
   },
   compactRideRoute: {
     flexDirection: 'row',
     alignItems: 'center',
     marginBottom: 2,
-    gap: 4,
+    gap: 6,
   },
   compactRideAddress: {
-    fontSize: 12,
-    color: '#94a3b8',
+    fontSize: 13,
+    fontWeight: '500',
+    color: '#cbd5e1',
     flex: 1,
+    lineHeight: 18,
+  },
+  compactRideAddressMuted: {
+    color: '#64748b',
   },
   compactRideRight: {
     alignItems: 'flex-end',
@@ -524,12 +484,44 @@ const styles = StyleSheet.create({
   },
   compactRidePriceContainer: {
     alignItems: 'flex-end',
-    gap: 6,
+    gap: 4,
   },
   compactRidePrice: {
     fontSize: 16,
+    fontWeight: '800',
+    color: '#34d399',
+    letterSpacing: -0.2,
+  },
+  compactRidePriceMuted: {
+    color: '#64748b',
+  },
+  compactRideIconWrapperHistoric: {
+    backgroundColor: 'rgba(100, 116, 139, 0.2)',
+  },
+  badgeATerminer: {
+    backgroundColor: 'rgba(245, 158, 11, 0.25)',
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 6,
+  },
+  badgeATerminerText: {
+    fontSize: 10,
     fontWeight: '700',
-    color: '#10b981',
+    color: '#f59e0b',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  voirPlus: {
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    alignItems: 'center',
+    marginTop: 4,
+    marginBottom: 8,
+  },
+  voirPlusText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#0ea5e9',
   },
   compactStatusBadge: {
     paddingHorizontal: 8,
@@ -555,20 +547,22 @@ const styles = StyleSheet.create({
   emptyState: {
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 60,
-    paddingHorizontal: 40,
+    paddingVertical: 48,
+    paddingHorizontal: 32,
   },
   emptyStateText: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#e2e8f0',
+    fontSize: 17,
+    fontWeight: '700',
+    color: '#f1f5f9',
     marginTop: 16,
     marginBottom: 8,
+    textAlign: 'center',
   },
   emptyStateSubtext: {
     fontSize: 14,
     color: '#94a3b8',
     textAlign: 'center',
+    lineHeight: 20,
   },
 });
 

@@ -13,4 +13,5 @@ export { useRideActions } from './useRideActions';
 export { useNotifications } from './useNotifications';
 export { useScreenTracking } from './useScreenTracking';
 export { useAddressAutocomplete } from './useAddressAutocomplete';
+export { useUserLocation } from './useUserLocation';
 

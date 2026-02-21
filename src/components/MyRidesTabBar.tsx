@@ -1,10 +1,9 @@
 /**
- * MyRidesTabBar - Barre d'onglets pour Mes Courses
+ * MyRidesTabBar - 3 chips compacts pour filtrer Mes courses (À faire / En ligne / Privées)
  */
 
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
 
 interface MyRidesTabBarProps {
   activeTab: 'claimed' | 'published' | 'personal';
@@ -14,6 +13,12 @@ interface MyRidesTabBarProps {
   onTabChange: (tab: 'claimed' | 'published' | 'personal') => void;
 }
 
+const TABS: { key: 'claimed' | 'published' | 'personal'; label: string }[] = [
+  { key: 'claimed', label: 'À faire' },
+  { key: 'published', label: 'En ligne' },
+  { key: 'personal', label: 'Privées' },
+];
+
 export default function MyRidesTabBar({
   activeTab,
   claimedCount,
@@ -21,121 +26,61 @@ export default function MyRidesTabBar({
   personalCount,
   onTabChange,
 }: MyRidesTabBarProps) {
-  return (
-    <View style={styles.tabsRow}>
-      <TouchableOpacity
-        style={[styles.tab, activeTab === 'claimed' && styles.tabActive]}
-        onPress={() => onTabChange('claimed')}
-        activeOpacity={0.7}
-      >
-        <Ionicons
-          name="hand-right"
-          size={16}
-          color={activeTab === 'claimed' ? '#fff' : '#64748b'}
-          style={{ marginBottom: 4 }}
-        />
-        <View style={styles.tabTextContainer}>
-          <Text style={[styles.tabText, activeTab === 'claimed' && styles.tabTextActive]}>
-            Prises
-          </Text>
-          <Text style={[styles.tabCount, activeTab === 'claimed' && styles.tabCountActive]}>
-            ({claimedCount})
-          </Text>
-        </View>
-      </TouchableOpacity>
+  const counts = { claimed: claimedCount, published: publishedCount, personal: personalCount };
 
-      <TouchableOpacity
-        style={[styles.tab, activeTab === 'published' && styles.tabActive]}
-        onPress={() => onTabChange('published')}
-        activeOpacity={0.7}
-      >
-        <Ionicons
-          name="megaphone"
-          size={16}
-          color={activeTab === 'published' ? '#fff' : '#64748b'}
-          style={{ marginBottom: 4 }}
-        />
-        <View style={styles.tabTextContainer}>
-          <Text style={[styles.tabText, activeTab === 'published' && styles.tabTextActive]}>
-            Publiées
+  return (
+    <View style={styles.row}>
+      {TABS.map(({ key, label }) => (
+        <TouchableOpacity
+          key={key}
+          style={[styles.chip, activeTab === key && styles.chipActive]}
+          onPress={() => onTabChange(key)}
+          activeOpacity={0.7}
+        >
+          <Text style={[styles.chipLabel, activeTab === key && styles.chipLabelActive]}>
+            {label} {counts[key]}
           </Text>
-          <Text style={[styles.tabCount, activeTab === 'published' && styles.tabCountActive]}>
-            ({publishedCount})
-          </Text>
-        </View>
-      </TouchableOpacity>
-      
-      <TouchableOpacity
-        style={[styles.tab, activeTab === 'personal' && styles.tabActive]}
-        onPress={() => onTabChange('personal')}
-        activeOpacity={0.7}
-      >
-        <Ionicons
-          name="lock-closed"
-          size={16}
-          color={activeTab === 'personal' ? '#fff' : '#64748b'}
-          style={{ marginBottom: 4 }}
-        />
-        <View style={styles.tabTextContainer}>
-          <Text style={[styles.tabText, activeTab === 'personal' && styles.tabTextActive]}>
-            Perso
-          </Text>
-          <Text style={[styles.tabCount, activeTab === 'personal' && styles.tabCountActive]}>
-            ({personalCount})
-          </Text>
-        </View>
-      </TouchableOpacity>
+        </TouchableOpacity>
+      ))}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  tabsRow: {
+  row: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: 20,
-    marginHorizontal: 20,
     gap: 8,
+    marginBottom: 12,
+    marginHorizontal: 20,
   },
-  tab: {
+  chip: {
     flex: 1,
-    flexDirection: 'column', // Changé à column pour layout vertical
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    borderRadius: 12,
+    backgroundColor: 'rgba(30, 41, 59, 0.7)',
+    borderWidth: 1,
+    borderColor: 'rgba(51, 65, 85, 0.6)',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#1e293b',
-    borderRadius: 12,
-    paddingVertical: 12,
-    paddingHorizontal: 8,
-    borderWidth: 1,
-    borderColor: '#334155',
-    minHeight: 70, // Hauteur minimale pour le layout vertical
   },
-  tabActive: {
+  chipActive: {
     backgroundColor: '#0ea5e9',
     borderColor: '#0ea5e9',
+    shadowColor: '#0ea5e9',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 2,
   },
-  tabTextContainer: {
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  tabText: {
-    color: '#64748b',
-    fontSize: 12,
+  chipLabel: {
+    fontSize: 13,
     fontWeight: '600',
-    textAlign: 'center',
+    color: '#94a3b8',
   },
-  tabTextActive: {
+  chipLabelActive: {
     color: '#fff',
-  },
-  tabCount: {
-    color: '#64748b',
-    fontSize: 11,
-    fontWeight: '500',
-    marginTop: 2,
-  },
-  tabCountActive: {
-    color: '#fff',
-    opacity: 0.9,
+    fontWeight: '700',
   },
 });
 

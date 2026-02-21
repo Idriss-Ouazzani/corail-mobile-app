@@ -59,169 +59,88 @@ export default function ProfileMenuList({
     );
   };
 
+  const Card = ({ title, children }: { title: string; children: React.ReactNode }) => (
+    <View style={styles.card}>
+      <Text style={styles.cardTitle}>{title}</Text>
+      {children}
+    </View>
+  );
+
+  const Row = ({
+    icon,
+    iconColor,
+    iconBg,
+    label,
+    onPress,
+    subtitle,
+    isDestructive,
+    showOpen,
+  }: {
+    icon: string;
+    iconColor: string;
+    iconBg: string;
+    label: string;
+    onPress: () => void;
+    subtitle?: string;
+    isDestructive?: boolean;
+    showOpen?: boolean;
+  }) => (
+    <TouchableOpacity style={styles.row} onPress={onPress} activeOpacity={0.7}>
+      <View style={[styles.rowIcon, { backgroundColor: iconBg }]}>
+        <Ionicons name={icon as any} size={20} color={iconColor} />
+      </View>
+      <View style={styles.rowContent}>
+        <Text style={[styles.rowLabel, isDestructive && styles.rowLabelDestructive]}>{label}</Text>
+        {subtitle ? <Text style={styles.rowSubtitle}>{subtitle}</Text> : null}
+      </View>
+      <Ionicons name={showOpen ? 'open-outline' : 'chevron-forward'} size={20} color="#64748b" />
+    </TouchableOpacity>
+  );
+
   return (
     <>
-      {/* 👨‍💼 Section Admin */}
       {isAdmin && (
-        <View style={styles.section}>
-          <View style={[styles.sectionHeader, { marginBottom: 12 }]}>
-            <Text style={styles.sectionTitle}>
-              <Ionicons name="shield-checkmark" size={20} color="#fbbf24" /> Administration
-            </Text>
-            <View style={styles.adminBadge}>
-              <Text style={styles.adminBadgeText}>ADMIN</Text>
-            </View>
-          </View>
-          <TouchableOpacity
-            style={[styles.menuItem, styles.adminMenuItem]}
+        <Card title="Administration">
+          <Row
+            icon="shield-checkmark"
+            iconColor="#fbbf24"
+            iconBg="rgba(251, 191, 36, 0.15)"
+            label="Panel Admin"
             onPress={onShowAdminPanel}
-            activeOpacity={0.7}
-          >
-            <View style={[styles.menuIconWrapper, { backgroundColor: 'rgba(251, 191, 36, 0.2)' }]}>
-              <Ionicons name="shield-checkmark" size={20} color="#fbbf24" />
-            </View>
-            <Text style={styles.menuTitle}>Panel Admin</Text>
-            <Ionicons name="chevron-forward" size={20} color="rgba(251, 191, 36, 0.5)" />
-          </TouchableOpacity>
-        </View>
+          />
+        </Card>
       )}
 
-      {/* Compte */}
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Compte</Text>
-        <TouchableOpacity style={styles.menuItem} onPress={onShowPersonalInfo} activeOpacity={0.7}>
-          <View style={styles.menuIconWrapper}>
-            <Ionicons name="person" size={20} color="#ff6b47" />
-          </View>
-          <Text style={styles.menuTitle}>Informations personnelles</Text>
-          <Ionicons name="chevron-forward" size={20} color="rgba(255, 255, 255, 0.3)" />
-        </TouchableOpacity>
+      <Card title="Compte">
+        <Row icon="person" iconColor="#0ea5e9" iconBg="rgba(14, 165, 233, 0.15)" label="Informations personnelles" onPress={onShowPersonalInfo} />
+        <Row icon="people" iconColor="#0ea5e9" iconBg="rgba(14, 165, 233, 0.15)" label="Mes Groupes" onPress={onShowGroups} />
+        <Row icon="mail" iconColor="#f59e0b" iconBg="rgba(245, 158, 11, 0.15)" label="Invitations" onPress={onShowGroupInvitations} />
+      </Card>
 
-        <TouchableOpacity style={styles.menuItem} onPress={onShowGroups} activeOpacity={0.7}>
-          <View style={styles.menuIconWrapper}>
-            <Ionicons name="people" size={20} color="#ff6b47" />
-          </View>
-          <Text style={styles.menuTitle}>Mes Groupes</Text>
-          <Ionicons name="chevron-forward" size={20} color="rgba(255, 255, 255, 0.3)" />
-        </TouchableOpacity>
+      <Card title="Préférences">
+        <Row icon="notifications-outline" iconColor="#64748b" iconBg="rgba(100, 116, 139, 0.15)" label="Notifications" onPress={onShowNotifications} />
+        <Row icon="help-circle-outline" iconColor="#64748b" iconBg="rgba(100, 116, 139, 0.15)" label="Aide & Support" onPress={onShowHelpSupport} />
+      </Card>
 
-        <TouchableOpacity style={styles.menuItem} onPress={onShowGroupInvitations} activeOpacity={0.7}>
-          <View style={styles.menuIconWrapper}>
-            <Ionicons name="mail" size={20} color="#f59e0b" />
-          </View>
-          <Text style={styles.menuTitle}>Invitations</Text>
-          <Ionicons name="chevron-forward" size={20} color="rgba(255, 255, 255, 0.3)" />
-        </TouchableOpacity>
-      </View>
+      <Card title="Nous contacter">
+        <Row icon="mail" iconColor="#6366f1" iconBg="rgba(99, 102, 241, 0.15)" label="Email" subtitle="corail.platform@gmail.com" onPress={() => Linking.openURL('mailto:corail.platform@gmail.com')} showOpen />
+        <Row icon="send" iconColor="#0088cc" iconBg="rgba(0, 136, 204, 0.15)" label="Telegram" subtitle="@corailapp" onPress={() => Linking.openURL('https://t.me/corailapp')} showOpen />
+      </Card>
 
-      {/* Préférences */}
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Préférences</Text>
-        <TouchableOpacity style={styles.menuItem} onPress={onShowNotifications} activeOpacity={0.7}>
-          <View style={styles.menuIconWrapper}>
-            <Ionicons name="notifications" size={20} color="#ff6b47" />
-          </View>
-          <Text style={styles.menuTitle}>Notifications</Text>
-          <Ionicons name="chevron-forward" size={20} color="rgba(255, 255, 255, 0.3)" />
-        </TouchableOpacity>
+      <Card title="Légal & confidentialité">
+        <Row icon="shield-checkmark-outline" iconColor="#64748b" iconBg="rgba(100, 116, 139, 0.15)" label="Confidentialité et données" onPress={onShowPrivacyData} />
+        <Row icon="document-text-outline" iconColor="#64748b" iconBg="rgba(100, 116, 139, 0.15)" label="Politique de confidentialité" onPress={onShowPrivacyPolicy} />
+        <Row icon="reader-outline" iconColor="#64748b" iconBg="rgba(100, 116, 139, 0.15)" label="Conditions d'utilisation" onPress={onShowTermsOfService} />
+        <Row icon="information-circle-outline" iconColor="#64748b" iconBg="rgba(100, 116, 139, 0.15)" label="Mentions légales" onPress={onShowLegalNotice} />
+      </Card>
 
-        <TouchableOpacity style={styles.menuItem} onPress={onShowHelpSupport} activeOpacity={0.7}>
-          <View style={styles.menuIconWrapper}>
-            <Ionicons name="help-circle" size={20} color="#ff6b47" />
+      <View style={styles.card}>
+        <TouchableOpacity style={styles.signOutRow} onPress={handleSignOut} activeOpacity={0.7}>
+          <View style={styles.signOutIcon}>
+            <Ionicons name="log-out-outline" size={20} color="#ef4444" />
           </View>
-          <Text style={styles.menuTitle}>Aide & Support</Text>
-          <Ionicons name="chevron-forward" size={20} color="rgba(255, 255, 255, 0.3)" />
+          <Text style={styles.signOutLabel}>Déconnexion</Text>
         </TouchableOpacity>
-      </View>
-
-      {/* Contact Beta */}
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>💬 Nous Contacter (Beta)</Text>
-        
-        {/* Email */}
-        <TouchableOpacity 
-          style={[styles.menuItem, styles.contactItem]}
-          onPress={() => Linking.openURL('mailto:corail.platform@gmail.com')}
-          activeOpacity={0.7}
-        >
-          <View style={[styles.menuIconWrapper, { backgroundColor: 'rgba(79, 70, 229, 0.1)' }]}>
-            <Ionicons name="mail" size={20} color="#4f46e5" />
-          </View>
-          <View style={{ flex: 1 }}>
-            <Text style={styles.menuTitle}>Email</Text>
-            <Text style={styles.contactSubtitle}>corail.platform@gmail.com</Text>
-          </View>
-          <Ionicons name="open-outline" size={20} color="rgba(255, 255, 255, 0.3)" />
-        </TouchableOpacity>
-
-        {/* Telegram */}
-        <TouchableOpacity 
-          style={[styles.menuItem, styles.contactItem, styles.telegramItem]}
-          onPress={() => Linking.openURL('https://t.me/corailapp')}
-          activeOpacity={0.7}
-        >
-          <View style={[styles.menuIconWrapper, styles.telegramIconWrapper]}>
-            <Ionicons name="send" size={20} color="#0088cc" />
-          </View>
-          <View style={{ flex: 1 }}>
-            <Text style={styles.menuTitle}>Telegram</Text>
-            <Text style={styles.contactSubtitle}>@corailapp</Text>
-          </View>
-          <Ionicons name="open-outline" size={20} color="rgba(255, 255, 255, 0.3)" />
-        </TouchableOpacity>
-      </View>
-
-      {/* Légal & Confidentialité */}
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Légal & Confidentialité</Text>
-        
-        <TouchableOpacity style={styles.menuItem} onPress={onShowPrivacyData} activeOpacity={0.7}>
-          <View style={[styles.menuIconWrapper, { backgroundColor: 'rgba(99, 102, 241, 0.1)' }]}>
-            <Ionicons name="shield-checkmark" size={20} color="#6366f1" />
-          </View>
-          <Text style={styles.menuTitle}>Confidentialité et données</Text>
-          <Ionicons name="chevron-forward" size={20} color="rgba(255, 255, 255, 0.3)" />
-        </TouchableOpacity>
-
-        <TouchableOpacity style={styles.menuItem} onPress={onShowPrivacyPolicy} activeOpacity={0.7}>
-          <View style={[styles.menuIconWrapper, { backgroundColor: 'rgba(99, 102, 241, 0.1)' }]}>
-            <Ionicons name="document-text" size={20} color="#6366f1" />
-          </View>
-          <Text style={styles.menuTitle}>Politique de confidentialité</Text>
-          <Ionicons name="chevron-forward" size={20} color="rgba(255, 255, 255, 0.3)" />
-        </TouchableOpacity>
-
-        <TouchableOpacity style={styles.menuItem} onPress={onShowTermsOfService} activeOpacity={0.7}>
-          <View style={[styles.menuIconWrapper, { backgroundColor: 'rgba(99, 102, 241, 0.1)' }]}>
-            <Ionicons name="reader" size={20} color="#6366f1" />
-          </View>
-          <Text style={styles.menuTitle}>Conditions d'utilisation</Text>
-          <Ionicons name="chevron-forward" size={20} color="rgba(255, 255, 255, 0.3)" />
-        </TouchableOpacity>
-
-        <TouchableOpacity style={styles.menuItem} onPress={onShowLegalNotice} activeOpacity={0.7}>
-          <View style={[styles.menuIconWrapper, { backgroundColor: 'rgba(99, 102, 241, 0.1)' }]}>
-            <Ionicons name="information-circle" size={20} color="#6366f1" />
-          </View>
-          <Text style={styles.menuTitle}>Mentions légales</Text>
-          <Ionicons name="chevron-forward" size={20} color="rgba(255, 255, 255, 0.3)" />
-        </TouchableOpacity>
-      </View>
-
-      {/* Déconnexion */}
-      <View style={styles.section}>
-        <TouchableOpacity
-          style={[styles.menuItem, styles.signOutItem]}
-          onPress={handleSignOut}
-          activeOpacity={0.7}
-        >
-          <View style={[styles.menuIconWrapper, { backgroundColor: 'rgba(239, 68, 68, 0.1)' }]}>
-            <Ionicons name="log-out" size={20} color="#ef4444" />
-          </View>
-          <Text style={[styles.menuTitle, { color: '#ef4444' }]}>Déconnexion</Text>
-        </TouchableOpacity>
-
-        {/* User info */}
         <View style={styles.userInfoFooter}>
           <Text style={styles.userInfoLabel}>Connecté en tant que</Text>
           <Text style={styles.userInfoEmail}>{userEmail}</Text>
@@ -232,99 +151,83 @@ export default function ProfileMenuList({
 }
 
 const styles = StyleSheet.create({
-  section: {
-    marginBottom: 20,
-    paddingHorizontal: 20,
-  },
-  sectionHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  sectionTitle: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: '#94a3b8',
-    marginBottom: 12,
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-  },
-  adminBadge: {
-    backgroundColor: 'rgba(251, 191, 36, 0.15)',
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: 6,
-  },
-  adminBadgeText: {
-    fontSize: 10,
-    fontWeight: '700',
-    color: '#fbbf24',
-  },
-  menuItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
+  card: {
     backgroundColor: '#1e293b',
-    borderRadius: 12,
+    borderRadius: 14,
     padding: 16,
-    marginBottom: 8,
+    marginBottom: 16,
     borderWidth: 1,
     borderColor: '#334155',
   },
-  adminMenuItem: {
-    backgroundColor: 'rgba(251, 191, 36, 0.08)',
-    borderColor: 'rgba(251, 191, 36, 0.2)',
+  cardTitle: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#64748b',
+    marginBottom: 12,
+    letterSpacing: 0.3,
   },
-  signOutItem: {
-    backgroundColor: 'rgba(239, 68, 68, 0.1)',
-    borderColor: 'rgba(239, 68, 68, 0.2)',
+  row: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#334155',
   },
-  menuIconWrapper: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: 'rgba(255, 107, 71, 0.1)',
+  rowIcon: {
+    width: 36,
+    height: 36,
+    borderRadius: 10,
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 12,
   },
-  menuTitle: {
-    flex: 1,
-    fontSize: 16,
+  rowContent: { flex: 1 },
+  rowLabel: {
+    fontSize: 15,
     fontWeight: '600',
     color: '#e2e8f0',
   },
-  userInfoFooter: {
-    marginTop: 24,
-    paddingTop: 24,
-    borderTopWidth: 1,
-    borderTopColor: 'rgba(255, 255, 255, 0.05)',
-  },
-  userInfoLabel: {
-    color: '#64748b',
-    fontSize: 13,
-    textAlign: 'center',
-  },
-  userInfoEmail: {
-    color: '#94a3b8',
-    fontSize: 14,
-    textAlign: 'center',
-    marginTop: 4,
-  },
-  contactItem: {
-    backgroundColor: '#1e293b',
-    borderColor: '#334155',
-  },
-  contactSubtitle: {
+  rowLabelDestructive: { color: '#ef4444' },
+  rowSubtitle: {
     fontSize: 13,
     color: '#64748b',
     marginTop: 2,
   },
-  telegramItem: {
-    backgroundColor: 'rgba(0, 136, 204, 0.05)',
-    borderColor: 'rgba(0, 136, 204, 0.2)',
+  signOutRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 12,
   },
-  telegramIconWrapper: {
-    backgroundColor: 'rgba(0, 136, 204, 0.1)',
+  signOutIcon: {
+    width: 36,
+    height: 36,
+    borderRadius: 10,
+    backgroundColor: 'rgba(239, 68, 68, 0.12)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 12,
+  },
+  signOutLabel: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#ef4444',
+  },
+  userInfoFooter: {
+    marginTop: 16,
+    paddingTop: 16,
+    borderTopWidth: 1,
+    borderTopColor: '#334155',
+  },
+  userInfoLabel: {
+    fontSize: 12,
+    color: '#64748b',
+    textAlign: 'center',
+  },
+  userInfoEmail: {
+    fontSize: 13,
+    color: '#94a3b8',
+    textAlign: 'center',
+    marginTop: 4,
   },
 });
 

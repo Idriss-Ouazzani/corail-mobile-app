@@ -1,23 +1,37 @@
 /**
  * MarketplaceRidesList - Liste des courses du marketplace avec états loading/empty
+ * Utilise MarketplaceRideCard (compact, bouton Prendre).
  */
 
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import RideCard from './RideCard';
+import { MarketplaceRideCard } from './MarketplaceRideCard';
 import { RideCardSkeleton } from './skeletons';
 
-interface Ride {
+export interface MarketplaceListRide {
   id: string;
+  creator_id?: string;
+  status: string;
+  visibility?: string;
+  group_id?: string | null;
+  group_name?: string;
+  pickup_address?: string;
+  dropoff_address?: string;
+  scheduled_at?: string;
+  price_cents?: number;
+  vehicle_type?: string;
+  distance_km?: number;
+  duration_minutes?: number;
+  source?: 'chauffeur' | 'hotel' | 'client';
   [key: string]: any;
 }
 
 interface MarketplaceRidesListProps {
-  rides: Ride[];
+  rides: MarketplaceListRide[];
   loading: boolean;
   currentUserId: string | null;
-  onRidePress: (ride: Ride) => void;
+  onRidePress: (ride: MarketplaceListRide) => void;
 }
 
 export default function MarketplaceRidesList({
@@ -51,9 +65,9 @@ export default function MarketplaceRidesList({
   return (
     <>
       {rides.map((ride) => (
-        <RideCard 
-          key={ride.id} 
-          ride={ride} 
+        <MarketplaceRideCard
+          key={ride.id}
+          ride={ride}
           currentUserId={currentUserId}
           onPress={() => onRidePress(ride)}
         />

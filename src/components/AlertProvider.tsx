@@ -48,8 +48,7 @@ export const AlertProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         visible={alertVisible}
         title={alertOptions.title}
         message={alertOptions.message}
-        type={alertOptions.type}
-        buttons={alertOptions.buttons}
+        buttons={alertOptions.buttons ?? []}
         onClose={() => setAlertVisible(false)}
       />
     </AlertContext.Provider>

@@ -10,7 +10,7 @@ import {
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import RideCard from '../components/RideCard';
+import { RideCard } from '../components/RideCard';
 import apiClient from '../services/api';
 import type { Ride } from '../types';
 
@@ -18,20 +18,22 @@ export const MarketplaceScreen = ({ navigation }: any) => {
   const [rides, setRides] = useState<Ride[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [filter, setFilter] = useState<'all' | 'public' | 'groups'>('all');
 
   const fetchRides = async () => {
     try {
       setLoading(true);
+      setLoadError(null);
       const response = await apiClient.listMarketplaceRides({
         filterType: filter,
         limit: 50,
       });
-      setRides(response.data);
+      setRides(response.data ?? []);
     } catch (error) {
       console.error('Error fetching rides:', error);
-      // For demo, show mock data
-      setRides(getMockRides());
+      setLoadError('Impossible de charger les courses. Vérifiez votre connexion.');
+      setRides([]);
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -79,6 +81,27 @@ export const MarketplaceScreen = ({ navigation }: any) => {
     );
   }
 
+  if (loadError) {
+    return (
+      <SafeAreaView style={styles.container} edges={['top']}>
+        <LinearGradient colors={['#0c4a6e', '#075985']} style={styles.gradient}>
+          <View style={styles.header}>
+            <Text style={styles.title}>Marketplace</Text>
+            <Text style={styles.subtitle}>Erreur de chargement</Text>
+          </View>
+          <View style={styles.errorContainer}>
+            <Text style={styles.errorEmoji}>📡</Text>
+            <Text style={styles.errorTitle}>Connexion impossible</Text>
+            <Text style={styles.errorMessage}>{loadError}</Text>
+            <TouchableOpacity style={styles.retryButton} onPress={() => fetchRides()} activeOpacity={0.8}>
+              <Text style={styles.retryButtonText}>Réessayer</Text>
+            </TouchableOpacity>
+          </View>
+        </LinearGradient>
+      </SafeAreaView>
+    );
+  }
+
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
       <LinearGradient
@@ -103,7 +126,11 @@ export const MarketplaceScreen = ({ navigation }: any) => {
           data={rides}
           keyExtractor={(item) => item.id}
           renderItem={({ item }) => (
-            <RideCard ride={item} onPress={() => handleRidePress(item)} />
+            <RideCard
+              ride={item}
+              status={item.status === 'CLAIMED' ? 'IN_PROGRESS' : 'UPCOMING'}
+              onPress={() => handleRidePress(item)}
+            />
           )}
           contentContainerStyle={styles.listContent}
           showsVerticalScrollIndicator={false}
@@ -128,50 +155,6 @@ export const MarketplaceScreen = ({ navigation }: any) => {
     </SafeAreaView>
   );
 };
-
-// Mock data for demo
-const getMockRides = (): Ride[] => [
-  {
-    id: '1',
-    creator_id: 'user1',
-    picker_id: null,
-    pickup_address: 'Aéroport Toulouse-Blagnac',
-    dropoff_address: 'Place du Capitole, Toulouse',
-    scheduled_at: new Date(Date.now() + 3600000).toISOString(),
-    price_cents: 2800,
-    status: 'PUBLISHED',
-    created_at: new Date().toISOString(),
-    updated_at: new Date().toISOString(),
-    completed_at: null,
-    visibility: 'PUBLIC',
-    commission_enabled: true,
-    creator: {
-      id: 'user1',
-      full_name: 'Youssef D.',
-      email: 'youssef@example.com',
-    },
-  },
-  {
-    id: '2',
-    creator_id: 'user2',
-    picker_id: null,
-    pickup_address: 'Gare Toulouse-Matabiau',
-    dropoff_address: 'Ramonville Saint-Agne',
-    scheduled_at: new Date(Date.now() + 7200000).toISOString(),
-    price_cents: 1800,
-    status: 'PUBLISHED',
-    created_at: new Date().toISOString(),
-    updated_at: new Date().toISOString(),
-    completed_at: null,
-    visibility: 'PUBLIC',
-    commission_enabled: false,
-    creator: {
-      id: 'user2',
-      full_name: 'Hassan Al Masri',
-      email: 'hassan@example.com',
-    },
-  },
-];
 
 const styles = StyleSheet.create({
   container: {
@@ -254,6 +237,40 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#b9e6fe',
     textAlign: 'center',
+  },
+  errorContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 32,
+  },
+  errorEmoji: {
+    fontSize: 56,
+    marginBottom: 16,
+  },
+  errorTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: '#ffffff',
+    marginBottom: 8,
+    textAlign: 'center',
+  },
+  errorMessage: {
+    fontSize: 15,
+    color: '#b9e6fe',
+    textAlign: 'center',
+    marginBottom: 24,
+  },
+  retryButton: {
+    backgroundColor: '#ff6b47',
+    paddingHorizontal: 28,
+    paddingVertical: 14,
+    borderRadius: 14,
+  },
+  retryButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#ffffff',
   },
 });
 

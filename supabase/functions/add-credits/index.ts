@@ -22,8 +22,52 @@ Deno.serve(async (req) => {
   }
 
   try {
-    // Parse request
+    // 1. Valider le JWT utilisateur depuis le header x-user-token
+    const userToken = req.headers.get('x-user-token')
+    
+    if (!userToken) {
+      return new Response(
+        JSON.stringify({ error: 'Missing user token' }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
+    }
+
+    // 2. Créer un client admin pour valider le JWT
+    const supabaseAdmin = createClient(
+      Deno.env.get('SUPABASE_URL') ?? '',
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
+      {
+        auth: {
+          autoRefreshToken: false,
+          persistSession: false,
+        },
+      }
+    )
+
+    // 3. Valider le JWT utilisateur
+    const { data: { user }, error: authError } = await supabaseAdmin.auth.getUser(userToken)
+    
+    if (authError || !user) {
+      console.error('❌ Invalid user token:', authError?.message)
+      return new Response(
+        JSON.stringify({ error: 'Unauthorized', details: authError?.message }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
+    }
+
+    console.log('✅ User authenticated:', user.id)
+    
+    // 4. Parse request
     const { userId, amount, reason, metadata }: AddCreditsRequest = await req.json()
+    
+    // 5. Vérifier que le userId correspond à l'utilisateur authentifié
+    if (userId !== user.id) {
+      console.error('❌ User ID mismatch:', { requested: userId, authenticated: user.id })
+      return new Response(
+        JSON.stringify({ error: 'Forbidden: User ID mismatch' }),
+        { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
+    }
 
     // Validation basique
     if (!userId || typeof amount !== 'number' || !reason) {
@@ -41,26 +85,14 @@ Deno.serve(async (req) => {
       )
     }
 
-    // Créer client Supabase avec clé admin (SERVICE_ROLE)
-    const supabaseAdmin = createClient(
-      Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '', // Clé admin qui bypass RLS
-      {
-        auth: {
-          autoRefreshToken: false,
-          persistSession: false,
-        },
-      }
-    )
-
-    // Vérifier que l'utilisateur existe
-    const { data: user, error: userError } = await supabaseAdmin
+    // Vérifier que l'utilisateur existe dans la DB (supabaseAdmin déjà créé plus haut)
+    const { data: dbUser, error: userError } = await supabaseAdmin
       .from('users')
       .select('id, email')
       .eq('id', userId)
       .single()
 
-    if (userError || !user) {
+    if (userError || !dbUser) {
       console.error('❌ User not found:', userId, userError)
       return new Response(
         JSON.stringify({ error: 'User not found' }),

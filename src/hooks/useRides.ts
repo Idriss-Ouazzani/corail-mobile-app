@@ -17,23 +17,8 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Alert } from 'react-native';
 import { apiClient } from '../services/api';
-import NotificationService from '../services/notifications';
-
-interface Ride {
-  id: string;
-  creator_id: string;
-  picker_id?: string;
-  status: string;
-  visibility: string;
-  pickup_address: string;
-  dropoff_address: string;
-  scheduled_at: string;
-  price_cents: number;
-  distance_km?: number;
-  duration_minutes?: number;
-  vehicle_type?: string;
-  [key: string]: any;
-}
+import * as NotificationService from '../services/notifications';
+import type { Ride } from '../types';
 
 export function useRides(currentUserId: string | null, userCredits: number) {
   const [rides, setRides] = useState<Ride[]>([]);
@@ -41,7 +26,7 @@ export function useRides(currentUserId: string | null, userCredits: number) {
   const [error, setError] = useState<string | null>(null);
 
   /**
-   * Charger toutes les courses
+   * Charger toutes les courses (marketplace + mes courses claimed/published dont COMPLETED)
    */
   const loadRides = useCallback(async () => {
     if (!currentUserId) return;
@@ -50,9 +35,16 @@ export function useRides(currentUserId: string | null, userCredits: number) {
       setLoading(true);
       setError(null);
       console.log('🔄 Chargement des courses...');
-      const data = await apiClient.getRides();
-      setRides(data);
-      console.log('✅ Courses chargées:', data.length);
+      const [marketplace, myClaimed, myPublished] = await Promise.all([
+        apiClient.getRides(),
+        apiClient.getMyRides('claimed'),
+        apiClient.getMyRides('published'),
+      ]);
+      const byId = new Map<string, Ride>();
+      [...marketplace, ...myClaimed, ...myPublished].forEach((r: any) => byId.set(r.id, r as Ride));
+      const merged = Array.from(byId.values());
+      setRides(merged);
+      console.log('✅ Courses chargées:', merged.length, '(dont mes courses terminées)');
     } catch (err: any) {
       console.error('❌ Erreur chargement courses:', err);
       setError(err.message);
@@ -193,6 +185,10 @@ export function useRides(currentUserId: string | null, userCredits: number) {
       loadRides();
     }
   }, [currentUserId, loadRides]);
+
+  // ✅ Le système Realtime est maintenant initialisé dans App.tsx
+  // pour avoir accès à la modal d'incoming ride
+  // On garde juste loadRides disponible pour être appelé par App.tsx
 
   return {
     rides,

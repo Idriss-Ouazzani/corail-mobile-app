@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -13,9 +13,10 @@ import type { VehicleType } from '../types';
 
 export interface FilterOptions {
   vehicleTypes: VehicleType[];
-  sortBy: 'price_asc' | 'price_desc' | 'date_asc' | 'date_desc' | 'distance_asc' | 'distance_desc' | 'duration_asc' | 'duration_desc' | null;
+  sortBy: 'price_asc' | 'price_desc' | 'date_asc' | 'date_desc' | 'distance_asc' | 'distance_desc' | 'duration_asc' | 'duration_desc' | 'price_per_km_desc' | null;
   minPrice?: number;
   maxPrice?: number;
+  radiusKm: number | null; // Rayon de recherche en km (null = France entière)
 }
 
 interface MarketplaceFiltersProps {
@@ -25,15 +26,8 @@ interface MarketplaceFiltersProps {
   currentFilters: FilterOptions;
 }
 
-const VEHICLE_TYPES: { type: VehicleType; label: string; icon: string; color: string }[] = [
-  { type: 'STANDARD', label: 'Standard', icon: 'car', color: '#64748b' },
-  { type: 'PREMIUM', label: 'Premium', icon: 'car-sport', color: '#8b5cf6' },
-  { type: 'ELECTRIC', label: 'Électrique', icon: 'flash', color: '#10b981' },
-  { type: 'VAN', label: 'Van', icon: 'bus', color: '#0ea5e9' },
-  { type: 'LUXURY', label: 'Luxe', icon: 'diamond', color: '#fbbf24' },
-];
-
 const SORT_OPTIONS = [
+  { value: 'price_per_km_desc', label: 'Meilleur €/km', icon: 'trending-up' },
   { value: 'price_asc', label: 'Prix croissant', icon: 'arrow-up' },
   { value: 'price_desc', label: 'Prix décroissant', icon: 'arrow-down' },
   { value: 'date_asc', label: 'Date la plus proche', icon: 'time' },
@@ -44,34 +38,41 @@ const SORT_OPTIONS = [
   { value: 'duration_desc', label: 'Durée la plus longue', icon: 'timer' },
 ];
 
+const RADIUS_OPTIONS = [
+  { value: 10, label: '10 km', icon: 'location' },
+  { value: 20, label: '20 km', icon: 'location' },
+  { value: 50, label: '50 km', icon: 'navigate' },
+  { value: 100, label: '100 km', icon: 'globe' },
+  { value: null, label: 'France entière', icon: 'earth' },
+];
+
 export const MarketplaceFilters: React.FC<MarketplaceFiltersProps> = ({
   visible,
   onClose,
   onApply,
   currentFilters,
 }) => {
-  const [vehicleTypes, setVehicleTypes] = useState<VehicleType[]>(currentFilters.vehicleTypes);
   const [sortBy, setSortBy] = useState(currentFilters.sortBy);
+  const [radiusKm, setRadiusKm] = useState(currentFilters.radiusKm);
 
-  const toggleVehicleType = (type: VehicleType) => {
-    if (vehicleTypes.includes(type)) {
-      setVehicleTypes(vehicleTypes.filter(t => t !== type));
-    } else {
-      setVehicleTypes([...vehicleTypes, type]);
+  useEffect(() => {
+    if (visible) {
+      setSortBy(currentFilters.sortBy);
+      setRadiusKm(currentFilters.radiusKm);
     }
-  };
+  }, [visible, currentFilters.sortBy, currentFilters.radiusKm]);
 
   const handleApply = () => {
-    onApply({ vehicleTypes, sortBy });
+    onApply({ vehicleTypes: [], sortBy, radiusKm });
     onClose();
   };
 
   const handleReset = () => {
-    setVehicleTypes([]);
     setSortBy(null);
+    setRadiusKm(100); // Rayon par défaut: 100km
   };
 
-  const activeFiltersCount = vehicleTypes.length + (sortBy ? 1 : 0);
+  const activeFiltersCount = (sortBy ? 1 : 0) + (radiusKm !== 100 ? 1 : 0);
 
   return (
     <Modal
@@ -82,55 +83,47 @@ export const MarketplaceFilters: React.FC<MarketplaceFiltersProps> = ({
     >
       <View style={styles.overlay}>
         <View style={styles.container}>
-          {/* Header */}
-          <LinearGradient
-            colors={['#1e293b', '#0f172a']}
-            style={styles.header}
-          >
+          {/* Header épuré (aligné reste de l'app) */}
+          <View style={styles.header}>
             <TouchableOpacity onPress={onClose} style={styles.closeButton}>
-              <Ionicons name="close" size={24} color="#f1f5f9" />
+              <Ionicons name="close" size={22} color="#f1f5f9" />
             </TouchableOpacity>
-            <View style={{ flex: 1 }}>
+            <View style={styles.headerCenter}>
               <Text style={styles.headerTitle}>Filtres & Tri</Text>
               {activeFiltersCount > 0 && (
-                <Text style={styles.headerSubtitle}>{activeFiltersCount} filtre(s) actif(s)</Text>
+                <Text style={styles.headerSubtitle}>{activeFiltersCount} actif(s)</Text>
               )}
             </View>
             <TouchableOpacity onPress={handleReset} style={styles.resetButton}>
-              <Text style={styles.resetButtonText}>Réinitialiser</Text>
+              <Text style={styles.resetButtonText}>Réinit.</Text>
             </TouchableOpacity>
-          </LinearGradient>
+          </View>
 
           <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
-            {/* Vehicle Type Filter */}
+            {/* Rayon */}
             <View style={styles.section}>
-              <Text style={styles.sectionTitle}>
-                <Ionicons name="car-sport" size={16} color="#ff6b47" /> Type de véhicule
-              </Text>
-              <View style={styles.chipGrid}>
-                {VEHICLE_TYPES.map((vehicle) => {
-                  const isSelected = vehicleTypes.includes(vehicle.type);
+              <Text style={styles.sectionTitle}>Rayon</Text>
+              <View style={styles.sortList}>
+                {RADIUS_OPTIONS.map((option) => {
+                  const isSelected = radiusKm === option.value;
                   return (
                     <TouchableOpacity
-                      key={vehicle.type}
-                      style={[
-                        styles.chip,
-                        isSelected && { backgroundColor: vehicle.color + '20', borderColor: vehicle.color }
-                      ]}
-                      onPress={() => toggleVehicleType(vehicle.type)}
+                      key={option.value ?? 'all'}
+                      style={[styles.sortItem, isSelected && styles.itemActive]}
+                      onPress={() => setRadiusKm(option.value)}
                       activeOpacity={0.7}
                     >
                       <Ionicons
-                        name={vehicle.icon as any}
+                        name={option.icon as any}
                         size={18}
-                        color={isSelected ? vehicle.color : '#64748b'}
-                        style={{ marginRight: 6 }}
+                        color={isSelected ? '#0ea5e9' : '#64748b'}
+                        style={styles.sortItemIcon}
                       />
-                      <Text style={[styles.chipText, isSelected && { color: vehicle.color }]}>
-                        {vehicle.label}
+                      <Text style={[styles.sortItemText, isSelected && styles.sortItemTextActive]}>
+                        {option.label}
                       </Text>
                       {isSelected && (
-                        <Ionicons name="checkmark-circle" size={16} color={vehicle.color} style={{ marginLeft: 6 }} />
+                        <Ionicons name="checkmark-circle" size={18} color="#0ea5e9" />
                       )}
                     </TouchableOpacity>
                   );
@@ -138,32 +131,30 @@ export const MarketplaceFilters: React.FC<MarketplaceFiltersProps> = ({
               </View>
             </View>
 
-            {/* Sort Options */}
+            {/* Tri */}
             <View style={styles.section}>
-              <Text style={styles.sectionTitle}>
-                <Ionicons name="swap-vertical" size={16} color="#ff6b47" /> Trier par
-              </Text>
+              <Text style={styles.sectionTitle}>Trier par</Text>
               <View style={styles.sortList}>
                 {SORT_OPTIONS.map((option) => {
                   const isSelected = sortBy === option.value;
                   return (
                     <TouchableOpacity
                       key={option.value}
-                      style={[styles.sortItem, isSelected && styles.sortItemActive]}
+                      style={[styles.sortItem, isSelected && styles.itemActive]}
                       onPress={() => setSortBy(option.value as any)}
                       activeOpacity={0.7}
                     >
                       <Ionicons
                         name={option.icon as any}
-                        size={20}
-                        color={isSelected ? '#ff6b47' : '#64748b'}
-                        style={{ marginRight: 12 }}
+                        size={18}
+                        color={isSelected ? '#0ea5e9' : '#64748b'}
+                        style={styles.sortItemIcon}
                       />
                       <Text style={[styles.sortItemText, isSelected && styles.sortItemTextActive]}>
                         {option.label}
                       </Text>
                       {isSelected && (
-                        <Ionicons name="checkmark-circle" size={20} color="#ff6b47" />
+                        <Ionicons name="checkmark-circle" size={18} color="#0ea5e9" />
                       )}
                     </TouchableOpacity>
                   );
@@ -171,10 +162,10 @@ export const MarketplaceFilters: React.FC<MarketplaceFiltersProps> = ({
               </View>
             </View>
 
-            <View style={{ height: 100 }} />
+            <View style={{ height: 24 }} />
           </ScrollView>
 
-          {/* Apply Button */}
+          {/* Appliquer */}
           <View style={styles.actionContainer}>
             <TouchableOpacity
               style={styles.actionButton}
@@ -182,10 +173,12 @@ export const MarketplaceFilters: React.FC<MarketplaceFiltersProps> = ({
               activeOpacity={0.8}
             >
               <LinearGradient
-                colors={['#ff6b47', '#ff8a6d']}
+                colors={['#0ea5e9', '#06b6d4']}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
                 style={styles.actionButtonGradient}
               >
-                <Ionicons name="checkmark-circle" size={24} color="#fff" />
+                <Ionicons name="checkmark-circle" size={20} color="#fff" />
                 <Text style={styles.actionButtonText}>
                   Appliquer {activeFiltersCount > 0 ? `(${activeFiltersCount})` : ''}
                 </Text>
@@ -206,138 +199,123 @@ const styles = StyleSheet.create({
   },
   container: {
     backgroundColor: '#0f172a',
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    maxHeight: '85%',
-    height: '85%',
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    height: '82%',
+    maxHeight: '82%',
   },
   header: {
-    paddingTop: 24,
-    paddingBottom: 20,
-    paddingHorizontal: 20,
     flexDirection: 'row',
     alignItems: 'center',
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
+    paddingTop: 20,
+    paddingBottom: 14,
+    paddingHorizontal: 16,
+    backgroundColor: '#0f172a',
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
   },
   closeButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    width: 38,
+    height: 38,
+    borderRadius: 12,
+    backgroundColor: '#1e293b',
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 12,
+    marginRight: 10,
+  },
+  headerCenter: {
+    flex: 1,
   },
   headerTitle: {
-    fontSize: 22,
+    fontSize: 18,
     fontWeight: '700',
     color: '#f1f5f9',
   },
   headerSubtitle: {
-    fontSize: 13,
-    color: '#ff6b47',
+    fontSize: 12,
+    color: '#0ea5e9',
     marginTop: 2,
     fontWeight: '600',
   },
   resetButton: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
   },
   resetButtonText: {
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: '600',
     color: '#64748b',
   },
   content: {
     flex: 1,
-    paddingHorizontal: 20,
+    paddingHorizontal: 16,
+    paddingTop: 4,
   },
   section: {
-    marginTop: 24,
+    marginTop: 16,
   },
   sectionTitle: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: '#f1f5f9',
-    marginBottom: 16,
-  },
-  chipGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    marginHorizontal: -5,
-  },
-  chip: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'rgba(255, 255, 255, 0.05)',
-    borderRadius: 20,
-    paddingVertical: 10,
-    paddingHorizontal: 14,
-    borderWidth: 1.5,
-    borderColor: 'rgba(255, 255, 255, 0.1)',
-    marginHorizontal: 5,
-    marginVertical: 5,
-  },
-  chipText: {
-    fontSize: 14,
+    fontSize: 12,
     fontWeight: '600',
-    color: '#94a3b8',
+    color: '#64748b',
+    marginBottom: 10,
+    letterSpacing: 0.3,
   },
   sortList: {
-    marginVertical: -6,
+    gap: 6,
   },
   sortItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(255, 255, 255, 0.05)',
-    borderRadius: 14,
-    padding: 16,
+    backgroundColor: '#1e293b',
+    borderRadius: 12,
+    paddingVertical: 11,
+    paddingHorizontal: 14,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.1)',
-    marginVertical: 6,
+    borderColor: 'rgba(255, 255, 255, 0.06)',
   },
-  sortItemActive: {
-    backgroundColor: 'rgba(255, 107, 71, 0.1)',
-    borderColor: '#ff6b47',
-    borderWidth: 2,
+  sortItemIcon: {
+    marginRight: 10,
+  },
+  itemActive: {
+    backgroundColor: 'rgba(14, 165, 233, 0.12)',
+    borderColor: '#0ea5e9',
+    borderWidth: 1,
   },
   sortItemText: {
     flex: 1,
-    fontSize: 15,
+    fontSize: 14,
     fontWeight: '600',
     color: '#94a3b8',
   },
   sortItemTextActive: {
-    color: '#ff6b47',
+    color: '#0ea5e9',
     fontWeight: '700',
   },
   actionContainer: {
-    padding: 20,
+    padding: 16,
+    paddingBottom: 28,
     backgroundColor: '#0f172a',
     borderTopWidth: 1,
-    borderTopColor: 'rgba(255, 255, 255, 0.1)',
+    borderTopColor: 'rgba(255, 255, 255, 0.06)',
   },
   actionButton: {
     borderRadius: 18,
     overflow: 'hidden',
-    shadowColor: '#ff6b47',
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.4,
-    shadowRadius: 12,
-    elevation: 8,
+    elevation: 2,
   },
   actionButtonGradient: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 18,
+    paddingVertical: 14,
+    paddingHorizontal: 20,
   },
   actionButtonText: {
-    fontSize: 17,
+    fontSize: 15,
     fontWeight: '700',
     color: '#fff',
-    marginLeft: 10,
+    marginLeft: 8,
   },
 });
 

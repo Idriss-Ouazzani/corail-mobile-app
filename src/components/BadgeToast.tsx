@@ -66,7 +66,7 @@ export const BadgeToast: React.FC<BadgeToastProps> = ({ badge, visible, onHide }
 
   if (!visible) return null;
 
-  const getRarityGradient = (rarity: string): string[] => {
+  const getRarityGradient = (rarity: string): [string, string, ...string[]] => {
     switch (rarity) {
       case 'LEGENDARY':
         return ['#fbbf24', '#f59e0b'];

@@ -1,6 +1,6 @@
 /**
- * CoursesScreen - Toutes les courses (Marketplace + Mes Courses + Historique)
- * 3 tabs : Marketplace Corail, Mes Courses Corail, Historique complet
+ * CoursesScreen - Annonces + Mes courses (2 onglets)
+ * UI lisible et soignée pour conducteurs.
  */
 
 import React from 'react';
@@ -11,35 +11,69 @@ import {
   TouchableOpacity,
   StatusBar,
 } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
+import { BlurView } from 'expo-blur';
+import { theme } from '../theme';
 
 interface CoursesScreenProps {
-  // Props pour passer les composants des différents tabs
-  activeTab: 'marketplace' | 'myrides' | 'history';
-  onTabChange: (tab: 'marketplace' | 'myrides' | 'history') => void;
+  verificationStatus: string | null;
+  onRefreshVerification: () => Promise<void>;
+  activeTab: 'marketplace' | 'myrides';
+  onTabChange: (tab: 'marketplace' | 'myrides') => void;
   marketplaceContent: React.ReactNode;
   myRidesContent: React.ReactNode;
-  historyContent: React.ReactNode;
 }
 
 export default function CoursesScreen({
+  verificationStatus,
+  onRefreshVerification,
   activeTab,
   onTabChange,
   marketplaceContent,
   myRidesContent,
-  historyContent,
 }: CoursesScreenProps) {
+  const isVerified = verificationStatus === 'VERIFIED';
+  const showAnnoncesLock = activeTab === 'marketplace' && !isVerified;
 
   const renderContent = () => {
     switch (activeTab) {
       case 'marketplace':
-        return marketplaceContent;
+        return (
+          <View style={styles.contentInner}>
+            {marketplaceContent}
+            {showAnnoncesLock && (
+              <View style={styles.annoncesOverlay} pointerEvents="box-none">
+                <BlurView intensity={80} tint="dark" style={StyleSheet.absoluteFill} />
+                <View style={styles.annoncesOverlayMessage}>
+                  <Ionicons name="lock-closed" size={32} color={theme.colors.textMuted} />
+                  <Text style={styles.annoncesOverlayText}>
+                    Vous pourrez accéder à l'ensemble des annonces une fois votre profil validé.
+                  </Text>
+                </View>
+              </View>
+            )}
+          </View>
+        );
       case 'myrides':
         return myRidesContent;
-      case 'history':
-        return historyContent;
       default:
-        return marketplaceContent;
+        return (
+          <View style={styles.contentInner}>
+            {marketplaceContent}
+            {showAnnoncesLock && (
+              <View style={styles.annoncesOverlay} pointerEvents="box-none">
+                <BlurView intensity={80} tint="dark" style={StyleSheet.absoluteFill} />
+                <View style={styles.annoncesOverlayMessage}>
+                  <Ionicons name="lock-closed" size={32} color={theme.colors.textMuted} />
+                  <Text style={styles.annoncesOverlayText}>
+                    Vous pourrez accéder à l'ensemble des annonces une fois votre profil validé.
+                  </Text>
+                </View>
+              </View>
+            )}
+          </View>
+        );
     }
   };
 
@@ -47,62 +81,61 @@ export default function CoursesScreen({
     <View style={styles.container}>
       <StatusBar barStyle="light-content" />
       
-      {/* Header */}
       <View style={styles.header}>
         <Text style={styles.headerTitle}>Courses</Text>
+        <Text style={styles.headerSubtitle}>Annonces et suivi de vos courses</Text>
       </View>
 
-      {/* Tabs - Style épuré */}
       <View style={styles.tabsWrapper}>
         <View style={styles.tabs}>
           <TouchableOpacity
-            style={[styles.tab, activeTab === 'marketplace' && styles.tabActive]}
+            style={styles.tabTouchable}
             onPress={() => onTabChange('marketplace')}
+            activeOpacity={0.85}
           >
-            <Ionicons 
-              name="storefront" 
-              size={20} 
-              color={activeTab === 'marketplace' ? '#fff' : '#94a3b8'} 
-            />
-            <Text style={[styles.tabText, activeTab === 'marketplace' && styles.tabTextActive]}>
-              Market
-            </Text>
+            {activeTab === 'marketplace' ? (
+              <LinearGradient
+                colors={['#0ea5e9', '#06b6d4']}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={styles.tabInner}
+              >
+                <Ionicons name="storefront" size={20} color="#fff" />
+                <Text style={styles.tabTextActive}>Annonces</Text>
+              </LinearGradient>
+            ) : (
+              <View style={styles.tabInner}>
+                <Ionicons name="storefront-outline" size={20} color="#94a3b8" />
+                <Text style={styles.tabText}>Annonces</Text>
+              </View>
+            )}
           </TouchableOpacity>
 
           <TouchableOpacity
-            style={[styles.tab, activeTab === 'myrides' && styles.tabActive]}
+            style={styles.tabTouchable}
             onPress={() => onTabChange('myrides')}
+            activeOpacity={0.85}
           >
-            <Ionicons 
-              name="car" 
-              size={20} 
-              color={activeTab === 'myrides' ? '#fff' : '#94a3b8'} 
-            />
-            <Text style={[styles.tabText, activeTab === 'myrides' && styles.tabTextActive]}>
-              Courses
-            </Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={[styles.tab, activeTab === 'history' && styles.tabActive]}
-            onPress={() => onTabChange('history')}
-          >
-            <Ionicons 
-              name="list" 
-              size={20} 
-              color={activeTab === 'history' ? '#fff' : '#94a3b8'} 
-            />
-            <Text style={[styles.tabText, activeTab === 'history' && styles.tabTextActive]}>
-              Activité
-            </Text>
+            {activeTab === 'myrides' ? (
+              <LinearGradient
+                colors={['#0ea5e9', '#06b6d4']}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={styles.tabInner}
+              >
+                <Ionicons name="person" size={20} color="#fff" />
+                <Text style={styles.tabTextActive}>Mes courses</Text>
+              </LinearGradient>
+            ) : (
+              <View style={styles.tabInner}>
+                <Ionicons name="person-outline" size={20} color="#94a3b8" />
+                <Text style={styles.tabText}>Mes courses</Text>
+              </View>
+            )}
           </TouchableOpacity>
         </View>
-        
-        {/* Ligne élégante sous les tabs */}
-        <View style={styles.separator} />
       </View>
 
-      {/* Content */}
       <View style={styles.content}>
         {renderContent()}
       </View>
@@ -113,57 +146,88 @@ export default function CoursesScreen({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#0f172a',
+    backgroundColor: '#0c1222',
   },
   header: {
-    paddingTop: 60,
-    paddingBottom: 16,
+    paddingTop: 56,
+    paddingBottom: 14,
     paddingHorizontal: 20,
   },
   headerTitle: {
-    fontSize: 28,
-    fontWeight: '700',
-    color: '#e2e8f0',
-    letterSpacing: 0.5,
+    fontSize: 26,
+    fontWeight: '800',
+    color: '#f1f5f9',
+    letterSpacing: -0.3,
+  },
+  headerSubtitle: {
+    fontSize: 14,
+    color: '#64748b',
+    marginTop: 4,
+    fontWeight: '500',
   },
   tabsWrapper: {
     paddingHorizontal: 20,
-    marginBottom: 12,
+    marginBottom: 16,
   },
   tabs: {
     flexDirection: 'row',
-    backgroundColor: '#1e293b',
-    borderRadius: 16,
-    padding: 6,
+    backgroundColor: 'rgba(30, 41, 59, 0.6)',
+    borderRadius: 14,
+    padding: 5,
     gap: 6,
+    borderWidth: 1,
+    borderColor: 'rgba(51, 65, 85, 0.5)',
   },
-  tab: {
+  tabTouchable: {
     flex: 1,
+    borderRadius: 12,
+    overflow: 'hidden',
+  },
+  tabInner: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     paddingVertical: 12,
     paddingHorizontal: 8,
-    borderRadius: 12,
-    gap: 6,
-  },
-  tabActive: {
-    backgroundColor: '#6366f1',
+    gap: 8,
   },
   tabText: {
-    fontSize: 13,
-    fontWeight: '700',
+    fontSize: 14,
+    fontWeight: '600',
     color: '#94a3b8',
   },
   tabTextActive: {
+    fontSize: 14,
+    fontWeight: '700',
     color: '#fff',
-  },
-  separator: {
-    height: 1,
-    backgroundColor: '#334155',
-    marginTop: 12,
   },
   content: {
     flex: 1,
+  },
+  contentInner: {
+    flex: 1,
+    position: 'relative',
+  },
+  annoncesOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  annoncesOverlayMessage: {
+    backgroundColor: 'rgba(15, 23, 42, 0.85)',
+    borderRadius: 16,
+    padding: 24,
+    marginHorizontal: 20,
+    alignItems: 'center',
+    maxWidth: 340,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+  },
+  annoncesOverlayText: {
+    marginTop: 12,
+    fontSize: 15,
+    color: theme.colors.textMuted,
+    textAlign: 'center',
+    lineHeight: 22,
   },
 });

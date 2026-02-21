@@ -5,6 +5,8 @@
 
 export type RideStatus = 'PUBLISHED' | 'CLAIMED' | 'COMPLETED' | 'CANCELLED' | 'EXPIRED'
 export type RideVisibility = 'PUBLIC' | 'GROUP'
+/** Origine de l'annonce : chauffeur (app), hôtel/établissement, ou client (site web / outil résa) */
+export type RideSource = 'chauffeur' | 'hotel' | 'client'
 export type SubscriptionPlan = 'FREE' | 'PREMIUM' | 'PLATINUM'
 export type VehicleType = 'STANDARD' | 'PREMIUM' | 'ELECTRIC' | 'VAN' | 'LUXURY'
 
@@ -35,15 +37,23 @@ export interface Ride {
   updated_at: string
   completed_at: string | null
   visibility?: RideVisibility
+  /** Origine de l'annonce (chauffeur, hôtel/établissement, client). Défaut: chauffeur */
+  source?: RideSource
   group_id?: string | null
   vehicle_type?: VehicleType
   distance_km?: number
   duration_minutes?: number
   client_name?: string
   client_phone?: string
+  client_email?: string
   quote_id?: string | null
   quote_status?: 'SENT' | 'VIEWED' | 'ACCEPTED' | 'REFUSED' | null
   quote_token?: string | null
+  /** Commentaire / note de l'auteur de l'annonce */
+  notes?: string | null
+  /** Fourchette indicative (demandes client site web), en centimes */
+  indicative_low_cents?: number | null
+  indicative_high_cents?: number | null
   creator?: Partial<User>
   picker?: Partial<User>
 }

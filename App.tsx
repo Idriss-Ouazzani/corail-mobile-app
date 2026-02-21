@@ -38,7 +38,7 @@ Sentry.init({
   },
 });
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -47,10 +47,12 @@ import {
   ScrollView,
   Dimensions,
   ActivityIndicator,
+  AppState,
+  AppStateStatus,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons, MaterialIcons, FontAwesome5 } from '@expo/vector-icons';
-import RideCard from './src/components/RideCard';
+import { RideCard } from './src/components/RideCard';
 import CitySelector from './src/components/CitySelector';
 import CreditsBadge from './src/components/CreditsBadge';
 import { BadgeCard } from './src/components/BadgeCard';
@@ -79,6 +81,7 @@ import PlanningScreen from './src/screens/PlanningScreen';
 import CreateQuoteScreen from './src/screens/CreateQuoteScreen';
 import MyQuotesScreen from './src/screens/MyQuotesScreen';
 import GlobalCreditsBadge from './src/components/GlobalCreditsBadge';
+import { ValidationBanner } from './src/components/ValidationBanner';
 import ActivityFeed from './src/components/ActivityFeed';
 import MarketplaceTab from './src/components/MarketplaceTab';
 import MyRidesTab from './src/components/MyRidesTab';
@@ -86,6 +89,7 @@ import ProfileTab from './src/components/ProfileTab';
 import { CreditsModal } from './src/components/CreditsModal';
 import { BottomNavigation } from './src/components/BottomNavigation';
 import { PublishRideModal } from './src/components/PublishRideModal';
+import { IncomingRideModal } from './src/components/IncomingRideModal';
 import { renderModalScreens } from './src/navigation/renderModalScreens';
 import { AuthProvider, useAuth } from './src/contexts/AuthContext';
 import { AppDataProvider, useAppData } from './src/contexts/AppDataContext';
@@ -97,11 +101,17 @@ import { toastConfig } from './src/config/toastConfig';
 import { apiClient } from './src/services/api';
 import { haptic } from './src/services/haptic';
 import { toast } from './src/services/toast';
+import * as IncomingRidesService from './src/services/incomingRidesHybridService';
+import { setupNotificationListeners } from './src/services/pushNotifications';
 import { logger } from './src/services/logger';
 import { formatName } from './src/utils/formatName';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import LoadingScreen from './src/components/LoadingScreen';
+import OnboardingScreen from './src/screens/OnboardingScreen';
 import { appStyles } from './src/styles/App.styles';
 import type { Ride } from './src/types';
+
+const ONBOARDING_SEEN_KEY = '@corail_onboarding_seen';
 
 const { width } = Dimensions.get('window');
 
@@ -113,6 +123,8 @@ function AppContent() {
   // État local pour les modales légales dans ConsentScreen
   const [consentShowPrivacyPolicy, setConsentShowPrivacyPolicy] = useState(false);
   const [consentShowTermsOfService, setConsentShowTermsOfService] = useState(false);
+  // Onboarding : affiché une fois au premier lancement (après consentement)
+  const [onboardingSeen, setOnboardingSeen] = useState<boolean | null>(null);
 
   // 🔐 Utiliser le contexte d'authentification
   const {
@@ -131,6 +143,11 @@ function AppContent() {
     loadVerificationStatus,
     signOut,
   } = useAuth();
+  
+  // 🔍 DEBUG : Logger le verificationStatus à chaque changement
+  useEffect(() => {
+    console.log('🔍 [App.tsx] verificationStatus changé:', verificationStatus);
+  }, [verificationStatus]);
   
   // 📦 Utiliser le contexte des données
   const {
@@ -178,6 +195,8 @@ function AppContent() {
     setCreateRideMode,
     showCreateQuote,
     setShowCreateQuote,
+    showMyInvoices,
+    setShowMyInvoices,
     showPublishModal,
     setShowPublishModal,
     publishVisibility,
@@ -198,8 +217,6 @@ function AppContent() {
     setShowSubscription,
     showCreditsModal,
     setShowCreditsModal,
-    showCreditsInfo,
-    setShowCreditsInfo,
     showPersonalRides,
     setShowPersonalRides,
     showPlanning,
@@ -212,6 +229,8 @@ function AppContent() {
     setShowQRCode,
     showVTCProfile,
     setShowVTCProfile,
+    showDriverRequests,
+    setShowDriverRequests,
     showPrivacyPolicy,
     setShowPrivacyPolicy,
     showTermsOfService,
@@ -224,11 +243,27 @@ function AppContent() {
     setMyRidesTab,
   } = useNavigation();
   
-  // 🆔 ID de l'utilisateur courant (Firebase UID)
-  const currentUserId = user?.uid || '';
+  // 🆔 ID de l'utilisateur courant (Supabase Auth ID)
+  const currentUserId = user?.id || '';
+  
+  // 🔍 DEBUG : Logger currentUserId à chaque changement
+  useEffect(() => {
+    console.log('🔍 [App.tsx] currentUserId changé:', currentUserId, 'user:', !!user);
+  }, [currentUserId, user]);
 
   // 📨 État pour les invitations de groupe en attente
   const [pendingInvitationsCount, setPendingInvitationsCount] = useState(0);
+
+  // 🚗 États pour le système de notifications de courses entrantes
+  const [incomingRide, setIncomingRide] = useState<any | null>(null);
+  const [showIncomingModal, setShowIncomingModal] = useState(false);
+  const appState = useRef(AppState.currentState);
+  
+  // ✅ Ref pour loadRides (éviter les réinitialisations Realtime)
+  const loadRidesRef = useRef(loadRides);
+  useEffect(() => {
+    loadRidesRef.current = loadRides;
+  }, [loadRides]);
 
   // 📨 Charger le nombre d'invitations en attente
   const loadPendingInvitations = React.useCallback(async () => {
@@ -242,6 +277,49 @@ function AppContent() {
     }
   }, [currentUserId]);
 
+  // 🚗 Handlers pour les courses entrantes
+  const handleAcceptRide = async () => {
+    if (!incomingRide) return;
+    
+    try {
+      console.log('✅ Acceptation de la course:', incomingRide.id);
+      
+      // Claim la course via l'API
+      await apiClient.claimRide(incomingRide.id);
+      
+      // Fermer le modal
+      setShowIncomingModal(false);
+      setIncomingRide(null);
+      
+      // Toast de succès
+      toast.success('Course acceptée !');
+      
+      // Recharger les courses
+      await loadRides();
+      await loadPersonalRides();
+      
+      console.log('✅ Course acceptée et données rafraîchies');
+    } catch (error: any) {
+      console.error('❌ Erreur acceptation course:', error);
+      toast.error('Erreur lors de l\'acceptation');
+      setShowIncomingModal(false);
+    }
+  };
+
+  const handleDeclineRide = () => {
+    console.log('❌ Course refusée');
+    setShowIncomingModal(false);
+    setIncomingRide(null);
+    toast.info('Course refusée');
+  };
+
+  const handleTimeoutRide = () => {
+    console.log('⏱️ Course expirée');
+    setShowIncomingModal(false);
+    setIncomingRide(null);
+    toast.info('Demande expirée');
+  };
+
   useEffect(() => {
     loadPendingInvitations();
   }, [loadPendingInvitations]);
@@ -251,6 +329,7 @@ function AppContent() {
     currentUserId,
     userName: userFullName,
     userCredits,
+    verificationStatus,
     loadRides,
     loadPersonalRides,
     loadCredits,
@@ -263,6 +342,19 @@ function AppContent() {
     verificationStatus,
   });
 
+  // 📬 Au tap sur une notification (ex. devis accepté/refusé), ouvrir l'écran concerné
+  useEffect(() => {
+    if (!user) return;
+    const unsubscribe = setupNotificationListeners(undefined, (response) => {
+      const data = response?.notification?.request?.content?.data;
+      if (!data) return;
+      if (data.type === 'quote_accepted' || data.type === 'quote_refused') {
+        setShowMyQuotes(true);
+      }
+    });
+    return unsubscribe;
+  }, [user]);
+
   // 📊 Hook pour le tracking des écrans (analytics automatique)
   useScreenTracking({
     currentScreen,
@@ -270,16 +362,97 @@ function AppContent() {
     verificationStatus,
   });
 
+  // 🚗 Système hybride de notifications de courses entrantes (Realtime + Push)
+  useEffect(() => {
+    console.log('🔍 useEffect Realtime déclenché. Conditions:', {
+      currentUserId: !!currentUserId,
+      user: !!user,
+      verificationStatus,
+    });
+    
+    // Vérifier que l'utilisateur est authentifié et vérifié
+    if (!currentUserId || !user || verificationStatus !== 'VERIFIED') {
+      console.log('⚠️ Conditions non remplies pour le système Realtime');
+      return;
+    }
+
+    console.log('🚀 Initialisation du système de notifications hybride');
+
+    // Initialiser le système hybride (Realtime + Push)
+    IncomingRidesService.initializeHybridSystem(
+      currentUserId,
+      (ride) => {
+        console.log('📢 Nouvelle course détectée:', ride);
+        
+        // Vérifier que ce n'est pas une course créée par l'utilisateur lui-même
+        if (ride.creator_id === currentUserId) {
+          console.log('⚠️ Course créée par moi-même, ignorée');
+          return;
+        }
+        
+        // 🔄 Recharger les courses pour mettre à jour la liste
+        console.log('🔄 Rechargement des courses après détection Realtime...');
+        loadRidesRef.current().catch(err => console.error('❌ Erreur rechargement:', err));
+        
+        // Déterminer si l'app est au premier plan
+        const isAppActive = AppState.currentState === 'active';
+        
+        if (isAppActive) {
+          // App au premier plan → Modal plein écran
+          console.log('📱 App active → Affichage modal');
+          setIncomingRide(ride);
+          setShowIncomingModal(true);
+        } else {
+          // App en arrière-plan ou fermée → Notification locale
+          console.log('🔕 App en arrière-plan → Notification');
+          IncomingRidesService.sendLocalNotification(ride);
+        }
+      }
+    );
+
+    // Écouter les clics sur les notifications
+    const unsubscribeNotifications = IncomingRidesService.setupNotificationListener((rideId) => {
+      console.log('📱 Notification tapée, rideId:', rideId);
+      
+      // Ouvrir l'app sur l'onglet Courses / Marketplace
+      setCurrentScreen('courses');
+      setCoursesTab('marketplace');
+    });
+
+    // Écouter les changements d'état de l'app
+    const appStateSubscription = AppState.addEventListener('change', (nextAppState: AppStateStatus) => {
+      console.log('📱 AppState change:', appState.current, '→', nextAppState);
+      appState.current = nextAppState;
+    });
+
+    // Cleanup
+    return () => {
+      console.log('🔕 Nettoyage du système de notifications');
+      IncomingRidesService.stopHybridSystem();
+      unsubscribeNotifications();
+      appStateSubscription.remove();
+    };
+  }, [currentUserId, user, verificationStatus]);
+
   // ✅ L'authentification, les données et la navigation sont gérées par les Contexts !
   
   // ✅ Les données (rides, credits, badges, groups) sont maintenant gérées par AppDataContext
   // Plus besoin de useState ici !
+
+  // Charger la préférence onboarding (affiché une seule fois)
+  useEffect(() => {
+    if (!user || !hasAcceptedTerms) return;
+    AsyncStorage.getItem(ONBOARDING_SEEN_KEY).then((v) => {
+      setOnboardingSeen(v === 'true');
+    });
+  }, [user, hasAcceptedTerms]);
 
   // 🧹 Nettoyer les modales quand l'utilisateur se déconnecte
   useEffect(() => {
     if (!user) {
       setShowPersonalRides(false);
       setShowPlanning(false);
+      setOnboardingSeen(null);
       console.log('🧹 Modales fermées après déconnexion');
     }
   }, [user]);
@@ -320,18 +493,8 @@ function AppContent() {
     );
   }
 
-  // 🟠 Afficher écran d'attente si en cours de validation
-  if (verificationStatus === 'PENDING') {
-    return (
-      <PendingVerificationScreen
-        onLogout={async () => {
-          await signOut();
-        }}
-        onRefresh={loadVerificationStatus}
-        submittedAt={verificationSubmittedAt}
-      />
-    );
-  }
+  // 🟠 Si PENDING ou REJECTED : accès à l'app avec bannière de validation
+  // (plus de blocage, l'utilisateur peut utiliser l'app sauf la marketplace)
 
   // 📜 Afficher écran de consentement si pas encore accepté les termes (RGPD)
   if (!hasAcceptedTerms) {
@@ -365,6 +528,21 @@ function AppContent() {
     );
   }
 
+  // 📱 Onboarding au premier lancement (après consentement, une seule fois)
+  if (hasAcceptedTerms && onboardingSeen === null) {
+    return <LoadingScreen message="Chargement" />;
+  }
+  if (hasAcceptedTerms && onboardingSeen === false) {
+    return (
+      <OnboardingScreen
+        onComplete={async () => {
+          await AsyncStorage.setItem(ONBOARDING_SEEN_KEY, 'true');
+          setOnboardingSeen(true);
+        }}
+      />
+    );
+  }
+
   // ✅ renderHome() supprimé - remplacé par DashboardScreen
   // ✅ renderMarketplace() supprimé - remplacé par MarketplaceTab
   // ✅ renderMyRides() supprimé - remplacé par MyRidesTab
@@ -381,9 +559,11 @@ function AppContent() {
     userFullName,
     userEmail: user?.email || '',
     userPhone,
+    userPhotoUrl,
     userSiren,
     userProfessionalCard,
     currentUserId,
+    verificationStatus,
     showPersonalInfo,
     setShowPersonalInfo,
     showNotifications,
@@ -402,6 +582,8 @@ function AppContent() {
     setShowPersonalRides,
     showCreateQuote,
     setShowCreateQuote,
+    showMyInvoices,
+    setShowMyInvoices,
     showMyQuotes,
     setShowMyQuotes,
     showPlanning,
@@ -410,6 +592,8 @@ function AppContent() {
     setShowAdminPanel,
     showVTCProfile,
     setShowVTCProfile,
+    showDriverRequests,
+    setShowDriverRequests,
     showPrivacyPolicy,
     setShowPrivacyPolicy,
     showTermsOfService,
@@ -431,6 +615,7 @@ function AppContent() {
     selectedPersonalRide,
     setSelectedPersonalRide,
     showPublishModal,
+    setShowPublishModal,
     userCredits,
     handleClaimRide,
     handleDeleteRide,
@@ -453,17 +638,19 @@ function AppContent() {
         
         {currentScreen === 'dashboard' && (
           <DashboardScreen
+            verificationStatus={verificationStatus}
+            onRefreshVerification={loadVerificationStatus}
             userFullName={userFullName}
             userCredits={userCredits}
             userRides={rides}
             pendingInvitationsCount={pendingInvitationsCount}
             onNavigateToCourses={() => {
-              setCoursesTab('myrides');
+              setCoursesTab('marketplace');
               setCurrentScreen('courses');
             }}
             onNavigateToTools={() => setCurrentScreen('tools')}
             onNavigateToActivity={() => {
-              setCoursesTab('history');
+              setCoursesTab('myrides');
               setCurrentScreen('courses');
             }}
             onNavigateToPlanning={() => setShowPlanning(true)}
@@ -479,37 +666,51 @@ function AppContent() {
               setSelectedPersonalRide(ride);
             }}
             onOpenGroupInvitations={() => setShowGroupInvitations(true)}
+            onNavigateToDriverRequests={() => setShowDriverRequests(true)}
           />
         )}
         {currentScreen === 'courses' && (
           <CoursesScreen
             activeTab={coursesTab}
             onTabChange={setCoursesTab}
+            verificationStatus={verificationStatus}
+            onRefreshVerification={loadVerificationStatus}
             marketplaceContent={
               <MarketplaceTab
+                verificationStatus={verificationStatus}
+                onRefreshVerification={loadVerificationStatus}
                 rides={rides}
                 currentUserId={currentUserId}
                 loadingRides={loadingRides}
                 selectedCity={selectedCity}
                 activeFilter={activeFilter}
                 filters={filters}
-                showCreditsInfo={showCreditsInfo}
                 onCityChange={setSelectedCity}
                 onFilterChange={setActiveFilter}
                 onShowFilters={() => setShowFilters(true)}
                 onCreateRide={() => {
+                  // Vérifier le statut de vérification avant de publier
+                  if (verificationStatus !== 'VERIFIED') {
+                    haptic.warning();
+                    toast.warning(
+                      '⏳ Vérification en cours',
+                      'Votre profil doit être vérifié pour publier des courses sur la marketplace'
+                    );
+                    return;
+                  }
                   setCreateRideMode('publish');
                   setShowCreateRide(true);
                 }}
                 onRidePress={(ride) => {
                   console.log('Ride selected:', ride.id);
-                  setSelectedRide(ride);
+                  setSelectedRide(ride as Ride);
                 }}
-                onCloseCreditsInfo={() => setShowCreditsInfo(false)}
               />
             }
             myRidesContent={
               <MyRidesTab
+                verificationStatus={verificationStatus}
+                onRefreshVerification={loadVerificationStatus}
                 rides={rides}
                 personalRides={personalRides}
                 currentUserId={currentUserId}
@@ -519,9 +720,14 @@ function AppContent() {
                   setCreateRideMode('create');
                   setShowCreateRide(true);
                 }}
-                onRidePress={(ride) => {
+                onRidePress={async (ride) => {
                   console.log('Ride selected:', ride.id);
-                  setSelectedRide(ride);
+                  try {
+                    const fullRide = await apiClient.getRide(ride.id);
+                    setSelectedRide(fullRide as Ride);
+                  } catch (_e) {
+                    setSelectedRide(ride as Ride);
+                  }
                 }}
                 onPersonalRidePress={(ride) => {
                   console.log('Personal ride selected:', ride.id);
@@ -534,11 +740,12 @@ function AppContent() {
                 }}
               />
             }
-            historyContent={<ActivityFeed limit={50} />}
           />
         )}
         {currentScreen === 'tools' && (
           <ToolsScreen
+            verificationStatus={verificationStatus}
+            onRefreshVerification={loadVerificationStatus}
             onOpenQRCode={() => setShowQRCode(true)}
             onOpenPersonalRides={() => {
               // Naviguer vers Courses > Perso
@@ -549,10 +756,13 @@ function AppContent() {
             onOpenPlanning={() => setShowPlanning(true)}
             onOpenQuotes={() => setShowMyQuotes(true)}
             onOpenVTCProfile={() => setShowVTCProfile(true)}
+            onOpenInvoices={() => setShowMyInvoices(true)}
           />
         )}
         {currentScreen === 'profile' && (
           <ProfileTab
+            verificationStatus={verificationStatus}
+            onRefreshVerification={loadVerificationStatus}
             user={user}
             userFullName={userFullName}
             userPhotoUrl={userPhotoUrl}
@@ -607,6 +817,7 @@ function AppContent() {
         <PublishRideModal
           visible={showPublishModal}
           personalRide={selectedPersonalRide}
+          verificationStatus={verificationStatus}
           onClose={() => {
             setShowPublishModal(false);
             setSelectedPersonalRide(null);
@@ -624,6 +835,16 @@ function AppContent() {
             await loadCredits();
             console.log('✅ [PublishModal] Tout rechargé !');
           }}
+        />
+
+        {/* 🚗 Incoming Ride Modal - Système "À la Uber" */}
+        <IncomingRideModal
+          visible={showIncomingModal}
+          ride={incomingRide}
+          onAccept={handleAcceptRide}
+          onDecline={handleDeclineRide}
+          onTimeout={handleTimeoutRide}
+          timeoutSeconds={20}
         />
       </LinearGradient>
     </View>
@@ -644,7 +865,7 @@ function AppWithData() {
   const { user } = useAuth();
   
   return (
-    <AppDataProvider userId={user?.uid || null}>
+    <AppDataProvider userId={user?.id || null}>
       <NavigationProvider>
         <AppContent />
       </NavigationProvider>

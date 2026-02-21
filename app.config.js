@@ -81,14 +81,14 @@ module.exports = {
         {
           android: {
             // Version minimale Android 8.0 (API 26) - recommandé pour Play Store
-            // Si tu veux vraiment supporter Android 6, change minSdkVersion à 23
-            // Mais attention : Expo SDK 54 supporte Android 7+ par défaut
-            minSdkVersion: 26, // Android 8.0 - minimum pour Play Store
-            compileSdkVersion: 35, // Requis par les dépendances androidx.activity
-            targetSdkVersion: 35, // Requis par le Play Store (minimum API 35)
+            minSdkVersion: 26,
+            compileSdkVersion: 35,
+            targetSdkVersion: 35,
           },
         },
       ],
+      // Fix CocoaPods : Firebase/GoogleUtilities "does not define modules" (modular_headers)
+      './plugins/withPodfileModularHeaders.js',
     ],
   },
 };

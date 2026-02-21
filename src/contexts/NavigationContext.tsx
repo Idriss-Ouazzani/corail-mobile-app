@@ -4,18 +4,11 @@
 
 import React, { createContext, useContext, useState, ReactNode } from 'react';
 import type { Ride } from '../types';
+import type { FilterOptions } from '../components/MarketplaceFilters';
 
 // ============================================================================
 // TYPES
 // ============================================================================
-
-interface FilterOptions {
-  visibility: 'all' | 'public' | 'groups';
-  vehicleTypes: string[]; // Changé de vehicleType à vehicleTypes pour cohérence avec App.tsx
-  priceRange: { min: number; max: number };
-  dateRange: { start: Date | null; end: Date | null };
-  sortBy?: 'price_asc' | 'price_desc' | 'date_asc' | 'date_desc' | 'distance_asc' | 'distance_desc' | 'duration_asc' | 'duration_desc' | null;
-}
 
 interface NavigationContextType {
   // Navigation principale
@@ -23,8 +16,8 @@ interface NavigationContextType {
   setCurrentScreen: (screen: 'dashboard' | 'courses' | 'tools' | 'profile') => void;
   
   // Onglets courses
-  coursesTab: 'marketplace' | 'myrides' | 'history';
-  setCoursesTab: (tab: 'marketplace' | 'myrides' | 'history') => void;
+  coursesTab: 'marketplace' | 'myrides';
+  setCoursesTab: (tab: 'marketplace' | 'myrides') => void;
   myRidesTab: 'claimed' | 'published' | 'personal';
   setMyRidesTab: (tab: 'claimed' | 'published' | 'personal') => void;
   
@@ -53,6 +46,8 @@ interface NavigationContextType {
   setCreateRideMode: (mode: 'create' | 'publish') => void;
   showCreateQuote: boolean;
   setShowCreateQuote: (show: boolean) => void;
+  showMyInvoices: boolean;
+  setShowMyInvoices: (show: boolean) => void;
   
   // Modales - Publication
   showPublishModal: boolean;
@@ -95,6 +90,8 @@ interface NavigationContextType {
   setShowQRCode: (show: boolean) => void;
   showVTCProfile: boolean;
   setShowVTCProfile: (show: boolean) => void;
+  showDriverRequests: boolean;
+  setShowDriverRequests: (show: boolean) => void;
   
   // Modales - Pages légales
   showPrivacyPolicy: boolean;
@@ -127,7 +124,7 @@ interface NavigationProviderProps {
 export const NavigationProvider: React.FC<NavigationProviderProps> = ({ children }) => {
   // Navigation principale
   const [currentScreen, setCurrentScreen] = useState<'dashboard' | 'courses' | 'tools' | 'profile'>('dashboard');
-  const [coursesTab, setCoursesTab] = useState<'marketplace' | 'myrides' | 'history'>('myrides');
+  const [coursesTab, setCoursesTab] = useState<'marketplace' | 'myrides'>('myrides');
   const [myRidesTab, setMyRidesTab] = useState<'claimed' | 'published' | 'personal'>('claimed');
   
   // Sélections
@@ -139,11 +136,9 @@ export const NavigationProvider: React.FC<NavigationProviderProps> = ({ children
   // Filtres
   const [activeFilter, setActiveFilter] = useState<'all' | 'public' | 'groups'>('all');
   const [filters, setFilters] = useState<FilterOptions>({
-    visibility: 'all',
-    vehicleTypes: [], // Changé de vehicleType à vehicleTypes
-    priceRange: { min: 0, max: 200 },
-    dateRange: { start: null, end: null },
+    vehicleTypes: [],
     sortBy: null,
+    radiusKm: 100, // Rayon par défaut: 100km
   });
   const [showFilters, setShowFilters] = useState(false);
   
@@ -151,6 +146,7 @@ export const NavigationProvider: React.FC<NavigationProviderProps> = ({ children
   const [showCreateRide, setShowCreateRide] = useState(false);
   const [createRideMode, setCreateRideMode] = useState<'create' | 'publish'>('publish');
   const [showCreateQuote, setShowCreateQuote] = useState(false);
+  const [showMyInvoices, setShowMyInvoices] = useState(false);
   
   // Modales - Publication
   const [showPublishModal, setShowPublishModal] = useState(false);
@@ -176,6 +172,7 @@ export const NavigationProvider: React.FC<NavigationProviderProps> = ({ children
   const [showAdminPanel, setShowAdminPanel] = useState(false);
   const [showQRCode, setShowQRCode] = useState(false);
   const [showVTCProfile, setShowVTCProfile] = useState(false);
+  const [showDriverRequests, setShowDriverRequests] = useState(false);
   
   // Modales - Pages légales
   const [showPrivacyPolicy, setShowPrivacyPolicy] = useState(false);
@@ -190,6 +187,7 @@ export const NavigationProvider: React.FC<NavigationProviderProps> = ({ children
   const closeAllModals = () => {
     setShowCreateRide(false);
     setShowCreateQuote(false);
+    setShowMyInvoices(false);
     setShowPublishModal(false);
     setShowPersonalInfo(false);
     setShowNotifications(false);
@@ -205,6 +203,7 @@ export const NavigationProvider: React.FC<NavigationProviderProps> = ({ children
     setShowAdminPanel(false);
     setShowQRCode(false);
     setShowVTCProfile(false);
+    setShowDriverRequests(false);
     setShowPrivacyPolicy(false);
     setShowTermsOfService(false);
     setShowLegalNotice(false);
@@ -247,6 +246,8 @@ export const NavigationProvider: React.FC<NavigationProviderProps> = ({ children
     setCreateRideMode,
     showCreateQuote,
     setShowCreateQuote,
+    showMyInvoices,
+    setShowMyInvoices,
     showPublishModal,
     setShowPublishModal,
     publishVisibility,
@@ -281,6 +282,8 @@ export const NavigationProvider: React.FC<NavigationProviderProps> = ({ children
     setShowQRCode,
     showVTCProfile,
     setShowVTCProfile,
+    showDriverRequests,
+    setShowDriverRequests,
     showPrivacyPolicy,
     setShowPrivacyPolicy,
     showTermsOfService,

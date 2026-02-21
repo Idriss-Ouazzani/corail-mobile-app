@@ -1,11 +1,15 @@
 {
   "extends": "expo/tsconfig.base",
-  "compilerOptions": {
-    "strict": true
-  },
+  "compilerOptions": { "strict": true },
   "include": [
-    "**/*.ts",
-    "**/*.tsx",
+    "App.tsx",
+    "src/**/*.ts",
+    "src/**/*.tsx",
     "env.d.ts"
+  ],
+  "exclude": [
+    "node_modules",
+    "corail-landing-page-design",
+    "supabase/functions"
   ]
 }

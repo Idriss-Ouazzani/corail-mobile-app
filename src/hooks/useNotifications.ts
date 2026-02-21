@@ -37,13 +37,15 @@ export const useNotifications = ({
           console.log('✅ Notifications activées');
           
           // 📱 Enregistrer le push token dans Supabase
-          const tokenRegistered = await PushTokenService.registerPushToken(user.uid);
+          const tokenRegistered = await PushTokenService.registerPushToken(user.id);
           if (tokenRegistered) {
             console.log('✅ Push token enregistré');
           }
           
           // Vérifier les crédits pour alerte si faible
-          if (userCredits < 2) {
+          // Note: Vérifier uniquement si les crédits ont été chargés (>= 0 avec délai)
+          // La fonction notifyLowCredits gère déjà la limite < 2
+          if (userCredits >= 0 && userCredits < 2) {
             await NotificationService.notifyLowCredits(userCredits);
           }
           
@@ -66,7 +68,7 @@ export const useNotifications = ({
     
     return () => {
       // Cleanup: marquer le token comme inactif quand le composant se démonte
-      PushTokenService.deactivatePushToken(user.uid).catch(err => {
+      PushTokenService.deactivatePushToken(user.id).catch(err => {
         console.error('❌ Erreur désactivation push token:', err);
       });
     };
