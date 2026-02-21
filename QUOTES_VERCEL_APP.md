@@ -58,7 +58,7 @@ Créez `.env.local` :
 
 ```env
 NEXT_PUBLIC_SUPABASE_URL=https://qeheawdjlwlkhnwbhqcg.supabase.co
-NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFlaGVhd2RqbHdsa2hud2JocWNnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjcxMTY3NTMsImV4cCI6MjA4MjY5Mjc1M30.Eb9798W9FD92SNr4KI6W70heZ08hjwl0bbjeXHQU8ds  # gitleaks:allow
+NEXT_PUBLIC_SUPABASE_ANON_KEY=YOUR_SUPABASE_ANON_KEY
 ```
 
 ### 5. Créer `lib/supabase.ts`
