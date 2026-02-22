@@ -50,3 +50,6 @@ supabase/functions/.env
 # Temporary files
 *.log
 *.tmp
+
+# Deploy clone (même contenu que corail-landing-page-design, poussé vers getcorail-website sur GitHub/Vercel)
+getcorail-website/
