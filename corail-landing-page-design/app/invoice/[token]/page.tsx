@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
+import Image from "next/image";
 import { getSupabaseServer } from "@/lib/supabase-server";
 
 type Invoice = {
@@ -12,13 +13,15 @@ type Invoice = {
   vat_amount_cents?: number | null;
   client_name: string | null;
   client_company_name?: string | null;
-  client_address?: string | null;
-  client_siret?: string | null;
+  client_email?: string | null;
+  client_phone?: string | null;
   service_date?: string | null;
   payment_method?: string | null;
   paid_at?: string | null;
   status: string;
   vtc_profile_id?: string | null;
+  source_type?: string | null;
+  source_id?: string | null;
 };
 
 type VtcProfileLegal = {
@@ -48,63 +51,51 @@ export default async function InvoicePage({
   const { token } = await params;
   const supabase = getSupabaseServer();
 
-  const { data: invoice, error } = await supabase
-    .from("invoices")
-    .select("id, public_token, invoice_number, issued_at, total_amount_cents, total_ht_cents, vat_amount_cents, client_name, client_company_name, client_address, client_siret, service_date, payment_method, paid_at, status, vtc_profile_id")
-    .eq("public_token", token)
-    .single();
+  // Essayer public_token puis token (au cas où la colonne s’appelle comme pour les devis)
+  const { data: payload, error: rpcError } = await supabase.rpc("get_invoice_public_by_token", {
+    p_token: token,
+  });
 
-  if (error || !invoice) {
+  if (rpcError || payload == null) {
+    if (rpcError) console.error("[invoice page] RPC error:", rpcError.message);
     notFound();
   }
 
-  const inv = invoice as Invoice;
-  let vtcLegal: VtcProfileLegal | null = null;
-  let driverUser: DriverUser | null = null;
-
-  if (inv.vtc_profile_id) {
-    const { data: profile } = await supabase
-      .from("vtc_profiles")
-      .select("user_id, display_name, legal_business_name, legal_address_line1, legal_postal_code, legal_city, siret, vat_option, vat_number")
-      .eq("id", inv.vtc_profile_id)
-      .single();
-    if (profile) {
-      vtcLegal = profile as VtcProfileLegal;
-      const userId = (profile as { user_id?: string }).user_id;
-      if (userId) {
-        const { data: user } = await supabase
-          .from("users")
-          .select("full_name, email, phone")
-          .eq("id", userId)
-          .single();
-        driverUser = user as DriverUser | null;
-      }
-    }
+  const inv = (payload as { invoice?: Invoice }).invoice as Invoice;
+  if (!inv) notFound();
+  if (!inv.public_token && (inv as { token?: string }).token) {
+    (inv as { public_token?: string }).public_token = (inv as { token: string }).token;
   }
+
+  const vtcLegal: VtcProfileLegal | null = (payload as { vtc_profile?: VtcProfileLegal | null }).vtc_profile ?? null;
+  const driverUser: DriverUser | null = (payload as { driver_user?: DriverUser | null }).driver_user ?? null;
+  const quoteId: string | null = (payload as { quote_id?: string | null }).quote_id ?? null;
+  const pickupAddress: string | null = (payload as { pickup_address?: string | null }).pickup_address ?? null;
+  const dropoffAddress: string | null = (payload as { dropoff_address?: string | null }).dropoff_address ?? null;
 
   const emitterName = vtcLegal?.legal_business_name || vtcLegal?.display_name || driverUser?.full_name || null;
   const hasLegalAddress = vtcLegal?.legal_address_line1 && vtcLegal?.legal_postal_code && vtcLegal?.legal_city;
-  const emitterAddress = hasLegalAddress
-    ? `${vtcLegal!.legal_address_line1}, ${vtcLegal!.legal_postal_code} ${vtcLegal!.legal_city}`
+  const emitterAddressOneLine = hasLegalAddress
+    ? `${vtcLegal!.legal_address_line1}, ${vtcLegal!.legal_postal_code} ${vtcLegal!.legal_city}`.replace(/\s+/g, " ").trim()
     : null;
   const issuedDate = inv.issued_at
     ? new Date(inv.issued_at).toLocaleDateString("fr-FR", {
         day: "numeric",
-        month: "long",
+        month: "short",
         year: "numeric",
       })
     : "";
   const serviceDateStr = inv.service_date
     ? new Date(inv.service_date).toLocaleDateString("fr-FR", {
         day: "numeric",
-        month: "long",
+        month: "short",
         year: "numeric",
       })
     : null;
   const paidAtStr = inv.paid_at
     ? new Date(inv.paid_at).toLocaleDateString("fr-FR", {
         day: "numeric",
-        month: "long",
+        month: "short",
         year: "numeric",
       })
     : null;
@@ -114,230 +105,152 @@ export default async function InvoicePage({
   const totalTTC = totalCents / 100;
   const totalHT = inv.total_ht_cents != null ? inv.total_ht_cents / 100 : (isAssujettiTva ? totalTTC / 1.1 : totalTTC);
   const vatAmount = inv.vat_amount_cents != null ? inv.vat_amount_cents / 100 : (isAssujettiTva ? totalTTC - totalHT : 0);
-  const isB2B = !!(inv.client_company_name && inv.client_company_name.trim());
+  const clientDisplayName = (inv.client_company_name && inv.client_company_name.trim()) ? inv.client_company_name : inv.client_name;
+
+  const hasClient = clientDisplayName || inv.client_email || inv.client_phone;
 
   return (
-    <div className="min-h-screen bg-[var(--background)] text-[var(--foreground)] p-4 md:p-6">
-      <div className="max-w-lg mx-auto">
+    <div className="min-h-screen bg-[var(--background)] text-[var(--foreground)]">
+      <header className="flex items-center justify-between px-4 pt-4 pb-2 md:px-6 md:pt-6">
+        <Link
+          href="https://getcorail.com"
+          className="text-xs text-[var(--muted-foreground)] hover:underline"
+        >
+          ← getcorail.com
+        </Link>
+        <Link href="https://getcorail.com" className="shrink-0">
+          <Image
+            src="/images/corail-logo.png"
+            alt="Corail"
+            width={384}
+            height={128}
+            className="h-32 w-auto object-contain opacity-90"
+          />
+        </Link>
+      </header>
+
+      <main className="px-4 pb-8 md:px-6 max-w-md mx-auto">
         <div className="mb-6">
-          <Link
-            href="https://getcorail.com"
-            className="text-sm text-[var(--muted-foreground)] hover:underline"
-          >
-            ← Retour à getcorail.com
-          </Link>
+          <h1 className="text-lg font-semibold tracking-tight">FACTURE</h1>
         </div>
 
-        <div className="rounded-xl border border-[var(--border)] bg-[var(--card)] p-6 shadow-sm">
-          <h1 className="text-xl font-semibold mb-1">FACTURE</h1>
-          <p className="text-sm text-[var(--muted-foreground)] mb-6">
-            Document légal
+        {/* Montant (prioritaire) */}
+        <section className="rounded-xl bg-[var(--card)] border border-[var(--border)] p-4 mb-5">
+          <p className="text-[10px] uppercase tracking-widest text-[var(--muted-foreground)] mb-2">
+            Montant
           </p>
-
-          {/* A) Informations du CHAUFFEUR (émetteur) */}
-          <section className="mb-6 pb-4 border-b border-[var(--border)]">
-            <h2 className="text-xs font-semibold text-[var(--muted-foreground)] uppercase tracking-wider mb-3">
-              A) Émetteur (chauffeur privé)
-            </h2>
-            <dl className="space-y-2 text-sm">
-              <div>
-                <dt className="text-[var(--muted-foreground)]">Nom / Raison sociale</dt>
-                <dd className="font-medium">{emitterName ?? "—"}</dd>
+          {isAssujettiTva ? (
+            <div className="space-y-1.5 text-sm">
+              <div className="flex justify-between">
+                <span className="text-[var(--muted-foreground)]">Total HT</span>
+                <span className="tabular-nums">{totalHT.toFixed(2)} €</span>
               </div>
-              {emitterAddress && (
-                <div>
-                  <dt className="text-[var(--muted-foreground)]">Adresse complète</dt>
-                  <dd>{emitterAddress}</dd>
-                </div>
-              )}
-              {vtcLegal?.siret && (
-                <div>
-                  <dt className="text-[var(--muted-foreground)]">SIRET</dt>
-                  <dd className="font-medium tabular-nums">{vtcLegal.siret}</dd>
-                </div>
-              )}
-              {driverUser?.phone && (
-                <div>
-                  <dt className="text-[var(--muted-foreground)]">Téléphone</dt>
-                  <dd className="tabular-nums">{driverUser.phone}</dd>
-                </div>
-              )}
-              {driverUser?.email && (
-                <div>
-                  <dt className="text-[var(--muted-foreground)]">Email</dt>
-                  <dd>{driverUser.email}</dd>
-                </div>
-              )}
+              <div className="flex justify-between">
+                <span className="text-[var(--muted-foreground)]">TVA (10 %)</span>
+                <span className="tabular-nums">{vatAmount.toFixed(2)} €</span>
+              </div>
+              <div className="flex justify-between pt-2 border-t border-[var(--border)]">
+                <span className="font-semibold">Total TTC</span>
+                <span className="text-lg font-semibold tabular-nums text-[var(--primary)]">
+                  {totalTTC.toFixed(2)} €
+                </span>
+              </div>
+            </div>
+          ) : (
+            <div>
+              <p className="text-2xl font-semibold tabular-nums text-[var(--primary)]">
+                {totalTTC.toFixed(2)} €
+              </p>
+              <p className="text-xs text-[var(--muted-foreground)] mt-1">
+                TVA non applicable (art. 293 B du CGI)
+              </p>
+            </div>
+          )}
+        </section>
+
+        <div className="space-y-4">
+          {/* Chauffeur — valeurs uniquement (nom, adresse, SIRET, tél, email, N° TVA si assujetti) */}
+          <section className="text-sm">
+            <p className="text-[10px] uppercase tracking-widest text-[var(--muted-foreground)] mb-2">
+              Chauffeur
+            </p>
+            <div className="space-y-1 text-[var(--foreground)]">
+              {emitterName && <p className="font-medium">{emitterName}</p>}
+              {emitterAddressOneLine && <p>{emitterAddressOneLine}</p>}
+              {vtcLegal?.siret && <p className="tabular-nums">{vtcLegal.siret}</p>}
+              {driverUser?.phone && <p className="tabular-nums">{driverUser.phone}</p>}
+              {driverUser?.email && <p>{driverUser.email}</p>}
               {isAssujettiTva && vtcLegal?.vat_number && (
-                <div>
-                  <dt className="text-[var(--muted-foreground)]">Numéro TVA intracommunautaire</dt>
-                  <dd className="font-medium tabular-nums">{vtcLegal.vat_number}</dd>
-                </div>
+                <p className="tabular-nums">{vtcLegal.vat_number}</p>
               )}
-            </dl>
+            </div>
           </section>
 
-          {/* B) Informations du DOCUMENT */}
-          <section className="mb-6 pb-4 border-b border-[var(--border)]">
-            <h2 className="text-xs font-semibold text-[var(--muted-foreground)] uppercase tracking-wider mb-3">
-              B) Informations du document
-            </h2>
-            <dl className="space-y-2 text-sm">
-              <div>
-                <dt className="text-[var(--muted-foreground)]">Titre</dt>
-                <dd className="font-medium">FACTURE</dd>
+          {/* Client — nom + optionnel email, optionnel téléphone */}
+          {hasClient && (
+            <section className="text-xs text-[var(--muted-foreground)]">
+              <p className="text-[10px] uppercase tracking-widest text-[var(--muted-foreground)] mb-1.5">
+                Client
+              </p>
+              <div className="space-y-0.5">
+                {clientDisplayName && (
+                  <p className="font-medium text-[var(--foreground)]">{clientDisplayName}</p>
+                )}
+                {inv.client_email && <p>{inv.client_email}</p>}
+                {inv.client_phone && <p className="tabular-nums">{inv.client_phone}</p>}
               </div>
-              <div>
-                <dt className="text-[var(--muted-foreground)]">Numéro de facture</dt>
-                <dd className="font-medium">{inv.invoice_number}</dd>
-              </div>
-              <div>
-                <dt className="text-[var(--muted-foreground)]">Date d’émission</dt>
-                <dd>{issuedDate}</dd>
-              </div>
-              {serviceDateStr && (
-                <div>
-                  <dt className="text-[var(--muted-foreground)]">Date de la prestation</dt>
-                  <dd>{serviceDateStr}</dd>
-                </div>
-              )}
-            </dl>
-          </section>
+            </section>
+          )}
 
-          {/* C) Informations du CLIENT */}
-          <section className="mb-6 pb-4 border-b border-[var(--border)]">
-            <h2 className="text-xs font-semibold text-[var(--muted-foreground)] uppercase tracking-wider mb-3">
-              C) Client
-            </h2>
-            <dl className="space-y-2 text-sm">
-              {isB2B ? (
+          {/* Prestation — itinéraire comme le devis + date, paiement */}
+          <section className="text-sm">
+            <p className="text-[10px] uppercase tracking-widest text-[var(--muted-foreground)] mb-2">
+              Prestation
+            </p>
+            <div className="space-y-2 text-[var(--foreground)]">
+              {(pickupAddress || dropoffAddress) && (
                 <>
-                  <div>
-                    <dt className="text-[var(--muted-foreground)]">Raison sociale</dt>
-                    <dd className="font-medium">{inv.client_company_name}</dd>
-                  </div>
-                  {inv.client_address && (
-                    <div>
-                      <dt className="text-[var(--muted-foreground)]">Adresse</dt>
-                      <dd>{inv.client_address}</dd>
-                    </div>
+                  {pickupAddress && (
+                    <p><span className="text-[var(--muted-foreground)]">Départ</span><br />{pickupAddress}</p>
                   )}
-                  {inv.client_siret && (
-                    <div>
-                      <dt className="text-[var(--muted-foreground)]">SIRET</dt>
-                      <dd className="tabular-nums">{inv.client_siret}</dd>
-                    </div>
+                  {dropoffAddress && (
+                    <p><span className="text-[var(--muted-foreground)]">Arrivée</span><br />{dropoffAddress}</p>
                   )}
                 </>
-              ) : (
-                inv.client_name && (
-                  <div>
-                    <dt className="text-[var(--muted-foreground)]">Nom du client</dt>
-                    <dd className="font-medium">{inv.client_name}</dd>
-                  </div>
-                )
               )}
-            </dl>
+              <p>1 course</p>
+              {serviceDateStr && <p>Date : {serviceDateStr}</p>}
+              {inv.payment_method && <p>Paiement : {inv.payment_method}</p>}
+              {paidAtStr && <p>Payé le {paidAtStr}</p>}
+            </div>
           </section>
-
-          {/* D) Détail de la prestation */}
-          <section className="mb-6 pb-4 border-b border-[var(--border)]">
-            <h2 className="text-xs font-semibold text-[var(--muted-foreground)] uppercase tracking-wider mb-3">
-              D) Détail de la prestation
-            </h2>
-            <dl className="space-y-2 text-sm">
-              <div>
-                <dt className="text-[var(--muted-foreground)]">Description</dt>
-                <dd>Transport VTC – prestation de chauffeur privé</dd>
-              </div>
-              <div>
-                <dt className="text-[var(--muted-foreground)]">Quantité</dt>
-                <dd>1</dd>
-              </div>
-              <div>
-                <dt className="text-[var(--muted-foreground)]">Prix unitaire TTC</dt>
-                <dd>{totalTTC.toFixed(2)} €</dd>
-              </div>
-              <div>
-                <dt className="text-[var(--muted-foreground)]">Total</dt>
-                <dd className="font-semibold text-[var(--primary)]">{totalTTC.toFixed(2)} €</dd>
-              </div>
-            </dl>
-          </section>
-
-          {/* E) TVA */}
-          <section className="mb-6 pb-4 border-b border-[var(--border)]">
-            <h2 className="text-xs font-semibold text-[var(--muted-foreground)] uppercase tracking-wider mb-3">
-              E) TVA
-            </h2>
-            {isAssujettiTva ? (
-              <dl className="space-y-2 text-sm">
-                <div>
-                  <dt className="text-[var(--muted-foreground)]">Total HT</dt>
-                  <dd className="font-medium">{totalHT.toFixed(2)} €</dd>
-                </div>
-                <div>
-                  <dt className="text-[var(--muted-foreground)]">TVA 10 %</dt>
-                  <dd className="font-medium">{vatAmount.toFixed(2)} €</dd>
-                </div>
-                <div>
-                  <dt className="text-[var(--muted-foreground)]">Total TTC</dt>
-                  <dd className="font-semibold text-[var(--primary)]">{totalTTC.toFixed(2)} €</dd>
-                </div>
-              </dl>
-            ) : (
-              <>
-                <div>
-                  <dt className="text-[var(--muted-foreground)]">Total</dt>
-                  <dd className="font-semibold text-[var(--primary)]">{totalTTC.toFixed(2)} €</dd>
-                </div>
-                <p className="text-sm mt-2">TVA non applicable – article 293 B du CGI</p>
-              </>
-            )}
-          </section>
-
-          {/* F) Paiement */}
-          <section className="mb-6 pb-4 border-b border-[var(--border)]">
-            <h2 className="text-xs font-semibold text-[var(--muted-foreground)] uppercase tracking-wider mb-3">
-              F) Paiement
-            </h2>
-            <dl className="space-y-2 text-sm">
-              {inv.payment_method && (
-                <div>
-                  <dt className="text-[var(--muted-foreground)]">Mode de paiement</dt>
-                  <dd>{inv.payment_method}</dd>
-                </div>
-              )}
-              {paidAtStr ? (
-                <div>
-                  <dt className="text-[var(--muted-foreground)]">Date de paiement</dt>
-                  <dd>Payé le {paidAtStr}</dd>
-                </div>
-              ) : inv.payment_method ? (
-                <div>
-                  <dt className="text-[var(--muted-foreground)]">Date de paiement</dt>
-                  <dd className="text-[var(--muted-foreground)]">—</dd>
-                </div>
-              ) : null}
-            </dl>
-          </section>
-
-          <div className="mt-6 pt-4 border-t border-[var(--border)]">
-            <a
-              href={`/api/invoice/${token}/pdf`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center justify-center rounded-lg bg-[var(--primary)] text-[var(--primary-foreground)] px-6 py-3 font-medium hover:opacity-90"
-            >
-              Télécharger le PDF
-            </a>
-          </div>
         </div>
 
-        <p className="mt-6 text-center text-xs text-[var(--muted-foreground)]">
-          Facture émise par un chauffeur privé du réseau Corail · getcorail.com
-        </p>
-      </div>
+        <div className="mt-6">
+          <a
+            href={`/api/invoice/${token}/pdf`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center justify-center w-full py-2.5 px-3 rounded-lg text-sm font-medium bg-[var(--primary)] text-[var(--primary-foreground)] hover:opacity-90"
+          >
+            Télécharger le PDF
+          </a>
+        </div>
+
+        {/* Mini-bloc infos facture (typo petite, discret) */}
+        <div className="mt-8 pt-4 border-t border-[var(--border)]">
+          <p className="text-[10px] text-[var(--muted-foreground)]">
+            Facture {inv.invoice_number}
+            <span className="mx-2">·</span>
+            Émise le {issuedDate}
+          </p>
+          {quoteId && (
+            <p className="text-[10px] text-[var(--muted-foreground)] mt-1">
+              Réf. devis : {quoteId}
+            </p>
+          )}
+        </div>
+      </main>
     </div>
   );
 }

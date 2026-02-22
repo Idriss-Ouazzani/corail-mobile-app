@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
+import Image from "next/image";
 import { getSupabaseServer } from "@/lib/supabase-server";
 import { QuoteActions } from "./quote-actions";
 
@@ -32,6 +33,8 @@ type VtcProfileLegal = {
   legal_city: string | null;
   siret: string | null;
   vat_option: string | null;
+  vat_number: string | null;
+  vehicle_seats: number | null;
 };
 
 type DriverUser = {
@@ -72,7 +75,7 @@ export default async function QuotePage({
   if (q.driver_id) {
     const { data: vtcRow } = await supabase
       .from("vtc_profiles")
-      .select("display_name, legal_business_name, legal_address_line1, legal_postal_code, legal_city, siret, vat_option")
+      .select("display_name, legal_business_name, legal_address_line1, legal_postal_code, legal_city, siret, vat_option, vat_number, vehicle_seats")
       .eq("user_id", q.driver_id)
       .single();
     profile = vtcRow as VtcProfileLegal | null;
@@ -92,14 +95,14 @@ export default async function QuotePage({
   const emissionDate = q.created_at
     ? new Date(q.created_at).toLocaleDateString("fr-FR", {
         day: "numeric",
-        month: "long",
+        month: "short",
         year: "numeric",
       })
     : "";
   const validUntilDate = q.valid_until
     ? new Date(q.valid_until).toLocaleDateString("fr-FR", {
         day: "numeric",
-        month: "long",
+        month: "short",
         year: "numeric",
       })
     : (() => {
@@ -107,7 +110,7 @@ export default async function QuotePage({
         d.setDate(d.getDate() + 30);
         return d.toLocaleDateString("fr-FR", {
           day: "numeric",
-          month: "long",
+          month: "short",
           year: "numeric",
         });
       })();
@@ -120,208 +123,162 @@ export default async function QuotePage({
 
   const emitterName =
     profile?.legal_business_name || profile?.display_name || driverUser?.full_name || "";
-  const emitterAddress =
+  const emitterAddressOneLine =
     profile?.legal_address_line1 && profile?.legal_postal_code && profile?.legal_city
-      ? `${profile.legal_address_line1}, ${profile.legal_postal_code} ${profile.legal_city}`
+      ? `${profile.legal_address_line1}, ${profile.legal_postal_code} ${profile.legal_city}`.replace(/\s+/g, " ").trim()
       : null;
-  const isB2B = !!(q.client_company_name && q.client_company_name.trim());
+  const clientDisplayName =
+    (q.client_company_name && q.client_company_name.trim())
+      ? q.client_company_name
+      : q.client_name;
+  const vehicleLabel =
+    profile?.vehicle_seats != null
+      ? `${profile.vehicle_seats} places`
+      : null;
 
   return (
-    <div className="min-h-screen bg-[var(--background)] text-[var(--foreground)] p-4 md:p-6">
-      <div className="max-w-lg mx-auto">
+    <div className="min-h-screen bg-[var(--background)] text-[var(--foreground)]">
+      {/* Header: back link + logo */}
+      <header className="flex items-center justify-between px-4 pt-4 pb-2 md:px-6 md:pt-6">
+        <Link
+          href="https://getcorail.com"
+          className="text-xs text-[var(--muted-foreground)] hover:underline"
+        >
+          ← getcorail.com
+        </Link>
+        <Link href="https://getcorail.com" className="shrink-0">
+          <Image
+            src="/images/corail-logo.png"
+            alt="Corail"
+            width={384}
+            height={128}
+            className="h-32 w-auto object-contain opacity-90"
+          />
+        </Link>
+      </header>
+
+      <main className="px-4 pb-8 md:px-6 max-w-md mx-auto">
+        {/* Titre */}
         <div className="mb-6">
-          <Link
-            href="https://getcorail.com"
-            className="text-sm text-[var(--muted-foreground)] hover:underline"
-          >
-            ← Retour à getcorail.com
-          </Link>
+          <h1 className="text-lg font-semibold tracking-tight">DEVIS</h1>
         </div>
 
-        <div className="rounded-xl border border-[var(--border)] bg-[var(--card)] p-6 shadow-sm">
-          <h1 className="text-xl font-semibold mb-1">DEVIS – Transport VTC</h1>
-          <p className="text-sm text-[var(--muted-foreground)] mb-6">
-            Document à caractère professionnel
+        {/* Statut (badge compact si déjà traité) */}
+        {(q.status === "ACCEPTED" || q.status === "REFUSED") && (
+          <div className="mb-3">
+            <span
+              className={
+                q.status === "ACCEPTED"
+                  ? "inline-flex items-center rounded-full bg-emerald-500/15 px-3 py-1 text-xs font-medium text-emerald-700 dark:text-emerald-400"
+                  : "inline-flex items-center rounded-full bg-[var(--muted)] px-3 py-1 text-xs font-medium text-[var(--muted-foreground)]"
+              }
+            >
+              {q.status === "ACCEPTED" ? "Accepté" : "Refusé"}
+            </span>
+          </div>
+        )}
+
+        {/* Bloc Prix en premier : visible sans scroll sur mobile */}
+        <section className="rounded-xl bg-[var(--card)] border border-[var(--border)] p-4 mb-5">
+          <p className="text-[10px] uppercase tracking-widest text-[var(--muted-foreground)] mb-2">
+            Montant
           </p>
-
-          {/* A) Informations du CHAUFFEUR (émetteur) */}
-          <section className="mb-6 pb-4 border-b border-[var(--border)]">
-            <h2 className="text-xs font-semibold text-[var(--muted-foreground)] uppercase tracking-wider mb-3">
-              A) Émetteur du devis (chauffeur)
-            </h2>
-            <dl className="space-y-2 text-sm">
-              <div>
-                <dt className="text-[var(--muted-foreground)]">Nom ou raison sociale</dt>
-                <dd className="font-medium">{emitterName || "—"}</dd>
+          {isAssujettiTva ? (
+            <div className="space-y-1.5 text-sm">
+              <div className="flex justify-between">
+                <span className="text-[var(--muted-foreground)]">Total HT</span>
+                <span className="tabular-nums">{totalHT.toFixed(2)} €</span>
               </div>
-              {emitterAddress && (
-                <div>
-                  <dt className="text-[var(--muted-foreground)]">Adresse complète</dt>
-                  <dd>{emitterAddress}</dd>
-                </div>
-              )}
-              {profile?.siret && (
-                <div>
-                  <dt className="text-[var(--muted-foreground)]">SIRET (14 chiffres)</dt>
-                  <dd className="font-medium tabular-nums">{profile.siret}</dd>
-                </div>
-              )}
-              {driverUser?.phone && (
-                <div>
-                  <dt className="text-[var(--muted-foreground)]">Téléphone</dt>
-                  <dd className="tabular-nums">{driverUser.phone}</dd>
-                </div>
-              )}
-              {driverUser?.email && (
-                <div>
-                  <dt className="text-[var(--muted-foreground)]">Email</dt>
-                  <dd>{driverUser.email}</dd>
-                </div>
-              )}
-            </dl>
-          </section>
-
-          {/* B) Informations du DOCUMENT */}
-          <section className="mb-6 pb-4 border-b border-[var(--border)]">
-            <h2 className="text-xs font-semibold text-[var(--muted-foreground)] uppercase tracking-wider mb-3">
-              B) Informations du document
-            </h2>
-            <dl className="space-y-2 text-sm">
-              <div>
-                <dt className="text-[var(--muted-foreground)]">Numéro de devis</dt>
-                <dd className="font-medium">{q.id}</dd>
+              <div className="flex justify-between">
+                <span className="text-[var(--muted-foreground)]">TVA (10 %)</span>
+                <span className="tabular-nums">{vatAmount.toFixed(2)} €</span>
               </div>
-              <div>
-                <dt className="text-[var(--muted-foreground)]">Date d’émission</dt>
-                <dd>{emissionDate}</dd>
-              </div>
-              <div>
-                <dt className="text-[var(--muted-foreground)]">Date de validité</dt>
-                <dd>Valable jusqu’au {validUntilDate}</dd>
-              </div>
-            </dl>
-          </section>
-
-          {/* C) Informations du CLIENT */}
-          <section className="mb-6 pb-4 border-b border-[var(--border)]">
-            <h2 className="text-xs font-semibold text-[var(--muted-foreground)] uppercase tracking-wider mb-3">
-              C) Client
-            </h2>
-            <dl className="space-y-2 text-sm">
-              {isB2B ? (
-                <>
-                  <div>
-                    <dt className="text-[var(--muted-foreground)]">Raison sociale</dt>
-                    <dd className="font-medium">{q.client_company_name}</dd>
-                  </div>
-                  {q.client_address && (
-                    <div>
-                      <dt className="text-[var(--muted-foreground)]">Adresse</dt>
-                      <dd>{q.client_address}</dd>
-                    </div>
-                  )}
-                  {q.client_siret && (
-                    <div>
-                      <dt className="text-[var(--muted-foreground)]">SIRET</dt>
-                      <dd className="tabular-nums">{q.client_siret}</dd>
-                    </div>
-                  )}
-                  {q.client_email && (
-                    <div>
-                      <dt className="text-[var(--muted-foreground)]">Email</dt>
-                      <dd>{q.client_email}</dd>
-                    </div>
-                  )}
-                </>
-              ) : (
-                <>
-                  <div>
-                    <dt className="text-[var(--muted-foreground)]">Nom du client</dt>
-                    <dd className="font-medium">{q.client_name}</dd>
-                  </div>
-                  {q.client_email && (
-                    <div>
-                      <dt className="text-[var(--muted-foreground)]">Email (optionnel)</dt>
-                      <dd>{q.client_email}</dd>
-                    </div>
-                  )}
-                  {q.client_phone && (
-                    <div>
-                      <dt className="text-[var(--muted-foreground)]">Téléphone (optionnel)</dt>
-                      <dd className="tabular-nums">{q.client_phone}</dd>
-                    </div>
-                  )}
-                </>
-              )}
-            </dl>
-          </section>
-
-          {/* D) Détail de la prestation */}
-          <section className="mb-6 pb-4 border-b border-[var(--border)]">
-            <h2 className="text-xs font-semibold text-[var(--muted-foreground)] uppercase tracking-wider mb-3">
-              D) Détail de la prestation
-            </h2>
-            <dl className="space-y-2 text-sm">
-              <div>
-                <dt className="text-[var(--muted-foreground)]">Description du trajet</dt>
-                <dd>
-                  Départ : {q.pickup_address} — Arrivée : {q.dropoff_address}
-                </dd>
-              </div>
-              <div>
-                <dt className="text-[var(--muted-foreground)]">Date de la course</dt>
-                <dd>
-                  {new Date(q.scheduled_date).toLocaleDateString("fr-FR", {
-                    weekday: "long",
-                    day: "numeric",
-                    month: "long",
-                    year: "numeric",
-                  })}{" "}
-                  à {timeStr}
-                </dd>
-              </div>
-              {q.notes && (
-                <div>
-                  <dt className="text-[var(--muted-foreground)]">Distance / précisions</dt>
-                  <dd className="whitespace-pre-wrap">{q.notes}</dd>
-                </div>
-              )}
-              <div>
-                <dt className="text-[var(--muted-foreground)]">Montant total proposé</dt>
-                <dd className="text-lg font-semibold text-[var(--primary)]">
+              <div className="flex justify-between pt-2 border-t border-[var(--border)]">
+                <span className="font-semibold">Total TTC</span>
+                <span className="text-lg font-semibold tabular-nums text-[var(--primary)]">
                   {totalTTC.toFixed(2)} €
-                </dd>
+                </span>
               </div>
-            </dl>
-          </section>
-
-          {/* E) TVA */}
-          <section className="mb-6 pb-4 border-b border-[var(--border)]">
-            <h2 className="text-xs font-semibold text-[var(--muted-foreground)] uppercase tracking-wider mb-3">
-              E) TVA
-            </h2>
-            {isAssujettiTva ? (
-              <dl className="space-y-2 text-sm">
-                <div>
-                  <dt className="text-[var(--muted-foreground)]">Total HT</dt>
-                  <dd className="font-medium">{totalHT.toFixed(2)} €</dd>
-                </div>
-                <div>
-                  <dt className="text-[var(--muted-foreground)]">TVA (10 %)</dt>
-                  <dd className="font-medium">{vatAmount.toFixed(2)} €</dd>
-                </div>
-                <div>
-                  <dt className="text-[var(--muted-foreground)]">Total TTC</dt>
-                  <dd className="font-semibold text-[var(--primary)]">{totalTTC.toFixed(2)} €</dd>
-                </div>
-              </dl>
-            ) : (
-              <p className="text-sm">
-                TVA non applicable – article 293 B du CGI
+            </div>
+          ) : (
+            <div>
+              <p className="text-2xl font-semibold tabular-nums text-[var(--primary)]">
+                {totalTTC.toFixed(2)} €
               </p>
-            )}
+              <p className="text-xs text-[var(--muted-foreground)] mt-1">
+                TVA non applicable (art. 293 B du CGI)
+              </p>
+            </div>
+          )}
+        </section>
+
+        <div className="space-y-5">
+          {/* Chauffeur — valeurs uniquement (nom, adresse, SIRET, tél, email, N° TVA si assujetti) */}
+          <section className="text-sm">
+            <p className="text-[10px] uppercase tracking-widest text-[var(--muted-foreground)] mb-2">
+              Chauffeur
+            </p>
+            <div className="space-y-1 text-[var(--foreground)]">
+              {emitterName && <p className="font-medium">{emitterName}</p>}
+              {emitterAddressOneLine && <p>{emitterAddressOneLine}</p>}
+              {profile?.siret && <p className="tabular-nums">{profile.siret}</p>}
+              {driverUser?.phone && <p className="tabular-nums">{driverUser.phone}</p>}
+              {driverUser?.email && <p>{driverUser.email}</p>}
+              {isAssujettiTva && profile?.vat_number && (
+                <p className="tabular-nums">{profile.vat_number}</p>
+              )}
+            </div>
           </section>
 
+          {/* Bloc 2 — Client */}
+          <section>
+            <p className="text-[10px] uppercase tracking-widest text-[var(--muted-foreground)] mb-2">
+              Client
+            </p>
+            <div className="space-y-1.5 text-sm">
+              <p className="font-medium">{clientDisplayName}</p>
+              {q.client_phone && (
+                <p className="tabular-nums text-[var(--muted-foreground)]">
+                  {q.client_phone}
+                </p>
+              )}
+            </div>
+          </section>
+
+          {/* Bloc 3 — Prestation */}
+          <section>
+            <p className="text-[10px] uppercase tracking-widest text-[var(--muted-foreground)] mb-2">
+              Prestation
+            </p>
+            <div className="space-y-2 text-sm">
+              <p className="leading-snug">
+                <span className="text-[var(--muted-foreground)]">Départ</span><br />
+                {q.pickup_address}
+              </p>
+              <p className="leading-snug">
+                <span className="text-[var(--muted-foreground)]">Arrivée</span><br />
+                {q.dropoff_address}
+              </p>
+              <p>
+                {new Date(q.scheduled_date).toLocaleDateString("fr-FR", {
+                  weekday: "short",
+                  day: "numeric",
+                  month: "short",
+                })}{" "}
+                à {timeStr}
+              </p>
+              {vehicleLabel && (
+                <p className="text-xs text-[var(--muted-foreground)]">
+                  {vehicleLabel}
+                </p>
+              )}
+            </div>
+          </section>
+
+        </div>
+
+        {/* Actions (Accepter / Refuser) */}
+        <div className="mt-6">
           <QuoteActions
             token={token}
             status={q.status}
@@ -330,11 +287,17 @@ export default async function QuotePage({
           />
         </div>
 
-        <p className="mt-6 text-center text-xs text-[var(--muted-foreground)]">
-          Ce devis est proposé par un chauffeur privé du réseau Corail. En acceptant,
-          vous confirmez la réservation.
-        </p>
-      </div>
+        {/* Micro-bloc infos devis (discret) */}
+        <div className="mt-8 pt-4 border-t border-[var(--border)]">
+          <p className="text-[10px] text-[var(--muted-foreground)] space-y-0.5">
+            <span>Devis {q.id}</span>
+            <span className="mx-2">·</span>
+            <span>Émis le {emissionDate}</span>
+            <span className="mx-2">·</span>
+            <span>Valable jusqu’au {validUntilDate}</span>
+          </p>
+        </div>
+      </main>
     </div>
   );
 }
