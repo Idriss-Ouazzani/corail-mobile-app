@@ -1,14 +1,13 @@
 /**
- * AuthContext - Gestion centralisée de l'authentification
- * 
- * ✅ Migré vers Supabase Auth (depuis Firebase)
+ * AuthContext - Gestion centralisée de l'authentification (Supabase)
  */
 
-import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useEffect, useRef, ReactNode } from 'react';
 import { supabaseAuth, type SupabaseUser } from '../services/supabaseAuth';
 import { apiClient } from '../services/api';
 import { logger } from '../services/logger';
 import analytics from '../services/analytics';
+import * as NotificationService from '../services/notifications';
 
 // ============================================================================
 // TYPES
@@ -66,6 +65,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [isAdmin, setIsAdmin] = useState<boolean>(false);
   const [hasAcceptedTerms, setHasAcceptedTerms] = useState<boolean>(false);
   const [verificationLoading, setVerificationLoading] = useState<boolean>(true);
+  const previousVerificationStatusRef = useRef<string | null>(null);
 
   // ============================================================================
   // FONCTIONS
@@ -90,11 +90,22 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       console.log('🔍 [AuthContext] Response complète:', response);
       
       const finalStatus = response.verification_status || 'UNVERIFIED';
+      const previousStatus = previousVerificationStatusRef.current;
       
       console.log('🔍 [AuthContext] verificationStatus:', finalStatus);
       console.log('🔍 [AuthContext] has_accepted_terms:', response.has_accepted_terms);
       
       setVerificationStatus(finalStatus);
+      previousVerificationStatusRef.current = finalStatus;
+
+      // Notification "Profil vérifié" quand on passe de PENDING (ou autre) à VERIFIED
+      if (finalStatus === 'VERIFIED' && previousStatus != null && previousStatus !== 'VERIFIED') {
+        try {
+          await NotificationService.notifyVerificationAccepted();
+        } catch (notifErr) {
+          console.warn('⚠️ Notification vérification non envoyée:', notifErr);
+        }
+      }
       setUserFullName(response.full_name || '');
       setUserPhone(response.phone || '');
       setUserSiren(response.siren || '');
@@ -132,11 +143,9 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
    */
   const signOut = async () => {
     try {
-      // 📊 Analytics: Clear user properties
-      await analytics.clearUserProperties();
-      
       await supabaseAuth.signOut();
       console.log('✅ Déconnexion réussie');
+      await analytics.clearUserProperties();
     } catch (error: any) {
       console.error('❌ Erreur déconnexion:', error);
       throw error;

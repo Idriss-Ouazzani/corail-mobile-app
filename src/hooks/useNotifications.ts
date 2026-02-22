@@ -9,7 +9,7 @@ import * as NotificationService from '../services/notifications';
 import * as PushTokenService from '../services/pushTokens';
 
 interface UseNotificationsProps {
-  user: any; // Firebase user
+  user: any; // Supabase user
   userCredits: number;
   verificationStatus: string | null;
 }

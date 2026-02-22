@@ -41,15 +41,33 @@ export function useRideActions(props: UseRideActionsProps) {
   // ============================================================================
 
   /**
-   * Supprimer une course (marketplace)
+   * Supprimer une course (marketplace).
+   * ride optionnel : si fourni avec picker_id, envoie une push au picker (course annulée).
    */
-  const handleDeleteRide = useCallback(async (rideId: string, visibility: string) => {
+  const handleDeleteRide = useCallback(async (
+    rideId: string,
+    visibility: string,
+    ride?: { picker_id?: string; pickup_address?: string; dropoff_address?: string }
+  ) => {
     try {
       console.log('🗑️ Suppression de la course:', rideId);
       
       // Supprimer de la base de données (remboursement automatique si PUBLISHED)
       const result = await apiClient.deleteRide(rideId);
       console.log('✅ Course supprimée avec succès', result);
+
+      // Notifier le picker (course annulée par le créateur)
+      if (ride?.picker_id) {
+        try {
+          await NotificationService.notifyRideCancelledToPicker(
+            ride.picker_id,
+            ride.pickup_address,
+            ride.dropoff_address
+          );
+        } catch (notifErr) {
+          console.warn('⚠️ Notification course annulée non envoyée:', notifErr);
+        }
+      }
       
       // 📊 Analytics: Track ride deleted (non-blocking)
       try {
@@ -82,14 +100,20 @@ export function useRideActions(props: UseRideActionsProps) {
   }, [loadRides, loadCredits]);
 
   /**
-   * Terminer une course (marquer comme complétée)
+   * Terminer une course (marquer comme complétée).
+   * rating : étoiles (1-5) + commentaire optionnel, envoyé à l'auteur (notification si chauffeur Corail).
    */
-  const handleCompleteRide = useCallback(async (rideId: string, priceCents: number, distanceKm?: number, durationMinutes?: number) => {
+  const handleCompleteRide = useCallback(async (
+    rideId: string,
+    priceCents: number,
+    distanceKm?: number,
+    durationMinutes?: number,
+    rating?: { stars: number; comment?: string | null }
+  ) => {
     try {
-      console.log('✅ Terminer la course:', rideId);
+      console.log('✅ Terminer la course:', rideId, rating ? `avec note ${rating.stars}` : '');
       
-      // Terminer la course
-      await apiClient.completeRide(rideId);
+      await apiClient.completeRide(rideId, rating);
       console.log('✅ Course terminée avec succès');
       
       // 📊 Analytics: Track ride completed (non-blocking)
@@ -139,11 +163,12 @@ export function useRideActions(props: UseRideActionsProps) {
         return null;
       }
 
-      // 🪸 Vérifier les crédits avant de prendre la course
-      if (userCredits < 1) {
+      // 🪸 Vérifier les crédits uniquement pour les courses publiées par un chauffeur (course client = 0 crédit)
+      const isClientRide = ride.source === 'client';
+      if (!isClientRide && userCredits < 1) {
         haptic.warning();
         toast.insufficientCredits();
-        return null; // Retourner null pour indiquer qu'on n'a pas pu claim
+        return null;
       }
 
       // Prendre la course
@@ -153,21 +178,22 @@ export function useRideActions(props: UseRideActionsProps) {
       console.log('✅ Course réclamée avec succès');
       haptic.success();
       
-      // 📊 Analytics: Track ride claimed (non-blocking)
+      const creditsSpent = isClientRide ? 0 : 1;
       try {
         await analytics.trackRideClaimed({
           rideId: ride.id,
           visibility: ride.visibility || 'PUBLIC',
           priceCents: ride.price_cents,
-          creditsSpent: 1,
+          creditsSpent,
           timeToClaimSeconds: Math.floor((claimStartTime - new Date(ride.created_at).getTime()) / 1000),
         });
-        
-        await analytics.trackCreditSpent({
-          amount: 1,
-          reason: 'ride_claimed',
-          newBalance: userCredits - 1,
-        });
+        if (creditsSpent > 0) {
+          await analytics.trackCreditSpent({
+            amount: 1,
+            reason: 'ride_claimed',
+            newBalance: userCredits - 1,
+          });
+        }
       } catch (analyticsError) {
         console.warn('⚠️ Analytics error (non-blocking):', analyticsError);
       }
@@ -211,9 +237,9 @@ export function useRideActions(props: UseRideActionsProps) {
       const updatedRide = await apiClient.getRide(ride.id);
       
       toast.rideClaimed();
-      toast.creditSpent();
-      
-      return updatedRide; // Retourner la course mise à jour
+      if (!isClientRide) toast.creditSpent();
+
+      return updatedRide;
     } catch (error: any) {
       logger.error('Erreur réclamation course', error, {
         action: 'claimRide',

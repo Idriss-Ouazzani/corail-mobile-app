@@ -60,12 +60,6 @@ module.exports = {
     scheme: 'corail',
     extra: {
       // Variables d'environnement accessibles via expo-constants
-      firebaseApiKey: process.env.FIREBASE_API_KEY,
-      firebaseAuthDomain: process.env.FIREBASE_AUTH_DOMAIN,
-      firebaseProjectId: process.env.FIREBASE_PROJECT_ID,
-      firebaseStorageBucket: process.env.FIREBASE_STORAGE_BUCKET,
-      firebaseMessagingSenderId: process.env.FIREBASE_MESSAGING_SENDER_ID,
-      firebaseAppId: process.env.FIREBASE_APP_ID,
       supabaseUrl: process.env.SUPABASE_URL,
       supabaseAnonKey: process.env.SUPABASE_ANON_KEY,
       sentryDsn: process.env.SENTRY_DSN,
@@ -87,8 +81,6 @@ module.exports = {
           },
         },
       ],
-      // Fix CocoaPods : Firebase/GoogleUtilities "does not define modules" (modular_headers)
-      './plugins/withPodfileModularHeaders.js',
     ],
   },
 };

@@ -14,9 +14,15 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import type { Ride, RideSource } from '../types';
 import { MapNavigationCard } from '../components/MapNavigationCard';
+import { CompleteRideRatingModal } from '../components/CompleteRideRatingModal';
 import { getCreatorProfileStats } from '../services/supabaseApi';
 import { computeIndicativeRange } from '../lib/pricing';
 import { getQuoteUrl, getInvoiceUrl, getInvoicePdfUrl } from '../constants/urls';
+
+export interface RideRatingInput {
+  stars: number;
+  comment?: string;
+}
 
 interface RideDetailScreenProps {
   ride: Ride;
@@ -25,7 +31,8 @@ interface RideDetailScreenProps {
   onBack: () => void;
   onClaim?: () => void;
   onDelete?: () => void;
-  onComplete?: () => void;
+  /** Appelé avec la notation (étoiles + commentaire) quand l'utilisateur valide la modal de fin de course */
+  onComplete?: (rating?: RideRatingInput) => void | Promise<void>;
   onConvertToPersonal?: () => void;
   onPublish?: () => void;
   onRideUpdated?: (updatedRide: Ride) => void;
@@ -91,6 +98,8 @@ export const RideDetailScreen: React.FC<RideDetailScreenProps> = ({
   const [loadingInvoice, setLoadingInvoice] = useState(false);
   const [generatingInvoice, setGeneratingInvoice] = useState(false);
   const [creatorStats, setCreatorStats] = useState<{ publicationsCount: number; ridesTakenCount: number; badges: any[] } | null>(null);
+  const [showRatingModal, setShowRatingModal] = useState(false);
+  const [completingRide, setCompletingRide] = useState(false);
   const isClientDemand = ride.source === 'client';
   const hasClientContact = !!(ride.client_email || ride.client_phone);
   const hasStoredRange = ride.indicative_low_cents != null && ride.indicative_high_cents != null;
@@ -563,16 +572,42 @@ export const RideDetailScreen: React.FC<RideDetailScreenProps> = ({
           </View>
         )}
 
-        {/* Commentaire de l'auteur */}
-        {ride.notes != null && String(ride.notes).trim() !== '' && (
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Commentaire de l'auteur</Text>
-            <View style={styles.notesCard}>
-              <Ionicons name="chatbubble-ellipses-outline" size={20} color="#0ea5e9" style={styles.notesIcon} />
-              <Text style={styles.notesText}>{ride.notes}</Text>
+        {/* Options client (site web : siège bébé, WiFi, etc.) + Commentaire */}
+        {ride.notes != null && String(ride.notes).trim() !== '' && (() => {
+          const notesText = ride.notes!.trim();
+          const parts = notesText.split(/\n\n+/);
+          const firstPart = parts[0] ?? '';
+          const optionsMatch = firstPart.match(/^Options demandées\s*:\s*(.+)$/);
+          const optionsStr = optionsMatch?.[1]?.trim();
+          const optionsList = optionsStr ? optionsStr.split(',').map((s) => s.trim()).filter(Boolean) : [];
+          const restNotes = optionsList.length > 0 && parts.length > 1 ? parts.slice(1).join('\n\n').trim() : (optionsList.length > 0 ? '' : notesText);
+          return (
+            <View style={styles.section}>
+              {optionsList.length > 0 && (
+                <>
+                  <Text style={styles.sectionTitle}>Options demandées</Text>
+                  <View style={styles.optionsChipsRow}>
+                    {optionsList.map((opt) => (
+                      <View key={opt} style={styles.optionChip}>
+                        <Ionicons name="checkmark-circle" size={14} color="#10b981" />
+                        <Text style={styles.optionChipText}>{opt}</Text>
+                      </View>
+                    ))}
+                  </View>
+                </>
+              )}
+              {(optionsList.length > 0 ? restNotes : notesText) && (
+                <>
+                  <Text style={styles.sectionTitle}>{optionsList.length > 0 ? 'Commentaire' : 'Commentaire de l\'auteur'}</Text>
+                  <View style={styles.notesCard}>
+                    <Ionicons name="chatbubble-ellipses-outline" size={20} color="#0ea5e9" style={styles.notesIcon} />
+                    <Text style={styles.notesText}>{optionsList.length > 0 ? restNotes : notesText}</Text>
+                  </View>
+                </>
+              )}
             </View>
-          </View>
-        )}
+          );
+        })()}
 
         {/* Adresses départ/arrivée (caché pour demande client, déjà en haut) */}
         {!isClientDemand && (
@@ -970,17 +1005,26 @@ export const RideDetailScreen: React.FC<RideDetailScreenProps> = ({
         {/* Prendre cette course (toutes les annonces, y compris demande client) */}
       {!isMyRide && ride.status === 'PUBLISHED' && onClaim && (
         <View style={styles.actionContainer}>
-          <View style={styles.creditsCostBanner}>
-            <View style={styles.creditsCostIcon}>
-              <Text style={styles.creditsCostIconText}>C</Text>
+          {isClientDemand ? (
+            <View style={[styles.creditsCostBanner, { flexDirection: 'row', alignItems: 'center' }]}>
+              <Ionicons name="person-outline" size={22} color="#0ea5e9" style={{ marginRight: 8 }} />
+              <Text style={styles.creditsCostText}>
+                Demande client (site web) — <Text style={{ fontWeight: '700', color: '#10b981' }}>aucun crédit</Text>
+              </Text>
             </View>
-            <Text style={styles.creditsCostText}>
-              Prendre cette course coûte <Text style={{ fontWeight: '700', color: '#0ea5e9' }}>1 crédit Corail</Text>
-            </Text>
-            <Text style={styles.creditsCostBalance}>
-              Vous avez {userCredits} crédit{userCredits !== 1 ? 's' : ''}
-            </Text>
-          </View>
+          ) : (
+            <View style={styles.creditsCostBanner}>
+              <View style={styles.creditsCostIcon}>
+                <Text style={styles.creditsCostIconText}>C</Text>
+              </View>
+              <Text style={styles.creditsCostText}>
+                Prendre cette course coûte <Text style={{ fontWeight: '700', color: '#0ea5e9' }}>1 crédit Corail</Text>
+              </Text>
+              <Text style={styles.creditsCostBalance}>
+                Vous avez {userCredits} crédit{userCredits !== 1 ? 's' : ''}
+              </Text>
+            </View>
+          )}
           <TouchableOpacity
             style={styles.actionButton}
             onPress={onClaim}
@@ -988,13 +1032,17 @@ export const RideDetailScreen: React.FC<RideDetailScreenProps> = ({
           >
             <View style={styles.actionButtonInner}>
               <Ionicons name="car" size={24} color="#fff" />
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                <Text style={styles.actionButtonText}>Prendre cette course (-1</Text>
-                <View style={styles.creditIconInButton}>
-                  <Text style={styles.creditIconInButtonText}>C</Text>
+              {isClientDemand ? (
+                <Text style={styles.actionButtonText}>Prendre cette course</Text>
+              ) : (
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                  <Text style={styles.actionButtonText}>Prendre cette course (-1</Text>
+                  <View style={styles.creditIconInButton}>
+                    <Text style={styles.creditIconInButtonText}>C</Text>
+                  </View>
+                  <Text style={styles.actionButtonText}>)</Text>
                 </View>
-                <Text style={styles.actionButtonText}>)</Text>
-              </View>
+              )}
             </View>
           </TouchableOpacity>
         </View>
@@ -1021,12 +1069,31 @@ export const RideDetailScreen: React.FC<RideDetailScreenProps> = ({
 
       {isPicker && ride.status === 'CLAIMED' && onComplete && (
         <View style={styles.bottomButtonWrap}>
-          <TouchableOpacity style={styles.completeButtonInner} onPress={onComplete} activeOpacity={0.8}>
+          <TouchableOpacity
+            style={styles.completeButtonInner}
+            onPress={() => setShowRatingModal(true)}
+            activeOpacity={0.8}
+          >
             <Ionicons name="checkmark-circle" size={24} color="#fff" />
             <Text style={styles.completeButtonText}>Terminer la course</Text>
           </TouchableOpacity>
         </View>
       )}
+
+      <CompleteRideRatingModal
+        visible={showRatingModal}
+        onClose={() => !completingRide && setShowRatingModal(false)}
+        onSubmit={async (rating) => {
+          setCompletingRide(true);
+          try {
+            await onComplete?.(rating);
+            setShowRatingModal(false);
+          } finally {
+            setCompletingRide(false);
+          }
+        }}
+        isLoading={completingRide}
+      />
 
       {/* Bottom spacing */}
       <View style={{ height: 40 }} />
@@ -1502,6 +1569,29 @@ const styles = StyleSheet.create({
     height: 12,
     backgroundColor: '#475569',
     marginHorizontal: 12,
+  },
+
+  optionsChipsRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginBottom: 12,
+  },
+  optionChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: 'rgba(16, 185, 129, 0.12)',
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: 'rgba(16, 185, 129, 0.35)',
+  },
+  optionChipText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#10b981',
   },
 
   notesCard: {

@@ -1,6 +1,6 @@
 /**
  * Supabase Authentication Service pour Corail VTC
- * Remplace Firebase Auth pour une stack 100% Supabase
+ * Authentification Supabase
  */
 
 import { supabase } from '../lib/supabase';

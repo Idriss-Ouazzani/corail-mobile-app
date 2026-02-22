@@ -90,6 +90,7 @@ import { CreditsModal } from './src/components/CreditsModal';
 import { BottomNavigation } from './src/components/BottomNavigation';
 import { PublishRideModal } from './src/components/PublishRideModal';
 import { IncomingRideModal } from './src/components/IncomingRideModal';
+import { CompleteRideReminderModal } from './src/components/CompleteRideReminderModal';
 import { renderModalScreens } from './src/navigation/renderModalScreens';
 import { AuthProvider, useAuth } from './src/contexts/AuthContext';
 import { AppDataProvider, useAppData } from './src/contexts/AppDataContext';
@@ -258,7 +259,29 @@ function AppContent() {
   const [incomingRide, setIncomingRide] = useState<any | null>(null);
   const [showIncomingModal, setShowIncomingModal] = useState(false);
   const appState = useRef(AppState.currentState);
-  
+
+  // 🪸 Rappel « Terminer votre course » : après 30 min ou à la prochaine connexion
+  const [showCompleteRideReminder, setShowCompleteRideReminder] = useState(false);
+  const claimedByMeRides = React.useMemo(() => {
+    if (!currentUserId || !rides.length) return [];
+    return rides.filter(
+      (r) =>
+        String(r.status).toUpperCase() === 'CLAIMED' &&
+        r.picker_id != null &&
+        String(r.picker_id) === String(currentUserId)
+    );
+  }, [rides, currentUserId]);
+  const REMINDER_30MIN_MS = 30 * 60 * 1000;
+  const shouldShowReminder = React.useMemo(() => {
+    return claimedByMeRides.some(
+      (r) => Date.now() - new Date(r.updated_at).getTime() >= REMINDER_30MIN_MS
+    );
+  }, [claimedByMeRides]);
+  const shouldShowReminderRef = useRef(shouldShowReminder);
+  useEffect(() => {
+    shouldShowReminderRef.current = shouldShowReminder;
+  }, [shouldShowReminder]);
+
   // ✅ Ref pour loadRides (éviter les réinitialisations Realtime)
   const loadRidesRef = useRef(loadRides);
   useEffect(() => {
@@ -323,6 +346,17 @@ function AppContent() {
   useEffect(() => {
     loadPendingInvitations();
   }, [loadPendingInvitations]);
+
+  // 🪸 Rappel « Terminer votre course » : afficher quand l'app repasse au premier plan (course CLAIMED > 30 min)
+  useEffect(() => {
+    if (!currentUserId) return;
+    const sub = AppState.addEventListener('change', (nextAppState: AppStateStatus) => {
+      if (nextAppState === 'active' && shouldShowReminderRef.current) {
+        setShowCompleteRideReminder(true);
+      }
+    });
+    return () => sub.remove();
+  }, [currentUserId]);
 
   // 🎯 Hook pour les actions sur les courses
   const { handleDeleteRide, handleCompleteRide, handleClaimRide, handleCreateRide } = useRideActions({
@@ -845,6 +879,17 @@ function AppContent() {
           onDecline={handleDeclineRide}
           onTimeout={handleTimeoutRide}
           timeoutSeconds={20}
+        />
+
+        {/* 🪸 Rappel terminer la course (30 min ou à la connexion) */}
+        <CompleteRideReminderModal
+          visible={showCompleteRideReminder && claimedByMeRides.length > 0}
+          rides={claimedByMeRides}
+          onDismiss={() => setShowCompleteRideReminder(false)}
+          onOpenRide={(ride) => {
+            setSelectedRide(ride);
+            setShowCompleteRideReminder(false);
+          }}
         />
       </LinearGradient>
     </View>

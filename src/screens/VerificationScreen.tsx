@@ -12,12 +12,11 @@ import {
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { apiClient } from '../services/api';
-import { firebaseAuth } from '../services/firebase';
 
 interface VerificationScreenProps {
   onBack: () => void;
   onSuccess: () => void;
-  user?: any; // Firebase user from context
+  user?: { email?: string } | null; // Supabase user from AuthContext
 }
 
 export const VerificationScreen: React.FC<VerificationScreenProps> = ({ onBack, onSuccess, user }) => {
@@ -50,16 +49,15 @@ export const VerificationScreen: React.FC<VerificationScreenProps> = ({ onBack, 
     try {
       setLoading(true);
       
-      // Récupérer l'email Firebase
-      const currentUser = firebaseAuth.getCurrentUser();
-      const email = currentUser?.email || '';
+      // Email depuis le user Supabase (contexte auth)
+      const email = user?.email || '';
       
       await apiClient.submitVerification({
         full_name: fullName,
         phone,
         professional_card_number: professionalCard,
         siren,
-        email, // Ajouter l'email Firebase
+        email,
       });
 
       Alert.alert(

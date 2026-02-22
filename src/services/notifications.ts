@@ -500,6 +500,76 @@ export async function notifyRideCompletedToCreator(
   }
 }
 
+/**
+ * Course annulée par le créateur (pour le picker) - PUSH
+ */
+export async function notifyRideCancelledToPicker(
+  pickerId: string,
+  pickupAddress?: string,
+  dropoffAddress?: string
+): Promise<void> {
+  try {
+    const segment = pickupAddress && dropoffAddress ? ` ${pickupAddress} → ${dropoffAddress}` : '';
+    await PushTokenService.sendPushToUser(
+      pickerId,
+      '❌ Course annulée',
+      `La course a été supprimée par le créateur.${segment}`,
+      { type: 'ride_cancelled_by_creator' }
+    );
+    console.log('✅ Push course annulée envoyée au picker');
+  } catch (error) {
+    console.error('❌ Erreur notification course annulée:', error);
+  }
+}
+
+/**
+ * Profil vérifié (notification locale)
+ */
+export async function notifyVerificationAccepted(): Promise<void> {
+  const prefs = await getNotificationPreferences();
+  if (!prefs.enabled) return;
+  try {
+    await Notifications.scheduleNotificationAsync({
+      content: {
+        title: '✅ Profil vérifié',
+        body: 'Votre profil professionnel a été vérifié. Vous avez accès au marketplace.',
+        data: { type: 'verification_accepted' },
+        sound: true,
+      },
+      trigger: { type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL, seconds: 1, repeats: false },
+    });
+    console.log('✅ Notification profil vérifié envoyée');
+  } catch (error) {
+    console.error('❌ Erreur notification vérification:', error);
+  }
+}
+
+/**
+ * 11. Notation reçue (pour l'auteur de la publication) - PUSH
+ */
+export async function notifyCreatorRated(
+  creatorUserId: string,
+  driverName: string,
+  stars: number,
+  comment?: string | null
+): Promise<void> {
+  try {
+    const starsLabel = `${'★'.repeat(stars)}${'☆'.repeat(5 - stars)}`;
+    const body = comment
+      ? `${driverName} vous a noté ${starsLabel} : "${comment.slice(0, 60)}${comment.length > 60 ? '…' : ''}"`
+      : `${driverName} vous a noté ${starsLabel}`;
+    await PushTokenService.sendPushToUser(
+      creatorUserId,
+      '⭐ Nouvelle notation',
+      body,
+      { type: 'ride_rating_received' }
+    );
+    console.log('✅ Push notation envoyée au créateur');
+  } catch (error) {
+    console.error('❌ Erreur notification notation:', error);
+  }
+}
+
 // ============================================================================
 // GESTION
 // ============================================================================

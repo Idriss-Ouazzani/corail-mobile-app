@@ -56,8 +56,8 @@ class ApiClient {
     return supabaseApi.claimRide(rideId);
   }
 
-  async completeRide(rideId: string) {
-    return supabaseApi.completeRide(rideId);
+  async completeRide(rideId: string, rating?: { stars: number; comment?: string | null }) {
+    return supabaseApi.completeRide(rideId, rating);
   }
 
   async deleteRide(rideId: string) {

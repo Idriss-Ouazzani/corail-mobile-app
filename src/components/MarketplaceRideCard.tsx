@@ -92,8 +92,9 @@ export function MarketplaceRideCard({ ride, currentUserId, onPress }: Marketplac
     .filter(Boolean)
     .join(' · ');
 
+  const cardSourceStyle = !isMine && (source === 'chauffeur' ? styles.cardChauffeur : source === 'hotel' ? styles.cardHotel : styles.cardClient);
   return (
-    <TouchableOpacity activeOpacity={0.85} onPress={onPress} style={[styles.card, isMine && styles.cardMine, isClientDemand && !isMine && styles.cardClient]}>
+    <TouchableOpacity activeOpacity={0.85} onPress={onPress} style={[styles.card, isMine && styles.cardMine, cardSourceStyle]}>
       <View style={styles.badgesRow}>
         {isMine && (
           <View style={styles.badgeMine}>
@@ -164,9 +165,17 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(14, 165, 233, 0.4)',
     backgroundColor: 'rgba(14, 165, 233, 0.08)',
   },
+  cardChauffeur: {
+    backgroundColor: 'rgba(71, 85, 105, 0.25)',
+    borderColor: 'rgba(100, 116, 139, 0.5)',
+  },
+  cardHotel: {
+    backgroundColor: 'rgba(120, 53, 15, 0.12)',
+    borderColor: 'rgba(245, 158, 11, 0.35)',
+  },
   cardClient: {
-    backgroundColor: 'rgba(14, 165, 233, 0.06)',
-    borderColor: 'rgba(14, 165, 233, 0.28)',
+    backgroundColor: 'rgba(14, 165, 233, 0.08)',
+    borderColor: 'rgba(14, 165, 233, 0.35)',
   },
   badgesRow: {
     flexDirection: 'row',

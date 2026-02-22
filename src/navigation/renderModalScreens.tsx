@@ -33,7 +33,7 @@ import PrivacyDataScreen from '../screens/PrivacyDataScreen';
 
 interface ModalScreensProps {
   // User data
-  user: any; // Firebase user
+  user: any; // Supabase user
   userFullName: string;
   userEmail: string;
   userPhone: string;
@@ -129,8 +129,8 @@ interface ModalScreensProps {
   setShowPublishModal: (show: boolean) => void;
   userCredits: number;
   handleClaimRide: (ride: any) => Promise<any>;
-  handleDeleteRide: (rideId: string, visibility: string) => Promise<void>;
-  handleCompleteRide: (rideId: string, priceCents: number, distanceKm?: number, durationMinutes?: number) => Promise<void>;
+  handleDeleteRide: (rideId: string, visibility: string, ride?: { picker_id?: string; pickup_address?: string; dropoff_address?: string }) => Promise<void>;
+  handleCompleteRide: (rideId: string, priceCents: number, distanceKm?: number, durationMinutes?: number, rating?: { stars: number; comment?: string | null }) => Promise<void>;
   loadPersonalRides: () => Promise<void>;
   loadRides: () => Promise<void>;
   loadCredits: () => Promise<void>;
@@ -485,22 +485,22 @@ export function renderModalScreens(props: ModalScreensProps): React.ReactElement
         }}
         onDelete={async () => {
           try {
-            await handleDeleteRide(selectedRide.id, selectedRide.visibility || 'PUBLIC');
+            await handleDeleteRide(selectedRide.id, selectedRide.visibility || 'PUBLIC', selectedRide);
             // Fermer le modal après succès
             setSelectedRide(null);
           } catch (error) {
             // L'erreur est déjà loggée et affichée par le hook
           }
         }}
-        onComplete={async () => {
+        onComplete={async (rating) => {
           try {
             await handleCompleteRide(
               selectedRide.id,
               selectedRide.price_cents,
               selectedRide.distance_km,
-              selectedRide.duration_minutes
+              selectedRide.duration_minutes,
+              rating ? { stars: rating.stars, comment: rating.comment ?? null } : undefined
             );
-            // Fermer le modal après succès
             setSelectedRide(null);
           } catch (error) {
             // L'erreur est déjà loggée et affichée par le hook

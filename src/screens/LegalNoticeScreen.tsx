@@ -48,8 +48,8 @@ function LegalNoticeContent() {
         
         <Text style={styles.subtitle}>Authentification :</Text>
         <InfoBlock 
-          label="Hébergeur" 
-          value="Google Firebase\nGoogle LLC, 1600 Amphitheatre Parkway\nMountain View, CA 94043, USA" 
+          label="Fournisseur" 
+          value="Supabase (auth intégrée aux serveurs ci-dessus)" 
         />
 
         <Text style={styles.subtitle}>Site web (devis et profils publics) :</Text>
@@ -90,7 +90,7 @@ function LegalNoticeContent() {
         <InfoBlock label="Base légale" value="Exécution du contrat, intérêt légitime, consentement" />
         <InfoBlock 
           label="Destinataires des données" 
-          value="Personnel habilité de Corail VTC, sous-traitants (Firebase, Supabase, Stripe, Sentry)" 
+          value="Personnel habilité de Corail VTC, sous-traitants (Supabase, Stripe, Sentry)" 
         />
         <InfoBlock label="Durée de conservation" value="Durée du compte + 30 jours après suppression (sauf obligations légales comptables)" />
         
@@ -113,15 +113,11 @@ function LegalNoticeContent() {
           L'application mobile Corail VTC n'utilise PAS de cookies. En revanche, nous utilisons :
         </Text>
         <BulletPoint>
-          <Text style={styles.bold}>Analytics :</Text> Firebase Analytics pour mesurer l'usage 
-          de l'app (données anonymisées)
-        </BulletPoint>
-        <BulletPoint>
-          <Text style={styles.bold}>Monitoring :</Text> Sentry pour détecter et corriger les bugs
+          <Text style={styles.bold}>Monitoring :</Text> Sentry pour détecter et corriger les bugs (données techniques anonymisées)
         </BulletPoint>
         
         <Text style={styles.text}>
-          Vous pouvez désactiver l'analytics dans Paramètres → Confidentialité et données.
+          Vous pouvez gérer vos préférences dans Paramètres → Confidentialité et données.
         </Text>
       </Section>
 
@@ -129,8 +125,7 @@ function LegalNoticeContent() {
         <Text style={styles.subtitle}>Technologies utilisées :</Text>
         <BulletPoint>React Native & Expo (framework mobile)</BulletPoint>
         <BulletPoint>TypeScript (langage de programmation)</BulletPoint>
-        <BulletPoint>Firebase (authentification)</BulletPoint>
-        <BulletPoint>Supabase (base de données PostgreSQL)</BulletPoint>
+        <BulletPoint>Supabase (authentification et base de données PostgreSQL)</BulletPoint>
         <BulletPoint>Stripe (paiements)</BulletPoint>
         <BulletPoint>Next.js (site web devis)</BulletPoint>
         <BulletPoint>API Adresse Gouv & Nominatim (recherche d'adresses)</BulletPoint>

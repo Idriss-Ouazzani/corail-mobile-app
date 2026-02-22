@@ -9,7 +9,7 @@ import type { Ride } from '../types';
 import { getQuoteUrl } from '../constants/urls';
 
 // ============================================================================
-// HELPER: Get current user ID from Firebase token
+// HELPER: Get current user ID from Supabase session
 // ============================================================================
 let currentUserId: string | null = null;
 
@@ -331,10 +331,22 @@ export const createRide = async (rideData: {
 export const claimRide = async (rideId: string) => {
   if (!currentUserId) throw new Error('User not authenticated');
 
-  // Check credits
-  const credits = await getCredits();
-  if (credits.credits < 1) {
-    throw new Error('Insufficient credits');
+  // Fetch ride to know source: course client (web) = 0 crédit, course chauffeur = 1 crédit
+  const { data: existingRide, error: fetchError } = await supabase
+    .from('rides')
+    .select('id, source, status')
+    .eq('id', rideId)
+    .single();
+  if (fetchError || !existingRide) throw new Error('Course introuvable');
+  if (existingRide.status !== 'PUBLISHED') throw new Error('Course non disponible');
+
+  const isClientRide = existingRide.source === 'client';
+
+  if (!isClientRide) {
+    const credits = await getCredits();
+    if (credits.credits < 1) {
+      throw new Error('Insufficient credits');
+    }
   }
 
   // Update ride
@@ -345,23 +357,25 @@ export const claimRide = async (rideId: string) => {
       status: 'CLAIMED',
     })
     .eq('id', rideId)
-    .eq('status', 'PUBLISHED') // Only claim if still published
+    .eq('status', 'PUBLISHED')
     .select()
     .single();
 
   if (rideError) throw new Error(rideError.message);
 
-  // Deduct credit (via secure Edge Function)
-  console.log('🔵 AVANT déduction crédit (claimRide)');
-  try {
-    await addCreditsSecure(-1, 'CLAIM_RIDE', {
-      ride_id: rideId,
-      description: 'Claimed ride from marketplace',
-    });
-    console.log('✅ Crédit déduit avec succès');
-  } catch (creditError: any) {
-    console.error('❌ Erreur déduction crédit:', creditError);
-    throw creditError; // Re-throw pour que l'appelant sache qu'il y a eu un problème
+  if (!isClientRide) {
+    try {
+      await addCreditsSecure(-1, 'CLAIM_RIDE', {
+        ride_id: rideId,
+        description: 'Claimed ride from marketplace',
+      });
+      console.log('✅ Crédit déduit avec succès');
+    } catch (creditError: any) {
+      console.error('❌ Erreur déduction crédit:', creditError);
+      throw creditError;
+    }
+  } else {
+    console.log('✅ Course client : aucun crédit déduit');
   }
 
   // Add activity log
@@ -380,13 +394,16 @@ export const claimRide = async (rideId: string) => {
   };
 };
 
-export const completeRide = async (rideId: string) => {
+export const completeRide = async (
+  rideId: string,
+  rating?: { stars: number; comment?: string | null }
+) => {
   if (!currentUserId) throw new Error('User not authenticated');
 
-  // Récupérer la course pour vérifier la date
+  // Récupérer la course pour vérifier la date et creator_id
   const { data: ride, error: fetchError } = await supabase
     .from('rides')
-    .select('scheduled_at')
+    .select('scheduled_at, creator_id')
     .eq('id', rideId)
     .single();
 
@@ -400,13 +417,19 @@ export const completeRide = async (rideId: string) => {
     throw new Error('Impossible de terminer une course future. Attendez la date prévue.');
   }
 
-  // Mettre à jour le statut
+  const updatePayload: Record<string, unknown> = {
+    status: 'COMPLETED',
+    completed_at: new Date().toISOString(),
+  };
+  if (rating && rating.stars >= 1 && rating.stars <= 5) {
+    updatePayload.rating_by_picker_stars = rating.stars;
+    updatePayload.rating_by_picker_comment = rating.comment?.trim() || null;
+    updatePayload.rating_by_picker_at = new Date().toISOString();
+  }
+
   const { data, error } = await supabase
     .from('rides')
-    .update({
-      status: 'COMPLETED',
-      completed_at: new Date().toISOString(),
-    })
+    .update(updatePayload)
     .eq('id', rideId)
     .select()
     .single();
@@ -426,6 +449,48 @@ export const completeRide = async (rideId: string) => {
     description: 'Completed ride',
     ride_id: rideId,
   });
+
+  // Notifier l'auteur (créateur) si notation fournie et qu'il est un utilisateur Corail
+  if (rating?.stars && ride.creator_id && String(ride.creator_id) !== String(currentUserId)) {
+    try {
+      const { default: NotificationService } = await import('./notifications');
+      const { data: pickerUser } = await supabase
+        .from('users')
+        .select('full_name')
+        .eq('id', currentUserId)
+        .single();
+      const pickerName = (pickerUser as { full_name?: string } | null)?.full_name || 'Un chauffeur';
+      await NotificationService.notifyCreatorRated(
+        ride.creator_id,
+        pickerName,
+        rating.stars,
+        rating.comment?.trim() || null
+      );
+    } catch (notifErr) {
+      console.warn('⚠️ Notification notation non envoyée:', notifErr);
+    }
+  }
+
+  // Notifier le créateur que la course est terminée (push)
+  if (data?.creator_id && String(data.creator_id) !== String(currentUserId)) {
+    try {
+      const { default: NotificationService } = await import('./notifications');
+      const { data: pickerUser } = await supabase
+        .from('users')
+        .select('full_name')
+        .eq('id', currentUserId)
+        .single();
+      const pickerName = (pickerUser as { full_name?: string } | null)?.full_name || 'Un chauffeur';
+      await NotificationService.notifyRideCompletedToCreator(
+        data.creator_id,
+        (data.pickup_address as string) || '',
+        (data.dropoff_address as string) || '',
+        pickerName
+      );
+    } catch (notifErr) {
+      console.warn('⚠️ Notification course terminée non envoyée:', notifErr);
+    }
+  }
 
   return data;
 };
