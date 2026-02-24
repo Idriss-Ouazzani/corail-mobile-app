@@ -12,6 +12,7 @@ import {
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { apiClient } from '../services/api';
+import { formatPhoneInput, formatPhoneForSubmit } from '../utils/phoneFormat';
 
 interface VerificationScreenProps {
   onBack: () => void;
@@ -23,7 +24,6 @@ export const VerificationScreen: React.FC<VerificationScreenProps> = ({ onBack, 
   const [fullName, setFullName] = useState('');
   const [phone, setPhone] = useState('');
   const [professionalCard, setProfessionalCard] = useState('');
-  const [siren, setSiren] = useState('');
   const [loading, setLoading] = useState(false);
 
   const handleSubmit = async () => {
@@ -40,30 +40,24 @@ export const VerificationScreen: React.FC<VerificationScreenProps> = ({ onBack, 
       Alert.alert('Erreur', 'Veuillez entrer votre numéro de carte professionnelle VTC');
       return;
     }
-    // SIREN optionnel : valider uniquement s'il est rempli
-    if (siren.trim() && siren.length !== 9) {
-      Alert.alert('Erreur', 'Le numéro SIREN doit contenir exactement 9 chiffres');
-      return;
-    }
 
     try {
       setLoading(true);
       
-      // Email depuis le user Supabase (contexte auth)
       const email = user?.email || '';
       
       await apiClient.submitVerification({
         full_name: fullName,
-        phone,
+        phone: formatPhoneForSubmit(phone),
         professional_card_number: professionalCard,
-        siren,
+        siren: '', // Plus demandé à l'inscription ; infos légales (SIRET) configurées plus tard pour devis/factures
         email,
       });
 
       Alert.alert(
-        'Profil créé ! 🎉',
-        'Vous pouvez maintenant utiliser l\'application. Votre profil sera validé sous 24-48h, vous pourrez alors accéder à la marketplace.',
-        [{ text: 'Commencer', onPress: onSuccess }]
+        'Bienvenue !',
+        'Votre profil est enregistré. Explorez l\'app et, quand vous serez prêt, complétez la vérification par documents pour débloquer la marketplace et les réservations.',
+        [{ text: 'Découvrir', onPress: onSuccess }]
       );
     } catch (error: any) {
       console.error('Error submitting verification:', error);
@@ -80,28 +74,51 @@ export const VerificationScreen: React.FC<VerificationScreenProps> = ({ onBack, 
         <TouchableOpacity onPress={onBack} style={styles.backButton}>
           <Ionicons name="arrow-back" size={24} color="#f1f5f9" />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Vérification VTC</Text>
-        <View style={{ width: 40 }} />
+        <View style={styles.headerSpacer} />
       </LinearGradient>
 
-      <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
-        {/* Info Banner */}
-        <View style={styles.infoBanner}>
-          <Ionicons name="shield-checkmark" size={32} color="#10b981" />
-          <View style={{ flex: 1, marginLeft: 16 }}>
-            <Text style={styles.infoBannerTitle}>Vérification professionnelle</Text>
-            <Text style={styles.infoBannerText}>
-              Pour garantir la sécurité de notre plateforme, nous vérifions l'identité de tous les chauffeurs VTC.
-            </Text>
+      <ScrollView style={styles.content} showsVerticalScrollIndicator={false} contentContainerStyle={styles.contentContainer}>
+        {/* Hero */}
+        <View style={styles.hero}>
+          <Text style={styles.heroTitle}>Dites-nous plus sur vous</Text>
+          <Text style={styles.heroSubtitle}>
+            Quelques infos pour personnaliser votre expérience et vous connecter à la communauté des chauffeurs Corail.
+          </Text>
+        </View>
+
+        {/* Parcours */}
+        <View style={styles.journeyCard}>
+          <Text style={styles.journeyTitle}>Votre parcours</Text>
+          <View style={styles.journeySteps}>
+            <View style={styles.journeyStep}>
+              <View style={styles.journeyStepNumber}>
+                <Text style={styles.journeyStepNumberText}>1</Text>
+              </View>
+              <Text style={styles.journeyStepLabel}>Vos infos</Text>
+              <Text style={styles.journeyStepDesc}>Nom, téléphone, carte pro — on en a besoin pour vous reconnaître.</Text>
+            </View>
+            <View style={styles.journeyStep}>
+              <View style={[styles.journeyStepNumber, styles.journeyStepNumberNext]}>
+                <Text style={styles.journeyStepNumberText}>2</Text>
+              </View>
+              <Text style={styles.journeyStepLabel}>Vérification documents</Text>
+              <Text style={styles.journeyStepDesc}>Plus tard, vous déposerez carte pro, pièce d'identité et assurance pour débloquer marketplace et réservations.</Text>
+            </View>
+            <View style={styles.journeyStep}>
+              <View style={[styles.journeyStepNumber, styles.journeyStepNumberNext]}>
+                <Text style={styles.journeyStepNumberText}>3</Text>
+              </View>
+              <Text style={styles.journeyStepLabel}>Accès complet</Text>
+              <Text style={styles.journeyStepDesc}>Profil vérifié = accès réseau, annonces et réservations getcorail.com.</Text>
+            </View>
           </View>
         </View>
 
         {/* Form */}
         <View style={styles.form}>
+          <Text style={styles.formSectionTitle}>Étape 1 — Vos infos</Text>
           <View style={styles.inputGroup}>
-            <Text style={styles.inputLabel}>
-              <Ionicons name="person" size={16} color="#f1f5f9" /> Nom complet *
-            </Text>
+            <Text style={styles.inputLabel}>Nom complet</Text>
             <TextInput
               style={styles.input}
               placeholder="Ex: Jean Dupont"
@@ -113,64 +130,42 @@ export const VerificationScreen: React.FC<VerificationScreenProps> = ({ onBack, 
           </View>
 
           <View style={styles.inputGroup}>
-            <Text style={styles.inputLabel}>
-              <Ionicons name="call" size={16} color="#f1f5f9" /> Téléphone *
-            </Text>
+            <Text style={styles.inputLabel}>Téléphone</Text>
             <TextInput
               style={styles.input}
               placeholder="Ex: 06 12 34 56 78"
               placeholderTextColor="#64748b"
               value={phone}
-              onChangeText={setPhone}
+              onChangeText={(t) => setPhone(formatPhoneInput(t))}
               keyboardType="phone-pad"
             />
           </View>
 
           <View style={styles.inputGroup}>
-            <Text style={styles.inputLabel}>
-              <Ionicons name="card" size={16} color="#f1f5f9" /> Numéro de carte professionnelle VTC *
-            </Text>
+            <Text style={styles.inputLabel}>Numéro de carte professionnelle VTC</Text>
             <TextInput
               style={styles.input}
-              placeholder="Ex: VTC-075-123456789"
+              placeholder="Ex: 0751234567"
               placeholderTextColor="#64748b"
               value={professionalCard}
               onChangeText={setProfessionalCard}
               autoCapitalize="characters"
             />
             <Text style={styles.inputHint}>
-              Délivrée par la préfecture, format: VTC-XXX-XXXXXXXXX
-            </Text>
-          </View>
-
-          <View style={styles.inputGroup}>
-            <Text style={styles.inputLabel}>
-              <Ionicons name="business" size={16} color="#f1f5f9" /> Numéro SIREN <Text style={styles.optionalBadge}>(optionnel)</Text>
-            </Text>
-            <TextInput
-              style={styles.input}
-              placeholder="Ex: 123456789"
-              placeholderTextColor="#64748b"
-              value={siren}
-              onChangeText={setSiren}
-              keyboardType="number-pad"
-              maxLength={9}
-            />
-            <Text style={styles.inputHint}>
-              9 chiffres. Si vous n'avez pas de SIREN, vous pouvez laisser ce champ vide.
+              Délivrée par la préfecture — 10 à 12 chiffres
             </Text>
           </View>
         </View>
 
-        {/* Security Notice */}
+        {/* Security */}
         <View style={styles.securityNotice}>
-          <Ionicons name="lock-closed" size={20} color="#0ea5e9" />
+          <Ionicons name="lock-closed" size={18} color="#0ea5e9" />
           <Text style={styles.securityText}>
-            Vos données sont sécurisées et ne seront utilisées que pour la vérification de votre identité professionnelle.
+            Vos données sont sécurisées et utilisées uniquement pour votre profil et la vérification de votre activité.
           </Text>
         </View>
 
-        {/* Submit Button */}
+        {/* Submit */}
         <TouchableOpacity
           style={styles.submitButton}
           onPress={handleSubmit}
@@ -182,14 +177,14 @@ export const VerificationScreen: React.FC<VerificationScreenProps> = ({ onBack, 
               <ActivityIndicator color="#fff" />
             ) : (
               <>
-                <Ionicons name="checkmark-circle" size={24} color="#fff" />
-                <Text style={styles.submitButtonText}>Soumettre ma vérification</Text>
+                <Text style={styles.submitButtonText}>Continuer</Text>
+                <Ionicons name="arrow-forward" size={22} color="#fff" />
               </>
             )}
           </LinearGradient>
         </TouchableOpacity>
 
-        <View style={{ height: 40 }} />
+        <View style={{ height: 48 }} />
       </ScrollView>
     </View>
   );
@@ -202,7 +197,7 @@ const styles = StyleSheet.create({
   },
   header: {
     paddingTop: 50,
-    paddingBottom: 20,
+    paddingBottom: 16,
     paddingHorizontal: 20,
     flexDirection: 'row',
     alignItems: 'center',
@@ -216,49 +211,106 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  headerTitle: {
-    flex: 1,
-    fontSize: 20,
-    fontWeight: '700',
-    color: '#f1f5f9',
-    textAlign: 'center',
+  headerSpacer: {
+    width: 40,
   },
   content: {
     flex: 1,
-    paddingHorizontal: 20,
-    paddingTop: 20,
   },
-  infoBanner: {
+  contentContainer: {
+    paddingHorizontal: 24,
+    paddingTop: 8,
+    paddingBottom: 24,
+  },
+  hero: {
+    marginBottom: 28,
+  },
+  heroTitle: {
+    fontSize: 26,
+    fontWeight: '800',
+    color: '#f1f5f9',
+    letterSpacing: -0.5,
+    lineHeight: 32,
+    marginBottom: 10,
+  },
+  heroSubtitle: {
+    fontSize: 15,
+    color: '#94a3b8',
+    lineHeight: 22,
+  },
+  journeyCard: {
+    backgroundColor: 'rgba(255, 255, 255, 0.04)',
+    borderRadius: 20,
+    padding: 20,
+    marginBottom: 32,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.06)',
+  },
+  journeyTitle: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#94a3b8',
+    letterSpacing: 0.5,
+    marginBottom: 16,
+    textTransform: 'uppercase',
+  },
+  journeySteps: {
+  },
+  journeyStep: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    backgroundColor: 'rgba(16, 185, 129, 0.1)',
-    borderRadius: 16,
-    padding: 16,
-    marginBottom: 30,
-    borderWidth: 1,
-    borderColor: 'rgba(16, 185, 129, 0.2)',
+    flexWrap: 'wrap',
+    marginBottom: 16,
   },
-  infoBannerTitle: {
-    fontSize: 16,
-    fontWeight: '700',
+  journeyStepNumber: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: '#ff6b47',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 14,
+    marginTop: 2,
+  },
+  journeyStepNumberNext: {
+    backgroundColor: 'rgba(255, 255, 255, 0.15)',
+  },
+  journeyStepNumberText: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: '#fff',
+  },
+  journeyStepLabel: {
+    fontSize: 15,
+    fontWeight: '600',
     color: '#f1f5f9',
-    marginBottom: 6,
+    flex: 1,
+    marginBottom: 4,
   },
-  infoBannerText: {
+  journeyStepDesc: {
     fontSize: 13,
     color: '#94a3b8',
-    lineHeight: 20,
+    lineHeight: 19,
+    marginLeft: 42,
   },
   form: {
     marginBottom: 24,
   },
+  formSectionTitle: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#94a3b8',
+    letterSpacing: 0.3,
+    marginBottom: 18,
+    textTransform: 'uppercase',
+  },
   inputGroup: {
-    marginBottom: 24,
+    marginBottom: 20,
   },
   inputLabel: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#f1f5f9',
+    color: '#e2e8f0',
     marginBottom: 8,
   },
   input: {
@@ -268,7 +320,7 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#f1f5f9',
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.1)',
+    borderColor: 'rgba(255, 255, 255, 0.08)',
   },
   inputHint: {
     fontSize: 12,
@@ -276,33 +328,27 @@ const styles = StyleSheet.create({
     marginTop: 6,
     lineHeight: 16,
   },
-  optionalBadge: {
-    fontSize: 12,
-    color: '#94a3b8',
-    fontWeight: '400',
-    fontStyle: 'italic',
-  },
   securityNotice: {
     flexDirection: 'row',
     alignItems: 'flex-start',
     backgroundColor: 'rgba(14, 165, 233, 0.08)',
-    borderRadius: 12,
+    borderRadius: 14,
     padding: 14,
-    marginBottom: 24,
+    marginBottom: 28,
+    gap: 10,
   },
   securityText: {
     flex: 1,
     fontSize: 12,
     color: '#94a3b8',
-    marginLeft: 12,
     lineHeight: 18,
   },
   submitButton: {
-    borderRadius: 18,
+    borderRadius: 16,
     overflow: 'hidden',
     shadowColor: '#ff6b47',
     shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.4,
+    shadowOpacity: 0.35,
     shadowRadius: 12,
     elevation: 8,
   },
@@ -311,12 +357,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     padding: 18,
+    gap: 10,
   },
   submitButtonText: {
-    fontSize: 16,
+    fontSize: 17,
     fontWeight: '700',
     color: '#fff',
-    marginLeft: 10,
   },
 });
 

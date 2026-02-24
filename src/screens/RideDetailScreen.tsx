@@ -18,6 +18,8 @@ import { CompleteRideRatingModal } from '../components/CompleteRideRatingModal';
 import { getCreatorProfileStats } from '../services/supabaseApi';
 import { computeIndicativeRange } from '../lib/pricing';
 import { getQuoteUrl, getInvoiceUrl, getInvoicePdfUrl } from '../constants/urls';
+import { LegalInfoModal } from '../components/LegalInfoModal';
+import { apiClient } from '../services/api';
 
 export interface RideRatingInput {
   stars: number;
@@ -97,6 +99,7 @@ export const RideDetailScreen: React.FC<RideDetailScreenProps> = ({
   const [invoice, setInvoice] = useState<any>(null);
   const [loadingInvoice, setLoadingInvoice] = useState(false);
   const [generatingInvoice, setGeneratingInvoice] = useState(false);
+  const [showLegalModal, setShowLegalModal] = useState(false);
   const [creatorStats, setCreatorStats] = useState<{ publicationsCount: number; ridesTakenCount: number; badges: any[] } | null>(null);
   const [showRatingModal, setShowRatingModal] = useState(false);
   const [completingRide, setCompletingRide] = useState(false);
@@ -264,54 +267,46 @@ export const RideDetailScreen: React.FC<RideDetailScreenProps> = ({
     );
   };
 
+  const doCreateInvoiceAndShowSuccess = async () => {
+    const sourceType = isPersonalRide ? 'PERSONAL' : 'RIDE';
+    const newInvoice = await apiClient.createInvoice(sourceType, ride.id);
+    setInvoice(newInvoice);
+    Alert.alert(
+      'Facture générée',
+      `Facture ${newInvoice.invoice_number} créée avec succès !`,
+      [
+        { text: 'OK' },
+        {
+          text: 'Télécharger PDF',
+          onPress: () => {
+            Linking.openURL(getInvoicePdfUrl(newInvoice.public_token));
+          },
+        },
+        {
+          text: 'Partager WhatsApp',
+          onPress: () => {
+            const message = `Merci pour votre course. Vous trouverez votre facture sur le lien suivant : ${getInvoiceUrl(newInvoice.public_token)}`;
+            Linking.openURL(`https://wa.me/?text=${encodeURIComponent(message)}`).catch(() =>
+              Alert.alert('Erreur', 'Impossible d\'ouvrir WhatsApp')
+            );
+          },
+        },
+      ]
+    );
+  };
+
   const handleGenerateInvoice = async () => {
     try {
+      let profile: any = null;
+      try {
+        profile = await apiClient.getMyVTCProfile();
+      } catch (_e) {}
+      if (!profile?.legal_info_configured) {
+        setShowLegalModal(true);
+        return;
+      }
       setGeneratingInvoice(true);
-      const { apiClient } = await import('../services/api');
-      const sourceType = isPersonalRide ? 'PERSONAL' : 'RIDE';
-      
-      console.log('🧾 Génération de facture...', { 
-        sourceType, 
-        rideId: ride.id, 
-        isPersonalRide,
-        driver_id: (ride as any).driver_id,
-        creator_id: ride.creator_id,
-      });
-      const newInvoice = await apiClient.createInvoice(sourceType, ride.id);
-      
-      console.log('✅ Facture générée:', newInvoice);
-      setInvoice(newInvoice);
-      
-      Alert.alert(
-        'Facture générée',
-        `Facture ${newInvoice.invoice_number} créée avec succès !`,
-        [
-          { text: 'OK' },
-          {
-            text: 'Télécharger PDF',
-            onPress: () => {
-              const pdfUrl = getInvoicePdfUrl(newInvoice.public_token);
-              Linking.openURL(pdfUrl);
-            },
-          },
-          {
-            text: 'Partager WhatsApp',
-            onPress: () => {
-              const invoiceUrl = getInvoiceUrl(newInvoice.public_token);
-              const clientName = ride.client_name || 'Client';
-              const message = `Bonjour ${clientName},\n\nVoici votre facture ${newInvoice.invoice_number} :\n${invoiceUrl}\n\nVous pouvez télécharger le PDF directement depuis ce lien.\n\nCordialement`;
-              
-              // Utiliser https://wa.me qui fonctionne sur iOS, Android et web
-              const whatsappUrl = `https://wa.me/?text=${encodeURIComponent(message)}`;
-              
-              Linking.openURL(whatsappUrl).catch(err => {
-                console.error('Erreur ouverture WhatsApp:', err);
-                Alert.alert('Erreur', 'Impossible d\'ouvrir WhatsApp');
-              });
-            },
-          },
-        ]
-      );
+      await doCreateInvoiceAndShowSuccess();
     } catch (error: any) {
       console.error('❌ Erreur génération facture:', error);
       Alert.alert('Erreur', error.message || 'Impossible de générer la facture');
@@ -354,16 +349,16 @@ export const RideDetailScreen: React.FC<RideDetailScreenProps> = ({
 
   const handleShare = async () => {
     try {
-      const message = `🪸 Course Corail VTC\n\n` +
+      const message = `🪸 Course Corail\n\n` +
         `📍 ${ride.pickup_address}\n` +
         `📍 ${ride.dropoff_address}\n\n` +
         `💰 ${formatPrice(ride.price_cents)}\n` +
         `📅 ${formatDate(ride.scheduled_at)}\n\n` +
         `${ride.creator?.full_name ? `👤 Proposé par ${ride.creator.full_name}\n` : ''}` +
         `${ride.visibility === 'GROUP' ? '👥 Réservé au groupe\n' : '🌍 Public\n'}` +
-        `\n✨ Téléchargez Corail VTC pour réserver !`;
+        `\n✨ Téléchargez Corail pour réserver !`;
 
-      await Share.share({ message, title: 'Course Corail VTC' });
+      await Share.share({ message, title: 'Course Corail' });
     } catch (error) {
       Alert.alert('Erreur', 'Impossible de partager la course');
     }
@@ -702,7 +697,7 @@ export const RideDetailScreen: React.FC<RideDetailScreenProps> = ({
                         onPress: () => {
                           const invoiceUrl = getInvoiceUrl(invoice.public_token);
                           const clientName = ride.client_name || 'Client';
-                          const message = `Bonjour ${clientName},\n\nVoici votre facture ${invoice.invoice_number} :\n${invoiceUrl}\n\nVous pouvez télécharger le PDF directement depuis ce lien.\n\nCordialement`;
+                          const message = `Merci pour votre course. Vous trouverez votre facture sur le lien suivant : ${invoiceUrl}`;
                           
                           // Utiliser https://wa.me qui fonctionne sur iOS, Android et web
                           const whatsappUrl = `https://wa.me/?text=${encodeURIComponent(message)}`;
@@ -745,7 +740,7 @@ export const RideDetailScreen: React.FC<RideDetailScreenProps> = ({
                   onPress={() => {
                     const invoiceUrl = getInvoiceUrl(invoice.public_token);
                     const clientName = ride.client_name || 'Client';
-                    const message = `Bonjour ${clientName},\n\nVoici votre facture ${invoice.invoice_number} :\n${invoiceUrl}\n\nVous pouvez télécharger le PDF directement depuis ce lien.\n\nCordialement`;
+                    const message = `Merci pour votre course. Vous trouverez votre facture sur le lien suivant : ${invoiceUrl}`;
                     const whatsappUrl = `https://wa.me/?text=${encodeURIComponent(message)}`;
                     
                     Linking.openURL(whatsappUrl).catch(err => {
@@ -764,7 +759,7 @@ export const RideDetailScreen: React.FC<RideDetailScreenProps> = ({
                     const invoiceUrl = getInvoiceUrl(invoice.public_token);
                     const clientName = ride.client_name || 'Client';
                     const subject = `Facture ${invoice.invoice_number}`;
-                    const message = `Bonjour ${clientName},\n\nVoici votre facture ${invoice.invoice_number} :\n${invoiceUrl}\n\nVous pouvez télécharger le PDF directement depuis ce lien.\n\nCordialement`;
+                    const message = `Merci pour votre course. Vous trouverez votre facture sur le lien suivant : ${invoiceUrl}`;
                     const mailtoUrl = `mailto:?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(message)}`;
                     
                     Linking.openURL(mailtoUrl).catch(err => {
@@ -803,8 +798,40 @@ export const RideDetailScreen: React.FC<RideDetailScreenProps> = ({
           </View>
         )}
 
+        {/* Retour du chauffeur — pour l'auteur de l'annonce quand la course est terminée */}
+        {isMyRide && ride.status === 'COMPLETED' && (ride.rating_by_picker_stars != null || (ride.rating_by_picker_comment && ride.rating_by_picker_comment.trim())) && (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Retour du chauffeur</Text>
+            <View style={styles.ratingCard}>
+              {ride.picker?.full_name && (
+                <Text style={styles.ratingAuthor}>
+                  {ride.picker.full_name} a noté cette course
+                  {ride.rating_by_picker_at
+                    ? ` le ${new Date(ride.rating_by_picker_at).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })}`
+                    : ''}
+                </Text>
+              )}
+              {ride.rating_by_picker_stars != null && ride.rating_by_picker_stars >= 1 && (
+                <View style={styles.ratingStarsRow}>
+                  {[1, 2, 3, 4, 5].map((value) => (
+                    <Ionicons
+                      key={value}
+                      name={ride.rating_by_picker_stars! >= value ? 'star' : 'star-outline'}
+                      size={24}
+                      color={ride.rating_by_picker_stars! >= value ? '#eab308' : '#64748b'}
+                    />
+                  ))}
+                </View>
+              )}
+              {ride.rating_by_picker_comment && ride.rating_by_picker_comment.trim() ? (
+                <Text style={styles.ratingComment}>« {ride.rating_by_picker_comment.trim()} »</Text>
+              ) : null}
+            </View>
+          </View>
+        )}
+
         {/* Pris par - Afficher qui a pris ma course */}
-        {isMyRide && ride.status === 'CLAIMED' && ride.picker && (
+        {isMyRide && (ride.status === 'CLAIMED' || ride.status === 'COMPLETED') && ride.picker && (
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Course prise par</Text>
             <View style={styles.pickerCard}>
@@ -1002,29 +1029,9 @@ export const RideDetailScreen: React.FC<RideDetailScreenProps> = ({
           </View>
         )}
 
-        {/* Prendre cette course (toutes les annonces, y compris demande client) */}
+        {/* Prendre cette course — crédit affiché uniquement sur l'action (discret) */}
       {!isMyRide && ride.status === 'PUBLISHED' && onClaim && (
         <View style={styles.actionContainer}>
-          {isClientDemand ? (
-            <View style={[styles.creditsCostBanner, { flexDirection: 'row', alignItems: 'center' }]}>
-              <Ionicons name="person-outline" size={22} color="#0ea5e9" style={{ marginRight: 8 }} />
-              <Text style={styles.creditsCostText}>
-                Demande client (site web) — <Text style={{ fontWeight: '700', color: '#10b981' }}>aucun crédit</Text>
-              </Text>
-            </View>
-          ) : (
-            <View style={styles.creditsCostBanner}>
-              <View style={styles.creditsCostIcon}>
-                <Text style={styles.creditsCostIconText}>C</Text>
-              </View>
-              <Text style={styles.creditsCostText}>
-                Prendre cette course coûte <Text style={{ fontWeight: '700', color: '#0ea5e9' }}>1 crédit Corail</Text>
-              </Text>
-              <Text style={styles.creditsCostBalance}>
-                Vous avez {userCredits} crédit{userCredits !== 1 ? 's' : ''}
-              </Text>
-            </View>
-          )}
           <TouchableOpacity
             style={styles.actionButton}
             onPress={onClaim}
@@ -1032,17 +1039,11 @@ export const RideDetailScreen: React.FC<RideDetailScreenProps> = ({
           >
             <View style={styles.actionButtonInner}>
               <Ionicons name="car" size={24} color="#fff" />
-              {isClientDemand ? (
-                <Text style={styles.actionButtonText}>Prendre cette course</Text>
-              ) : (
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                  <Text style={styles.actionButtonText}>Prendre cette course (-1</Text>
-                  <View style={styles.creditIconInButton}>
-                    <Text style={styles.creditIconInButtonText}>C</Text>
-                  </View>
-                  <Text style={styles.actionButtonText}>)</Text>
-                </View>
-              )}
+              <Text style={styles.actionButtonText}>
+                {isClientDemand || (ride.visibility || 'PUBLIC') === 'GROUP'
+                  ? 'Prendre cette course'
+                  : 'Prendre cette course (-1 crédit)'}
+              </Text>
             </View>
           </TouchableOpacity>
         </View>
@@ -1098,6 +1099,23 @@ export const RideDetailScreen: React.FC<RideDetailScreenProps> = ({
       {/* Bottom spacing */}
       <View style={{ height: 40 }} />
     </ScrollView>
+
+    <LegalInfoModal
+      visible={showLegalModal}
+      onClose={() => setShowLegalModal(false)}
+      initialBusinessName={ride.creator?.full_name ?? ''}
+      onSaved={() => {
+        setGeneratingInvoice(true);
+        doCreateInvoiceAndShowSuccess().finally(() => setGeneratingInvoice(false));
+        setShowLegalModal(false);
+      }}
+      onLater={() => {
+        Alert.alert(
+          'Infos légales requises',
+          'Pour générer une facture conforme, renseignez vos infos légales (SIRET, adresse) depuis Mes outils.'
+        );
+      }}
+    />
     </View>
   );
 };
@@ -1743,6 +1761,31 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     borderWidth: 1,
     borderColor: 'rgba(16, 185, 129, 0.3)',
+  },
+
+  ratingCard: {
+    backgroundColor: 'rgba(234, 179, 8, 0.08)',
+    borderRadius: 14,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(234, 179, 8, 0.25)',
+  },
+  ratingAuthor: {
+    fontSize: 13,
+    color: '#94a3b8',
+    marginBottom: 10,
+  },
+  ratingStarsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    marginBottom: 10,
+  },
+  ratingComment: {
+    fontSize: 15,
+    color: '#e2e8f0',
+    lineHeight: 22,
+    fontStyle: 'italic',
   },
 
   pickerCard: {

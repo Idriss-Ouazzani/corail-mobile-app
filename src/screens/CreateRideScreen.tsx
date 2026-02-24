@@ -15,12 +15,14 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { ShareQuoteModal } from '../components/ShareQuoteModal';
+import { LegalInfoModal } from '../components/LegalInfoModal';
 import { PriceHintChauffeur } from '../components/PriceHintChauffeur';
 import { apiClient } from '../services/api';
 import { AddressAutocomplete } from '../components/AddressAutocomplete';
 import { AddressSuggestion } from '../services/addressApi';
 import { calculateRoute } from '../services/routingApi';
 import { formatDateWithLocalTimezone } from '../utils/dateFormat';
+import { formatPhoneInput, formatPhoneForSubmit } from '../utils/phoneFormat';
 import { useAuth } from '../contexts/AuthContext';
 import { getQuoteUrl } from '../constants/urls';
 
@@ -39,11 +41,12 @@ const GROUP_COLORS = ['#10b981', '#0ea5e9', '#8b5cf6', '#f59e0b', '#ef4444', '#6
 interface CreateRideScreenProps {
   onBack: () => void;
   onCreate: (ride: any) => void;
-  mode?: 'create' | 'publish'; // 'create' = depuis Mes Courses, 'publish' = depuis Marketplace
-  verificationStatus?: string | null;
+  mode?: 'create' | 'publish';
+  /** Profil chauffeur vérifié – requis pour "Publier sur le réseau" */
+  isDriverVerified?: boolean;
 }
 
-export const CreateRideScreen: React.FC<CreateRideScreenProps> = ({ onBack, onCreate, mode = 'publish', verificationStatus }) => {
+export const CreateRideScreen: React.FC<CreateRideScreenProps> = ({ onBack, onCreate, mode = 'publish', isDriverVerified = false }) => {
   const { user } = useAuth();
   const [pickup, setPickup] = useState('');
   const [dropoff, setDropoff] = useState('');
@@ -66,9 +69,11 @@ export const CreateRideScreen: React.FC<CreateRideScreenProps> = ({ onBack, onCr
   const [showClientSection, setShowClientSection] = useState(mode === 'publish');
   const [notes, setNotes] = useState('');
   const [calculatingRoute, setCalculatingRoute] = useState(false); // Calcul de l'itinéraire en cours
-  const [showShareQuoteModal, setShowShareQuoteModal] = useState(false); // Modal de partage du devis
-  const [createdQuoteData, setCreatedQuoteData] = useState<any>(null); // Données du devis créé
-  const [pendingRideData, setPendingRideData] = useState<any>(null); // Données de la course en attente
+  const [showShareQuoteModal, setShowShareQuoteModal] = useState(false);
+  const [createdQuoteData, setCreatedQuoteData] = useState<any>(null);
+  const [pendingRideData, setPendingRideData] = useState<any>(null);
+  const [showLegalModal, setShowLegalModal] = useState(false);
+  const [pendingQuoteData, setPendingQuoteData] = useState<any>(null);
 
   // Charger les groupes de l'utilisateur au montage
   useEffect(() => {
@@ -193,11 +198,10 @@ export const CreateRideScreen: React.FC<CreateRideScreenProps> = ({ onBack, onCr
       return;
     }
 
-    // Bloquer la publication sur la marketplace si le profil n'est pas vérifié
-    if (visibility === 'PUBLIC' && verificationStatus !== 'VERIFIED') {
+    if (visibility === 'PUBLIC' && !isDriverVerified) {
       Alert.alert(
-        'Profil en cours de vérification',
-        'Vous pourrez publier sur la marketplace après validation de votre profil.'
+        'Profil vérifié requis',
+        'Pour accéder aux opportunités réseau, votre profil doit être vérifié.'
       );
       return;
     }
@@ -219,24 +223,30 @@ export const CreateRideScreen: React.FC<CreateRideScreenProps> = ({ onBack, onCr
       let quoteToken = null;
       let shouldShowShareModal = false;
 
-      // Créer le devis d'abord si demandé
       if (generateQuote && clientName && (clientPhone || clientEmail)) {
+        const scheduledDate = new Date(selectedDate);
+        const quoteData = {
+          client_name: clientName,
+          client_phone: formatPhoneForSubmit(clientPhone) || undefined,
+          client_email: clientEmail || undefined,
+          pickup_address: pickup,
+          dropoff_address: dropoff,
+          scheduled_date: scheduledDate.toISOString().split('T')[0],
+          scheduled_time: `${String(scheduledDate.getHours()).padStart(2, '0')}:${String(scheduledDate.getMinutes()).padStart(2, '0')}:00`,
+          price_cents: parseFloat(price) * 100,
+          notes: distance ? `Distance: ${distance} km` : undefined,
+        };
+        let profile: any = null;
         try {
-          const scheduledDate = new Date(selectedDate);
-          const quoteData = {
-            client_name: clientName,
-            client_phone: clientPhone || undefined,
-            client_email: clientEmail || undefined,
-            pickup_address: pickup,
-            dropoff_address: dropoff,
-            scheduled_date: scheduledDate.toISOString().split('T')[0], // YYYY-MM-DD
-            scheduled_time: `${String(scheduledDate.getHours()).padStart(2, '0')}:${String(scheduledDate.getMinutes()).padStart(2, '0')}:00`, // HH:MM:SS
-            price_cents: parseFloat(price) * 100,
-            notes: distance ? `Distance: ${distance} km` : undefined,
-          };
-
+          profile = await apiClient.getMyVTCProfile();
+        } catch (_e) {}
+        if (!profile?.legal_info_configured) {
+          setPendingQuoteData(quoteData);
+          setShowLegalModal(true);
+          return;
+        }
+        try {
           const quote = await apiClient.createQuote(quoteData);
-          console.log('✅ Devis créé:', quote);
           quoteId = quote.id;
           quoteToken = quote.token;
           shouldShowShareModal = true;
@@ -258,7 +268,7 @@ export const CreateRideScreen: React.FC<CreateRideScreenProps> = ({ onBack, onCr
         distance_km: distance ? parseFloat(distance) : undefined,
         duration_minutes: duration ? parseInt(duration) : undefined,
         client_name: clientName || undefined,
-        client_phone: clientPhone || undefined,
+        client_phone: formatPhoneForSubmit(clientPhone) || undefined,
         client_email: clientEmail || undefined,
         quote_id: quoteId,
         quote_token: quoteToken,
@@ -444,7 +454,7 @@ export const CreateRideScreen: React.FC<CreateRideScreenProps> = ({ onBack, onCr
               <Text style={styles.formCardTitle}>Client</Text>
               <Text style={styles.formCardHint}>Nom obligatoire. Email ou téléphone (1 des 2 suffit).</Text>
               <TextInput style={[styles.input, styles.inputSpaced]} placeholder="Nom du client" placeholderTextColor="#64748b" value={clientName} onChangeText={setClientName} />
-              <TextInput style={[styles.input, styles.inputSpaced]} placeholder="Téléphone" placeholderTextColor="#64748b" keyboardType="phone-pad" value={clientPhone} onChangeText={setClientPhone} />
+              <TextInput style={[styles.input, styles.inputSpaced]} placeholder="Ex: 06 12 34 56 78" placeholderTextColor="#64748b" keyboardType="phone-pad" value={clientPhone} onChangeText={(t) => setClientPhone(formatPhoneInput(t))} />
               <TextInput style={[styles.input, styles.inputSpacedLast]} placeholder="Email" placeholderTextColor="#64748b" keyboardType="email-address" autoCapitalize="none" value={clientEmail} onChangeText={setClientEmail} />
               <TouchableOpacity style={[styles.quoteToggle, (!clientName || (!clientPhone && !clientEmail)) && styles.quoteToggleDisabled]} onPress={() => { if (!clientName || (!clientPhone && !clientEmail)) { Alert.alert('Informations manquantes', 'Nom et au moins un contact (téléphone ou email) requis pour le devis.'); return; } setGenerateQuote(!generateQuote); }} activeOpacity={0.7}>
                 <View style={styles.quoteToggleLeft}>
@@ -486,7 +496,7 @@ export const CreateRideScreen: React.FC<CreateRideScreenProps> = ({ onBack, onCr
             {showClientSection && (
               <View style={styles.collapseContent}>
                 <TextInput style={[styles.input, styles.collapseInput]} placeholder="Nom du client" placeholderTextColor="#64748b" value={clientName} onChangeText={setClientName} />
-                <TextInput style={[styles.input, styles.collapseInput]} placeholder="Téléphone" placeholderTextColor="#64748b" keyboardType="phone-pad" value={clientPhone} onChangeText={setClientPhone} />
+                <TextInput style={[styles.input, styles.collapseInput]} placeholder="Ex: 06 12 34 56 78" placeholderTextColor="#64748b" keyboardType="phone-pad" value={clientPhone} onChangeText={(t) => setClientPhone(formatPhoneInput(t))} />
                 <TextInput style={[styles.input, styles.collapseInputLast]} placeholder="Email" placeholderTextColor="#64748b" keyboardType="email-address" autoCapitalize="none" value={clientEmail} onChangeText={setClientEmail} />
                 <TouchableOpacity style={[styles.quoteToggle, (!clientName || (!clientPhone && !clientEmail)) && styles.quoteToggleDisabled]} onPress={() => { if (!clientName || (!clientPhone && !clientEmail)) { Alert.alert('Informations manquantes', 'Nom et au moins un contact requis pour le devis.'); return; } setGenerateQuote(!generateQuote); }} activeOpacity={0.7}>
                   <View style={styles.quoteToggleLeft}>
@@ -583,20 +593,6 @@ export const CreateRideScreen: React.FC<CreateRideScreenProps> = ({ onBack, onCr
 
       {/* Create Button */}
       <View style={styles.actionContainer}>
-        {/* Credits Reward Banner */}
-        <View style={styles.creditsRewardBanner}>
-          <View style={styles.creditsRewardIcon}>
-            <Text style={styles.creditsRewardIconText}>C</Text>
-          </View>
-          <View style={{ flex: 1, marginLeft: 12 }}>
-            <Text style={styles.creditsRewardTitle}>🎉 Gagnez des crédits !</Text>
-            <Text style={styles.creditsRewardText}>
-              <Text style={{ fontWeight: '700', color: '#10b981' }}>+1 crédit</Text> immédiatement{'\n'}
-              <Text style={{ fontWeight: '700', color: '#10b981' }}>+1 bonus</Text> si votre course est prise et terminée
-            </Text>
-          </View>
-        </View>
-        
         <TouchableOpacity
           style={styles.actionButton}
           onPress={handleCreate}
@@ -746,6 +742,59 @@ export const CreateRideScreen: React.FC<CreateRideScreenProps> = ({ onBack, onCr
           driverName={user?.displayName || user?.email?.split('@')[0]}
         />
       )}
+
+      <LegalInfoModal
+        visible={showLegalModal}
+        onClose={() => { setShowLegalModal(false); setPendingQuoteData(null); }}
+        initialBusinessName={user?.user_metadata?.full_name || user?.email?.split('@')[0] || ''}
+        onSaved={() => {
+          if (!pendingQuoteData) return;
+          apiClient.createQuote(pendingQuoteData).then((quote: any) => {
+            const rideData = {
+              pickup_address: pickup,
+              dropoff_address: dropoff,
+              price_cents: parseFloat(price) * 100,
+              scheduled_at: formatDateWithLocalTimezone(selectedDate),
+              visibility,
+              group_ids: selectedGroups.map((g: Group) => g.id),
+              vehicle_type: 'STANDARD',
+              distance_km: distance ? parseFloat(distance) : undefined,
+              duration_minutes: duration ? parseInt(duration) : undefined,
+              client_name: clientName || undefined,
+              client_phone: formatPhoneForSubmit(clientPhone) || undefined,
+              client_email: clientEmail || undefined,
+              quote_id: quote.id,
+              quote_token: quote.token,
+              quote_status: 'SENT',
+              notes: notes.trim() || undefined,
+            };
+            const scheduledDate = new Date(selectedDate);
+            setPendingRideData(rideData);
+            setCreatedQuoteData({
+              quoteUrl: getQuoteUrl(quote.token),
+              clientName,
+              clientEmail: clientEmail || undefined,
+              clientPhone: clientPhone || undefined,
+              price,
+              date: scheduledDate.toLocaleDateString('fr-FR', { day: 'numeric', month: 'numeric' }),
+              time: `${scheduledDate.getHours().toString().padStart(2, '0')}h${scheduledDate.getMinutes().toString().padStart(2, '0')}`,
+              pickupAddress: pickup,
+              dropoffAddress: dropoff,
+            });
+            setShowShareQuoteModal(true);
+            setPendingQuoteData(null);
+            setShowLegalModal(false);
+          }).catch((e: any) => {
+            Alert.alert('Erreur', e.message || 'Impossible de créer le devis');
+          });
+        }}
+        onLater={() => {
+          Alert.alert(
+            'Infos légales requises',
+            'Pour envoyer un devis conforme, renseignez vos infos légales (SIRET, adresse) depuis Mes outils.'
+          );
+        }}
+      />
     </View>
   );
 };

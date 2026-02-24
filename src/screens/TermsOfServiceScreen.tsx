@@ -27,7 +27,7 @@ function TermsOfServiceContent() {
 
       <Section title="1. Présentation du service">
         <Text style={styles.text}>
-          Corail VTC est une plateforme de mise en relation exclusivement réservée aux chauffeurs VTC professionnels. 
+          Corail est une plateforme de mise en relation exclusivement réservée aux chauffeurs VTC professionnels. 
           Elle permet de :
         </Text>
         <BulletPoint>Publier des courses disponibles</BulletPoint>
@@ -37,14 +37,14 @@ function TermsOfServiceContent() {
         <BulletPoint>Créer des groupes de chauffeurs</BulletPoint>
         
         <Text style={styles.important}>
-          ⚠️ Important : Corail VTC est un service de mise en relation uniquement (modèle B2B). 
+          ⚠️ Important : Corail est un service de mise en relation uniquement (modèle B2B). 
           Nous ne sommes PAS responsables de l'exécution du transport, du paiement entre chauffeurs 
           et clients finaux, ni des litiges qui en découlent.
         </Text>
       </Section>
 
       <Section title="2. Conditions d'accès">
-        <Text style={styles.text}>Pour utiliser Corail VTC, vous devez :</Text>
+        <Text style={styles.text}>Pour utiliser Corail, vous devez :</Text>
         <BulletPoint>Être majeur(e) et professionnel(le) VTC</BulletPoint>
         <BulletPoint>Disposer d'une carte VTC valide</BulletPoint>
         <BulletPoint>Fournir un numéro SIREN valide</BulletPoint>
@@ -66,7 +66,7 @@ function TermsOfServiceContent() {
 
       <Section title="4. Système de crédits">
         <Text style={styles.subtitle}>Fonctionnement :</Text>
-        <BulletPoint>Les crédits (C) sont la monnaie virtuelle de Corail VTC</BulletPoint>
+        <BulletPoint>Les crédits (C) sont la monnaie virtuelle de Corail</BulletPoint>
         <BulletPoint>Publier une course = +1 crédit</BulletPoint>
         <BulletPoint>Prendre une course = -1 crédit</BulletPoint>
         <BulletPoint>Les crédits sont achetables via l'application</BulletPoint>
@@ -91,7 +91,7 @@ function TermsOfServiceContent() {
         
         <Text style={styles.important}>
           ⚠️ Le paiement du service de transport s'effectue ENTRE CHAUFFEURS (ou entre chauffeur et client final). 
-          Corail VTC n'intervient PAS dans les transactions financières liées au transport.
+          Corail n'intervient PAS dans les transactions financières liées au transport.
         </Text>
       </Section>
 
@@ -113,7 +113,7 @@ function TermsOfServiceContent() {
       <Section title="7. Propriété intellectuelle">
         <Text style={styles.text}>
           Tous les éléments de l'application (logo, design, code, textes) sont la propriété 
-          exclusive de Corail VTC. Toute reproduction ou utilisation sans autorisation est interdite.
+          exclusive de Corail. Toute reproduction ou utilisation sans autorisation est interdite.
         </Text>
         <BulletPoint>Vous conservez la propriété de vos données (courses, profil, etc.)</BulletPoint>
         <BulletPoint>
@@ -122,7 +122,7 @@ function TermsOfServiceContent() {
       </Section>
 
       <Section title="8. Responsabilités et garanties">
-        <Text style={styles.subtitle}>Responsabilité de Corail VTC :</Text>
+        <Text style={styles.subtitle}>Responsabilité de Corail :</Text>
         <BulletPoint>Nous fournissons la plateforme "en l'état"</BulletPoint>
         <BulletPoint>Nous ne garantissons pas une disponibilité 24/7</BulletPoint>
         <BulletPoint>
@@ -154,7 +154,7 @@ function TermsOfServiceContent() {
       <Section title="10. Modifications des CGU">
         <Text style={styles.text}>
           Nous pouvons modifier ces CGU à tout moment. Les modifications importantes vous seront 
-          notifiées via l'application. Continuer à utiliser Corail VTC après modification 
+          notifiées via l'application. Continuer à utiliser Corail après modification 
           vaut acceptation des nouvelles conditions.
         </Text>
       </Section>
@@ -172,15 +172,15 @@ function TermsOfServiceContent() {
         <Text style={styles.text}>Pour toute question sur ces conditions :</Text>
         <BulletPoint>Email : <Text style={styles.link}>legal@corail.app</Text></BulletPoint>
         <BulletPoint>Support : Dans l'app, onglet Profil → Aide & Support</BulletPoint>
-        <BulletPoint>Adresse : Corail VTC, [Adresse complète à compléter]</BulletPoint>
+        <BulletPoint>Adresse : Corail, [Adresse complète à compléter]</BulletPoint>
       </Section>
 
       <View style={styles.footer}>
         <Text style={styles.footerText}>
-          En utilisant Corail VTC, vous acceptez ces conditions d'utilisation.
+          En utilisant Corail, vous acceptez ces conditions d'utilisation.
         </Text>
         <Text style={styles.footerText}>
-          © 2026 Corail VTC. Tous droits réservés.
+          © 2026 Corail. Tous droits réservés.
         </Text>
       </View>
     </View>

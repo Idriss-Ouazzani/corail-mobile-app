@@ -3,8 +3,9 @@
  * Toutes les fonctions de l'app migrées vers Supabase
  */
 
-import { supabase } from '../lib/supabase';
+import { supabase, SUPABASE_URL, SUPABASE_ANON_KEY } from '../lib/supabase';
 import Constants from 'expo-constants';
+import * as FileSystem from 'expo-file-system/legacy';
 import type { Ride } from '../types';
 import { getQuoteUrl } from '../constants/urls';
 
@@ -100,56 +101,76 @@ export const getVerificationStatus = async () => {
   const { data, error } = await supabase
     .from('users')
     .select('*')
-    .eq('id', currentUserId)
-    .single();
+    .or(`id.eq.${currentUserId},supabase_auth_id.eq.${currentUserId}`)
+    .limit(1)
+    .maybeSingle();
 
-  if (error) {
+  if (error) throw new Error(error.message);
+
+  if (!data) {
     // User doesn't exist yet, create it automatically
-    if (error.code === 'PGRST116') {
-      console.log('🆕 Utilisateur non trouvé, création automatique dans Supabase...');
-      
-      // Créer l'utilisateur avec des valeurs par défaut
-      const { data: newUser, error: createError } = await supabase
-        .from('users')
-        .insert({
-          id: currentUserId,
-          email: '', // Sera rempli lors de la vérification
-          verification_status: 'UNVERIFIED',
-          is_admin: false,
-        })
-        .select()
-        .single();
+    console.log('🆕 Utilisateur non trouvé, création automatique dans Supabase...');
 
-      if (createError) {
-        console.error('❌ Erreur création utilisateur:', createError);
-        throw new Error(createError.message);
-      }
+    const { data: newUser, error: createError } = await supabase
+      .from('users')
+      .insert({
+        id: currentUserId,
+        email: '',
+        verification_status: 'UNVERIFIED',
+        is_admin: false,
+      })
+      .select()
+      .single();
 
-      console.log('✅ Utilisateur créé automatiquement dans Supabase');
-      return newUser;
+    if (createError) {
+      console.error('❌ Erreur création utilisateur:', createError);
+      throw new Error(createError.message);
     }
-    throw new Error(error.message);
+
+    console.log('✅ Utilisateur créé automatiquement dans Supabase');
+    return { ...newUser, driver_verification_status: null };
   }
 
-  return data;
+  // Charger le statut de vérification chauffeur (vtc_profiles) pour le gating réseau
+  const { data: vtcProfile } = await supabase
+    .from('vtc_profiles')
+    .select('driver_verification_status, driver_verification_submitted_at, driver_verification_rejection_reason, verification_vtc_card_status, verification_id_card_status, verification_insurance_status, verification_vtc_card_url, verification_id_card_url, verification_insurance_url, verification_vtc_card_admin_notes, verification_id_card_admin_notes, verification_insurance_admin_notes')
+    .eq('user_id', currentUserId)
+    .limit(1)
+    .maybeSingle();
+
+  return {
+    ...data,
+    driver_verification_status: vtcProfile?.driver_verification_status ?? null,
+    driver_verification_submitted_at: vtcProfile?.driver_verification_submitted_at ?? null,
+    driver_verification_rejection_reason: vtcProfile?.driver_verification_rejection_reason ?? null,
+    verification_vtc_card_status: vtcProfile?.verification_vtc_card_status ?? 'missing',
+    verification_id_card_status: vtcProfile?.verification_id_card_status ?? 'missing',
+    verification_insurance_status: vtcProfile?.verification_insurance_status ?? 'missing',
+    verification_vtc_card_url: vtcProfile?.verification_vtc_card_url ?? null,
+    verification_id_card_url: vtcProfile?.verification_id_card_url ?? null,
+    verification_insurance_url: vtcProfile?.verification_insurance_url ?? null,
+    verification_vtc_card_admin_notes: vtcProfile?.verification_vtc_card_admin_notes ?? null,
+    verification_id_card_admin_notes: vtcProfile?.verification_id_card_admin_notes ?? null,
+    verification_insurance_admin_notes: vtcProfile?.verification_insurance_admin_notes ?? null,
+  };
 };
 
 export const submitVerification = async (verificationData: {
   full_name: string;
   phone: string;
-  siren: string;
+  siren?: string; // Optionnel : plus demandé à l'inscription ; SIRET configuré plus tard pour facturation
   professional_card_number: string;
   email?: string; // Optionnel mais recommandé
 }) => {
   if (!currentUserId) throw new Error('User not authenticated');
 
-  // Utiliser UPDATE au lieu de UPSERT car le user existe déjà (créé par handle_new_user)
   const { data, error } = await supabase
     .from('users')
     .update({
       full_name: verificationData.full_name,
       phone: verificationData.phone,
-      siren: verificationData.siren,
+      siren: verificationData.siren ?? '',
       professional_card_number: verificationData.professional_card_number,
       verification_status: 'PENDING',
       verification_submitted_at: new Date().toISOString(),
@@ -311,11 +332,13 @@ export const createRide = async (rideData: {
 
   if (rideError) throw new Error(rideError.message);
 
-  // Add credit (via secure Edge Function)
-  await addCreditsSecure(1, 'PUBLISH_RIDE', {
-    ride_id: ride.id,
-    description: 'Published ride on marketplace',
-  });
+  // +1 crédit uniquement si publication en public (groupe = 0)
+  if (rideData.visibility === 'PUBLIC') {
+    await addCreditsSecure(1, 'PUBLISH_RIDE', {
+      ride_id: ride.id,
+      description: 'Published ride on public marketplace',
+    });
+  }
 
   // Add activity log
   await supabase.from('activity_log').insert({
@@ -331,18 +354,20 @@ export const createRide = async (rideData: {
 export const claimRide = async (rideId: string) => {
   if (!currentUserId) throw new Error('User not authenticated');
 
-  // Fetch ride to know source: course client (web) = 0 crédit, course chauffeur = 1 crédit
+  // Fetch ride: client = 0 crédit, groupe = 0 crédit, annonces publiques = 1 crédit
   const { data: existingRide, error: fetchError } = await supabase
     .from('rides')
-    .select('id, source, status')
+    .select('id, source, status, visibility')
     .eq('id', rideId)
     .single();
   if (fetchError || !existingRide) throw new Error('Course introuvable');
   if (existingRide.status !== 'PUBLISHED') throw new Error('Course non disponible');
 
   const isClientRide = existingRide.source === 'client';
+  const isGroupRide = (existingRide.visibility || 'PUBLIC') === 'GROUP';
+  const costsCredit = !isClientRide && !isGroupRide;
 
-  if (!isClientRide) {
+  if (costsCredit) {
     const credits = await getCredits();
     if (credits.credits < 1) {
       throw new Error('Insufficient credits');
@@ -363,19 +388,19 @@ export const claimRide = async (rideId: string) => {
 
   if (rideError) throw new Error(rideError.message);
 
-  if (!isClientRide) {
+  if (costsCredit) {
     try {
       await addCreditsSecure(-1, 'CLAIM_RIDE', {
         ride_id: rideId,
-        description: 'Claimed ride from marketplace',
+        description: 'Claimed ride from public marketplace',
       });
-      console.log('✅ Crédit déduit avec succès');
+      console.log('✅ Crédit déduit (annonces publiques)');
     } catch (creditError: any) {
       console.error('❌ Erreur déduction crédit:', creditError);
       throw creditError;
     }
   } else {
-    console.log('✅ Course client : aucun crédit déduit');
+    console.log('✅ Annonces groupe ou demande client : aucun crédit déduit');
   }
 
   // Add activity log
@@ -717,17 +742,21 @@ export const publishPersonalRide = async (
 
   if (createError) throw new Error(createError.message);
 
-  // 4. Ajouter +1 crédit pour la publication (via secure Edge Function)
-  console.log('🔵 AVANT ajout crédit (publishPersonalRide)');
-  try {
-    await addCreditsSecure(1, 'PUBLISH_RIDE', {
-      ride_id: newRide.id,
-      description: `Published personal ride ${personalRideId} to marketplace`,
-    });
-    console.log('✅ Crédit ajouté avec succès');
-  } catch (creditError: any) {
-    console.error('❌ Erreur ajout crédit:', creditError);
-    throw creditError;
+  // 4. +1 crédit uniquement si publication en public (pas en groupe)
+  if (options.visibility === 'PUBLIC') {
+    console.log('🔵 Ajout crédit (publication en public)');
+    try {
+      await addCreditsSecure(1, 'PUBLISH_RIDE', {
+        ride_id: newRide.id,
+        description: `Published personal ride ${personalRideId} to public marketplace`,
+      });
+      console.log('✅ Crédit ajouté');
+    } catch (creditError: any) {
+      console.error('❌ Erreur ajout crédit:', creditError);
+      throw creditError;
+    }
+  } else {
+    console.log('✅ Publication en groupe : pas de crédit ajouté');
   }
 
   // 5. Supprimer la course personnelle (elle est maintenant publiée)
@@ -940,6 +969,15 @@ export const getCredits = async () => {
   const credits = data?.credits || 0;
   console.log('📊 [getCredits] Crédits actuels en DB:', credits);
   return { credits };
+};
+
+/** Persiste le fait que l'utilisateur a vu l'onboarding crédits (ne plus afficher). */
+export const setCreditsOnboardingSeen = async () => {
+  if (!currentUserId) return;
+  await supabase
+    .from('users')
+    .update({ credits_onboarding_seen: true })
+    .eq('id', currentUserId);
 };
 
 // ============================================================================
@@ -1549,11 +1587,15 @@ export const createQuote = async (quoteData: {
   console.log('🔍 createQuote - currentUserId:', currentUserId);
   console.log('🔍 createQuote - quoteData:', JSON.stringify(quoteData, null, 2));
 
+  const validUntil = new Date();
+  validUntil.setDate(validUntil.getDate() + 30);
+
   const { data, error } = await supabase
     .from('quotes')
     .insert({
       driver_id: currentUserId,
       ...quoteData,
+      valid_until: validUntil.toISOString().split('T')[0],
       status: 'SENT',
       sent_at: new Date().toISOString(),
     })
@@ -1746,14 +1788,10 @@ export const listInvoices = async (filters?: {
     .from('vtc_profiles')
     .select('id')
     .eq('user_id', currentUserId)
-    .single();
+    .limit(1)
+    .maybeSingle();
 
   if (profileError) {
-    // PGRST116 = pas de profil VTC, c'est normal pour un nouvel utilisateur
-    if (profileError.code === 'PGRST116') {
-      console.log('ℹ️ No VTC profile found for user (normal for new users)');
-      return { data: [], error: null };
-    }
     console.error('❌ Error getting VTC profile:', profileError);
     return { data: [], error: profileError };
   }
@@ -1823,9 +1861,13 @@ export const createInvoice = async (sourceType: 'RIDE' | 'PERSONAL', sourceId: s
     .from('vtc_profiles')
     .select('id')
     .eq('user_id', currentUserId)
-    .single();
+    .limit(1)
+    .maybeSingle();
 
   // Si pas de profil VTC, en créer un automatiquement
+  if (!profileError && !vtcProfile) {
+    profileError = { message: 'No profile', code: 'PGRST116', details: '', hint: '' };
+  }
   if (profileError && profileError.code === 'PGRST116') {
     console.log('ℹ️ Pas de profil VTC, création automatique...');
     try {
@@ -1932,13 +1974,11 @@ export const getMyVTCProfile = async () => {
     .from('vtc_profiles')
     .select('*')
     .eq('user_id', currentUserId)
-    .single();
+    .limit(1)
+    .maybeSingle();
 
-  if (error && error.code !== 'PGRST116') { // PGRST116 = no rows
-    throw new Error(error.message);
-  }
-
-  return data;
+  if (error) throw new Error(error.message);
+  return data ?? null;
 };
 
 export const createVTCProfile = async (profileData: any) => {
@@ -1971,29 +2011,315 @@ export const updateVTCProfile = async (profileData: any) => {
     throw new Error('User not authenticated');
   }
 
-  // UPSERT : crée si n'existe pas, met à jour sinon
-  const { data, error } = await supabase
+  const { data: existing } = await supabase
     .from('vtc_profiles')
-    .upsert(
-      {
-        user_id: currentUserId,
-        ...profileData,
-      },
-      {
-        onConflict: 'user_id', // Utilise user_id comme clé unique
-      }
-    )
-    .select()
-    .single();
+    .select('id, slug')
+    .eq('user_id', currentUserId)
+    .limit(1)
+    .maybeSingle();
 
-  if (error) {
-    if (error.code === '23505') { // Duplicate slug
-      throw new Error('Cet identifiant est déjà utilisé. Choisissez-en un autre.');
+  if (existing) {
+    const { error } = await supabase
+      .from('vtc_profiles')
+      .update(profileData)
+      .eq('user_id', currentUserId);
+    if (error) {
+      if (error.code === '23505') throw new Error('Cet identifiant est déjà utilisé. Choisissez-en un autre.');
+      throw new Error(error.message);
     }
-    throw new Error(error.message);
+    // Re-fetch au cas où RETURNING serait filtré par RLS
+    const { data, error: fetchError } = await supabase
+      .from('vtc_profiles')
+      .select()
+      .eq('user_id', currentUserId)
+      .limit(1)
+      .maybeSingle();
+    if (fetchError) throw new Error(fetchError.message);
+    if (!data) throw new Error('Profil introuvable après mise à jour.');
+    console.log('✅ VTC Profile updated:', data?.slug);
+    return data;
   }
 
-  console.log('✅ VTC Profile upserted:', data.slug);
+  const { data: userData } = await supabase
+    .from('users')
+    .select('full_name')
+    .or(`id.eq.${currentUserId},supabase_auth_id.eq.${currentUserId}`)
+    .limit(1)
+    .maybeSingle();
+
+  const slug = userData?.full_name
+    ? userData.full_name.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') || `chauffeur-${currentUserId.slice(0, 8)}`
+    : `chauffeur-${currentUserId.slice(0, 8)}`;
+
+  const { data, error } = await supabase
+    .from('vtc_profiles')
+    .insert({
+      user_id: currentUserId,
+      slug,
+      display_name: userData?.full_name || 'Chauffeur privé',
+      is_public: false,
+      ...profileData,
+    })
+    .select()
+    .limit(1)
+    .maybeSingle();
+
+  if (error) {
+    if (error.code === '23505') throw new Error('Cet identifiant est déjà utilisé. Choisissez-en un autre.');
+    throw new Error(error.message);
+  }
+  if (!data) throw new Error('Profil créé mais impossible de le récupérer.');
+  console.log('✅ VTC Profile created:', data?.slug);
+  return data;
+};
+
+// ============================================================================
+// DRIVER VERIFICATION (Profil vérifié – documents)
+// ============================================================================
+
+export const getDriverVerification = async () => {
+  if (!currentUserId) throw new Error('User not authenticated');
+  const { data, error } = await supabase
+    .from('vtc_profiles')
+    .select('driver_verification_status, driver_verification_submitted_at, driver_verification_reviewed_at, driver_verification_rejection_reason, verification_vtc_card_url, verification_id_card_url, verification_insurance_url, verification_vtc_card_status, verification_id_card_status, verification_insurance_status, verification_vtc_card_admin_notes, verification_id_card_admin_notes, verification_insurance_admin_notes')
+    .eq('user_id', currentUserId)
+    .limit(1)
+    .maybeSingle();
+  if (error) throw new Error(error.message);
+  return data;
+};
+
+/** Décoder base64 en binaire (comme photo de profil). */
+const base64ToUint8Array = (base64: string): Uint8Array => {
+  const binaryString = atob(base64);
+  const bytes = new Uint8Array(binaryString.length);
+  for (let i = 0; i < binaryString.length; i++) bytes[i] = binaryString.charCodeAt(i);
+  return bytes;
+};
+
+/** Upload un document de vérification. docType: vtc_card | id_card | insurance.
+ *  Préfère file.base64 (du picker avec base64: true) ; sinon lecture URI via FileSystem. */
+export const uploadDriverVerificationDocument = async (
+  docType: 'vtc_card' | 'id_card' | 'insurance',
+  file: { uri: string; type?: string; name?: string; base64?: string }
+) => {
+  if (!currentUserId) throw new Error('User not authenticated');
+  const ext = file.name?.split('.').pop() || (file.type?.includes('pdf') ? 'pdf' : 'jpg');
+  const path = `${currentUserId}/${docType}/${Date.now()}.${ext}`;
+  const contentType = file.type || 'image/jpeg';
+
+  let base64: string;
+  if (file.base64?.trim()) {
+    base64 = file.base64.trim();
+  } else {
+    base64 = await FileSystem.readAsStringAsync(file.uri, { encoding: 'base64' });
+  }
+  const fileData = base64ToUint8Array(base64);
+  if (fileData.length === 0) {
+    throw new Error('Fichier vide ou inaccessible. Réessayez en choisissant une autre image (base64 préféré).');
+  }
+
+  const { data: uploadData, error: uploadError } = await supabase.storage
+    .from('driver-verification')
+    .upload(path, fileData, { contentType, upsert: true });
+  if (uploadError) throw new Error(uploadError.message);
+  // Comme pour la photo de profil : générer une URL signée longue durée et la stocker en base
+  const { data: signedData, error: signError } = await supabase.storage
+    .from('driver-verification')
+    .createSignedUrl(uploadData.path, 315360000); // 10 ans
+  if (signError || !signedData?.signedUrl) {
+    console.warn('createSignedUrl failed, storing path:', signError?.message);
+  }
+  const urlToStore = signedData?.signedUrl ?? uploadData.path;
+  const columnUrl = docType === 'vtc_card' ? 'verification_vtc_card_url' : docType === 'id_card' ? 'verification_id_card_url' : 'verification_insurance_url';
+  const columnStatus = docType === 'vtc_card' ? 'verification_vtc_card_status' : docType === 'id_card' ? 'verification_id_card_status' : 'verification_insurance_status';
+  const { data: profile, error: updateError } = await supabase
+    .from('vtc_profiles')
+    .update({ [columnUrl]: urlToStore, [columnStatus]: 'uploaded' })
+    .eq('user_id', currentUserId)
+    .select()
+    .limit(1)
+    .maybeSingle();
+  if (updateError || !profile) throw new Error(updateError?.message || 'Profil VTC introuvable.');
+  return { path: uploadData.path, profile };
+};
+
+/** Soumettre la vérification (passe en pending). Tous les docs doivent être uploaded. */
+export const submitDriverVerification = async () => {
+  if (!currentUserId) throw new Error('User not authenticated');
+  const { data: profile, error: fetchError } = await supabase
+    .from('vtc_profiles')
+    .select('verification_vtc_card_status, verification_id_card_status, verification_insurance_status')
+    .eq('user_id', currentUserId)
+    .limit(1)
+    .maybeSingle();
+  if (fetchError || !profile) throw new Error('Profil VTC introuvable. Complétez d\'abord votre Page Pro.');
+  if (profile.verification_vtc_card_status !== 'uploaded' && profile.verification_vtc_card_status !== 'approved') throw new Error('Téléversez la carte professionnelle chauffeur.');
+  if (profile.verification_id_card_status !== 'uploaded' && profile.verification_id_card_status !== 'approved') throw new Error('Téléversez la pièce d\'identité.');
+  if (profile.verification_insurance_status !== 'uploaded' && profile.verification_insurance_status !== 'approved') throw new Error('Téléversez l\'attestation d\'assurance RC Pro.');
+  const { data, error } = await supabase
+    .from('vtc_profiles')
+    .update({
+      driver_verification_status: 'pending',
+      driver_verification_submitted_at: new Date().toISOString(),
+      driver_verification_rejection_reason: null,
+    })
+    .eq('user_id', currentUserId)
+    .select()
+    .limit(1)
+    .maybeSingle();
+  if (error || !data) throw new Error(error?.message || 'Profil introuvable.');
+  return data;
+};
+
+// ============================================================================
+// ADMIN: Driver verification review
+// ============================================================================
+
+const mapVtcProfileToPendingVerification = (row: any) => ({
+  id: row.id,
+  user_id: row.user_id,
+  driver_verification_submitted_at: row.driver_verification_submitted_at,
+  verification_vtc_card_status: row.verification_vtc_card_status ?? 'missing',
+  verification_id_card_status: row.verification_id_card_status ?? 'missing',
+  verification_insurance_status: row.verification_insurance_status ?? 'missing',
+  verification_vtc_card_url: row.verification_vtc_card_url,
+  verification_id_card_url: row.verification_id_card_url,
+  verification_insurance_url: row.verification_insurance_url,
+  user: {
+    id: row.user_id,
+    full_name: row.driver_full_name ?? row.user?.full_name ?? null,
+    email: row.driver_email ?? row.user?.email ?? null,
+  },
+});
+
+/** Liste des profils en attente de vérification (admin). RPC en priorité ; si 0 résultat ou RPC absente, requête directe (RLS 052 autorise les admins). */
+export const listPendingDriverVerifications = async () => {
+  if (!currentUserId) throw new Error('User not authenticated');
+
+  const directQuery = async () => {
+    const { data, error } = await supabase
+      .from('vtc_profiles')
+      .select(`
+        id,
+        user_id,
+        driver_verification_submitted_at,
+        verification_vtc_card_status,
+        verification_id_card_status,
+        verification_insurance_status,
+        verification_vtc_card_url,
+        verification_id_card_url,
+        verification_insurance_url,
+        user:users!vtc_profiles_user_id_fkey(id, full_name, email)
+      `)
+      .eq('driver_verification_status', 'pending')
+      .order('driver_verification_submitted_at', { ascending: true });
+    if (error) throw new Error(error.message);
+    return (data || []).map((row: any) => mapVtcProfileToPendingVerification({
+      ...row,
+      driver_full_name: row.user?.full_name,
+      driver_email: row.user?.email,
+    }));
+  };
+
+  const { data: rpcData, error: rpcError } = await supabase.rpc('list_pending_driver_verifications', {});
+  if (!rpcError && Array.isArray(rpcData) && rpcData.length > 0) {
+    return rpcData.map((row: any) => mapVtcProfileToPendingVerification(row));
+  }
+  if (!rpcError && Array.isArray(rpcData)) {
+    console.log('RPC list_pending_driver_verifications a retourné 0 ligne (vérification admin ?), tentative requête directe.');
+  } else if (rpcError) {
+    console.warn('RPC list_pending_driver_verifications:', rpcError.code, rpcError.message);
+  }
+  return directQuery();
+};
+
+/** URL signée pour afficher un document (admin ou propriétaire). */
+export const getDriverVerificationDocumentSignedUrl = async (path: string, expiresIn = 3600) => {
+  const { data, error } = await supabase.storage
+    .from('driver-verification')
+    .createSignedUrl(path, expiresIn);
+  if (error) throw new Error(error.message);
+  return data?.signedUrl || null;
+};
+
+/**
+ * URL signée via Edge Function (service role) — contourne les RLS Storage.
+ * À utiliser côté admin quand createSignedUrl échoue (permissions).
+ */
+export const getDriverVerificationDocumentSignedUrlAdmin = async (path: string): Promise<string | null> => {
+  const { data: sessionData } = await supabase.auth.getSession();
+  const token = sessionData.session?.access_token;
+  if (!token) throw new Error('Non authentifié');
+  const pathNorm = path.replace(/^\//, '').trim();
+  if (!pathNorm) return null;
+  const res = await fetch(`${SUPABASE_URL}/functions/v1/admin-create-signed-url`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+      'x-user-token': token,
+    },
+    body: JSON.stringify({ path: pathNorm }),
+  });
+  const json = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    const msg = json?.error ?? `HTTP ${res.status}`;
+    console.warn('[AdminPanel] admin-create-signed-url', res.status, msg);
+    throw new Error(msg);
+  }
+  return json?.url ?? null;
+};
+
+/** Approuver ou rejeter un document (admin). Si les 3 sont approuvés, passe le profil en approved. */
+export const reviewDriverVerificationDocument = async (
+  vtcProfileId: string,
+  docType: 'vtc_card' | 'id_card' | 'insurance',
+  status: 'approved' | 'rejected',
+  adminNotes?: string | null
+) => {
+  if (!currentUserId) throw new Error('User not authenticated');
+  const colStatus = docType === 'vtc_card' ? 'verification_vtc_card_status' : docType === 'id_card' ? 'verification_id_card_status' : 'verification_insurance_status';
+  const colNotes = docType === 'vtc_card' ? 'verification_vtc_card_admin_notes' : docType === 'id_card' ? 'verification_id_card_admin_notes' : 'verification_insurance_admin_notes';
+  const update: Record<string, unknown> = { [colStatus]: status, [colNotes]: adminNotes ?? null };
+  const { data: profile, error: updateError } = await supabase
+    .from('vtc_profiles')
+    .update(update)
+    .eq('id', vtcProfileId)
+    .select('verification_vtc_card_status, verification_id_card_status, verification_insurance_status')
+    .single();
+  if (updateError) throw new Error(updateError.message);
+  const allApproved =
+    profile.verification_vtc_card_status === 'approved' &&
+    profile.verification_id_card_status === 'approved' &&
+    profile.verification_insurance_status === 'approved';
+  if (allApproved) {
+    await supabase
+      .from('vtc_profiles')
+      .update({
+        driver_verification_status: 'approved',
+        driver_verification_reviewed_at: new Date().toISOString(),
+        driver_verification_rejection_reason: null,
+      })
+      .eq('id', vtcProfileId);
+  }
+  return { profile, allApproved };
+};
+
+/** Rejeter le profil global (admin). */
+export const rejectDriverVerification = async (vtcProfileId: string, reason: string) => {
+  if (!currentUserId) throw new Error('User not authenticated');
+  const { data, error } = await supabase
+    .from('vtc_profiles')
+    .update({
+      driver_verification_status: 'rejected',
+      driver_verification_reviewed_at: new Date().toISOString(),
+      driver_verification_rejection_reason: reason,
+    })
+    .eq('id', vtcProfileId)
+    .select()
+    .single();
+  if (error) throw new Error(error.message);
   return data;
 };
 
@@ -2158,7 +2484,7 @@ export const acceptDriverRideRequest = async (requestId: string) => {
     .eq('driver_id', currentUserId);
   if (updateError) throw new Error(updateError.message);
 
-  const { error: insertError } = await supabase
+  const { data: insertedRide, error: insertError } = await supabase
     .from('personal_rides')
     .insert({
       driver_id: currentUserId,
@@ -2180,6 +2506,48 @@ export const acceptDriverRideRequest = async (requestId: string) => {
     await supabase.from('driver_ride_requests').update({ status: 'PENDING', updated_at: new Date().toISOString() }).eq('id', requestId).eq('driver_id', currentUserId);
     throw new Error(insertError.message);
   }
+
+  // Email automatique au client : réservation acceptée (Resend)
+  const clientEmail = request.client_email?.trim();
+  console.log('📧 [Booking accepted] client_email sur la demande:', clientEmail ?? '(vide)');
+  if (clientEmail) {
+    try {
+      const { data: driver } = await supabase
+        .from('users')
+        .select('full_name, phone')
+        .eq('id', currentUserId)
+        .single();
+      const payload = {
+        clientEmail,
+        clientName: request.client_name?.trim() || 'Client',
+        driverName: (driver as { full_name?: string } | null)?.full_name || 'Votre chauffeur',
+        driverPhone: (driver as { phone?: string } | null)?.phone || '',
+        scheduledAt: request.scheduled_at,
+        pickupAddress: request.pickup_address,
+        dropoffAddress: request.dropoff_address,
+        priceCents: request.price_cents ?? undefined,
+        reservationId: (insertedRide as { id?: string } | null)?.id,
+      };
+      const url = `${SUPABASE_URL}/functions/v1/send-booking-accepted-email`;
+      console.log('📧 [Booking accepted] Appel Edge Function:', url, '→', payload.clientEmail);
+      const res = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${SUPABASE_ANON_KEY}` },
+        body: JSON.stringify(payload),
+      });
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        console.warn('⚠️ [Booking accepted] Edge Function HTTP', res.status, body);
+      } else {
+        console.log('📧 [Booking accepted] Email:', body.error ? 'échec' : 'ok', body);
+      }
+    } catch (emailErr) {
+      console.warn('⚠️ [Booking accepted] Erreur envoi email (non bloquant):', emailErr);
+    }
+  } else {
+    console.log('📧 Pas d’email client sur la demande, envoi réservation acceptée ignoré');
+  }
+
   return { success: true };
 };
 
@@ -2300,13 +2668,24 @@ export const requestDataExport = async () => {
       console.warn('⚠️ Edge Function non disponible, export basique...');
       
       // Récupérer toutes les données de l'utilisateur
-      const [user, rides, personalRides, credits, activity, groups] = await Promise.all([
+      const [
+        user,
+        rides,
+        personalRides,
+        credits,
+        activity,
+        groups,
+        inAppNotifications,
+        driverRideRequests,
+      ] = await Promise.all([
         supabase.from('users').select('*').eq('id', currentUserId).single(),
         supabase.from('rides').select('*').or(`creator_id.eq.${currentUserId},picker_id.eq.${currentUserId}`),
         supabase.from('personal_rides').select('*').eq('driver_id', currentUserId),
         supabase.from('credits').select('*').eq('user_id', currentUserId),
         supabase.from('activity_log').select('*').eq('user_id', currentUserId),
         supabase.from('group_members').select('*, groups(*)').eq('user_id', currentUserId),
+        supabase.from('in_app_notifications').select('*').eq('user_id', currentUserId),
+        supabase.from('driver_ride_requests').select('*').eq('driver_id', currentUserId),
       ]);
 
       const exportData = {
@@ -2318,6 +2697,8 @@ export const requestDataExport = async () => {
         credits_history: credits.data || [],
         activity_log: activity.data || [],
         groups: groups.data || [],
+        in_app_notifications: inAppNotifications.data || [],
+        driver_ride_requests: driverRideRequests.data || [],
       };
 
       // Log l'export pour traitement manuel
@@ -2371,6 +2752,10 @@ export const deleteAccount = async () => {
       await Promise.all([
         // Supprimer les activités
         supabase.from('activity_log').delete().eq('user_id', currentUserId),
+        // Notifications in-app
+        supabase.from('in_app_notifications').delete().eq('user_id', currentUserId),
+        // Demandes de réservation directe (Page Pro)
+        supabase.from('driver_ride_requests').delete().eq('driver_id', currentUserId),
         // Supprimer les courses personnelles
         supabase.from('personal_rides').delete().eq('driver_id', currentUserId),
         // Supprimer les invitations de groupes
@@ -2452,6 +2837,120 @@ export const acceptTerms = async () => {
 };
 
 
+// ============================================================================
+// IN-APP NOTIFICATIONS (centre de notifications, cloche + pastille)
+// ============================================================================
+
+export interface InAppNotification {
+  id: string;
+  user_id: string;
+  type: string;
+  title: string;
+  body: string | null;
+  target_ride_id: string | null;
+  target_personal_ride_id?: string | null;
+  target_screen: string | null;
+  read_at: string | null;
+  created_at: string;
+}
+
+export const listInAppNotifications = async (limit = 50): Promise<InAppNotification[]> => {
+  if (!currentUserId) return [];
+  const { data, error } = await supabase.rpc('list_my_in_app_notifications', { lim: limit });
+  if (error) {
+    console.error('[notifications] listInAppNotifications RPC error:', error.message, error);
+    // Fallback: requête directe (RLS 058 autorise user_id = auth.uid() ou users.id)
+    const { data: fallbackData, error: fallbackError } = await supabase
+      .from('in_app_notifications')
+      .select('*')
+      .eq('user_id', currentUserId)
+      .order('created_at', { ascending: false })
+      .limit(limit);
+    if (fallbackError) {
+      console.error('[notifications] listInAppNotifications fallback error:', fallbackError.message);
+      return [];
+    }
+    if (__DEV__) {
+      console.log('[notifications] listInAppNotifications (fallback):', (fallbackData || []).length, 'items');
+    }
+    return (fallbackData || []) as InAppNotification[];
+  }
+  const list = Array.isArray(data) ? data : [];
+  if (__DEV__ && list.length > 0) {
+    console.log('[notifications] listInAppNotifications:', list.length, 'items');
+  }
+  return list as InAppNotification[];
+};
+
+export const getUnreadNotificationsCount = async (): Promise<number> => {
+  if (!currentUserId) return 0;
+  const { data, error } = await supabase.rpc('get_my_unread_notifications_count');
+  if (error) {
+    console.error('[notifications] getUnreadNotificationsCount RPC error:', error.message, error);
+    // Fallback: count direct (RLS 058)
+    const { count, error: fallbackError } = await supabase
+      .from('in_app_notifications')
+      .select('*', { count: 'exact', head: true })
+      .eq('user_id', currentUserId)
+      .is('read_at', null);
+    if (fallbackError) {
+      console.error('[notifications] getUnreadNotificationsCount fallback error:', fallbackError.message);
+      return 0;
+    }
+    const fallbackCount = count ?? 0;
+    if (__DEV__) {
+      console.log('[notifications] getUnreadNotificationsCount (fallback):', fallbackCount);
+    }
+    return fallbackCount;
+  }
+  // PostgREST peut renvoyer un scalaire en number, string, ou dans un tableau
+  const n = Array.isArray(data) && data.length > 0 ? Number(data[0]) : Number(data);
+  const count = Number.isFinite(n) ? n : 0;
+  if (__DEV__) {
+    console.log('[notifications] getUnreadNotificationsCount:', count, '(raw:', data, ')');
+  }
+  return count;
+};
+
+export const markNotificationRead = async (id: string): Promise<void> => {
+  if (!currentUserId) return;
+  await supabase
+    .from('in_app_notifications')
+    .update({ read_at: new Date().toISOString() })
+    .eq('id', id);
+};
+
+export const markAllNotificationsRead = async (): Promise<void> => {
+  if (!currentUserId) return;
+  await supabase.rpc('mark_all_my_notifications_read');
+};
+
+/** Insère une notification in-app (cloche) pour l'utilisateur connecté (course imminente, résumé quotidien, etc.). */
+export const insertInAppNotification = async (payload: {
+  type: string;
+  title: string;
+  body?: string | null;
+  target_ride_id?: string | null;
+  target_screen?: string | null;
+  target_personal_ride_id?: string | null;
+}): Promise<string | null> => {
+  if (!currentUserId) return null;
+  const { data, error } = await supabase.rpc('insert_my_in_app_notification', {
+    p_type: payload.type,
+    p_title: payload.title,
+    p_body: payload.body ?? null,
+    p_target_ride_id: payload.target_ride_id ?? null,
+    p_target_screen: payload.target_screen ?? null,
+    p_target_personal_ride_id: payload.target_personal_ride_id ?? null,
+  });
+  if (error) {
+    if (__DEV__) console.warn('[notifications] insertInAppNotification:', error.message);
+    return null;
+  }
+  return data ? String(data) : null;
+};
+
+
 export const supabaseApi = {
   setUserId,
   clearAuth,
@@ -2504,6 +3003,14 @@ export const supabaseApi = {
   createVTCProfile,
   updateVTCProfile,
   deleteVTCProfile,
+  getDriverVerification,
+  uploadDriverVerificationDocument,
+  submitDriverVerification,
+  listPendingDriverVerifications,
+  getDriverVerificationDocumentSignedUrl,
+  getDriverVerificationDocumentSignedUrlAdmin,
+  reviewDriverVerificationDocument,
+  rejectDriverVerification,
   updateUserPhoto,
   updateUserProfile,
   convertPublishedToPersonal,
@@ -2515,6 +3022,11 @@ export const supabaseApi = {
   requestDataExport,
   deleteAccount,
   acceptTerms,
+  listInAppNotifications,
+  getUnreadNotificationsCount,
+  markNotificationRead,
+  markAllNotificationsRead,
+  insertInAppNotification,
 };
 
 export default supabaseApi;

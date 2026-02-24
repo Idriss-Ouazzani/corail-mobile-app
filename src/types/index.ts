@@ -51,6 +51,11 @@ export interface Ride {
   quote_token?: string | null
   /** Commentaire / note de l'auteur de l'annonce */
   notes?: string | null
+  /** Note (1-5) laissée par le chauffeur (picker) à l'auteur après la course */
+  rating_by_picker_stars?: number | null
+  /** Commentaire du chauffeur pour l'auteur */
+  rating_by_picker_comment?: string | null
+  rating_by_picker_at?: string | null
   /** Fourchette indicative (demandes client site web), en centimes */
   indicative_low_cents?: number | null
   indicative_high_cents?: number | null

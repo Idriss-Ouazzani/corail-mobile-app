@@ -13,12 +13,15 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
+const DEFAULT_ACCENT = '#6366f1';
+
 interface MultiSelectInputProps {
   label: string;
   selectedItems: string[];
   predefinedOptions: string[];
   onItemsChange: (items: string[]) => void;
   placeholder?: string;
+  accentColor?: string;
 }
 
 export default function MultiSelectInput({
@@ -27,7 +30,9 @@ export default function MultiSelectInput({
   predefinedOptions,
   onItemsChange,
   placeholder = 'Ajouter...',
+  accentColor = DEFAULT_ACCENT,
 }: MultiSelectInputProps) {
+  const accentBg = accentColor + '30';
   const [customInput, setCustomInput] = useState('');
   const [showOptions, setShowOptions] = useState(false);
 
@@ -61,7 +66,7 @@ export default function MultiSelectInput({
           {selectedItems.map((item) => (
             <TouchableOpacity
               key={item}
-              style={styles.selectedBadge}
+              style={[styles.selectedBadge, { backgroundColor: accentColor }]}
               onPress={() => removeItem(item)}
               activeOpacity={0.7}
             >
@@ -73,19 +78,19 @@ export default function MultiSelectInput({
       )}
 
       {/* Bouton pour afficher les options */}
-      <TouchableOpacity
-        style={styles.toggleButton}
-        onPress={() => setShowOptions(!showOptions)}
-        activeOpacity={0.7}
-      >
-        <Ionicons name="add-circle-outline" size={20} color="#6366f1" />
-        <Text style={styles.toggleButtonText}>
+        <TouchableOpacity
+          style={styles.toggleButton}
+          onPress={() => setShowOptions(!showOptions)}
+          activeOpacity={0.7}
+        >
+        <Ionicons name="add-circle-outline" size={20} color={accentColor} />
+        <Text style={[styles.toggleButtonText, { color: accentColor }]}>
           {showOptions ? 'Masquer les options' : 'Choisir dans la liste'}
         </Text>
         <Ionicons
           name={showOptions ? 'chevron-up' : 'chevron-down'}
           size={20}
-          color="#6366f1"
+          color={accentColor}
         />
       </TouchableOpacity>
 
@@ -97,7 +102,7 @@ export default function MultiSelectInput({
             return (
               <TouchableOpacity
                 key={option}
-                style={[styles.option, isSelected && styles.optionSelected]}
+                style={[styles.option, isSelected && { backgroundColor: accentBg }]}
                 onPress={() => toggleItem(option)}
                 activeOpacity={0.7}
               >
@@ -105,7 +110,7 @@ export default function MultiSelectInput({
                   {option}
                 </Text>
                 {isSelected && (
-                  <Ionicons name="checkmark-circle" size={20} color="#6366f1" />
+                  <Ionicons name="checkmark-circle" size={20} color={accentColor} />
                 )}
               </TouchableOpacity>
             );
@@ -133,7 +138,7 @@ export default function MultiSelectInput({
           <Ionicons
             name="add-circle"
             size={28}
-            color={customInput.trim() ? '#6366f1' : '#64748b'}
+            color={customInput.trim() ? accentColor : '#64748b'}
           />
         </TouchableOpacity>
       </View>
@@ -161,7 +166,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    backgroundColor: '#6366f1',
     borderRadius: 16,
     paddingHorizontal: 12,
     paddingVertical: 6,
@@ -186,7 +190,6 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 14,
     fontWeight: '600',
-    color: '#6366f1',
   },
   optionsContainer: {
     maxHeight: 200,
@@ -203,9 +206,6 @@ const styles = StyleSheet.create({
     padding: 12,
     borderBottomWidth: 1,
     borderBottomColor: '#334155',
-  },
-  optionSelected: {
-    backgroundColor: '#312e81',
   },
   optionText: {
     fontSize: 14,

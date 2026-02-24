@@ -33,6 +33,7 @@ LocaleConfig.locales.fr = {
 LocaleConfig.defaultLocale = 'fr';
 import { apiClient } from '../services/api';
 import { CustomAlert } from '../components/CustomAlert';
+import { LegalInfoModal } from '../components/LegalInfoModal';
 import DayView from './planning/DayView';
 import WeekView from './planning/WeekView';
 import EventModal from './planning/EventModal';
@@ -74,6 +75,9 @@ export default function PlanningScreen({ onBack, onRidePress, onPersonalRidePres
   const [showCompleteAlert, setShowCompleteAlert] = useState(false);
   const [showShareInvoiceAlert, setShowShareInvoiceAlert] = useState(false);
   const [generatedInvoice, setGeneratedInvoice] = useState<any>(null);
+  const [showLegalModal, setShowLegalModal] = useState(false);
+  const [pendingInvoiceParams, setPendingInvoiceParams] = useState<{ sourceType: 'RIDE' | 'PERSONAL'; sourceId: string } | null>(null);
+  const [legalModalBusinessName, setLegalModalBusinessName] = useState('');
 
   useEffect(() => {
     loadRides();
@@ -259,6 +263,20 @@ export default function PlanningScreen({ onBack, onRidePress, onPersonalRidePres
       }
       
       if (generateInvoice) {
+        let profile: any = null;
+        try {
+          profile = await apiClient.getMyVTCProfile();
+        } catch (_e) {}
+        if (!profile?.legal_info_configured) {
+          setPendingInvoiceParams({
+            sourceType: selectedRide.ride_source === 'MARKETPLACE' ? 'RIDE' : 'PERSONAL',
+            sourceId: selectedRide.id,
+          });
+          setLegalModalBusinessName(profile?.display_name || '');
+          setShowLegalModal(true);
+          await loadRides();
+          return;
+        }
         try {
           const invoice = await apiClient.createInvoice(
             selectedRide.ride_source === 'MARKETPLACE' ? 'RIDE' : 'PERSONAL',
@@ -284,7 +302,7 @@ export default function PlanningScreen({ onBack, onRidePress, onPersonalRidePres
   const handleShareWhatsApp = async (invoice: any) => {
     try {
       const invoiceUrl = getInvoiceUrl(invoice.public_token);
-      const message = `Facture ${invoice.invoice_number}\n\nMontant : ${(invoice.total_amount_cents / 100).toFixed(2)}€\n\nVoir la facture : ${invoiceUrl}`;
+      const message = `Merci pour votre course. Vous trouverez votre facture sur le lien suivant : ${invoiceUrl}`;
       const whatsappUrl = `https://wa.me/?text=${encodeURIComponent(message)}`;
       
       await Linking.openURL(whatsappUrl);
@@ -308,6 +326,19 @@ export default function PlanningScreen({ onBack, onRidePress, onPersonalRidePres
     } catch (error) {
       Alert.alert('Erreur', 'Impossible de partager par email');
     }
+  };
+
+  const runPendingInvoiceAndShowShare = async () => {
+    if (!pendingInvoiceParams) return;
+    try {
+      const invoice = await apiClient.createInvoice(pendingInvoiceParams.sourceType, pendingInvoiceParams.sourceId);
+      setGeneratedInvoice(invoice);
+      setShowShareInvoiceAlert(true);
+      await loadRides();
+    } catch (error: any) {
+      Alert.alert('Erreur', error.message || 'Impossible de générer la facture');
+    }
+    setPendingInvoiceParams(null);
   };
 
   const handleOpenNavigation = (ride: RideWithInvoice) => {
@@ -923,6 +954,19 @@ export default function PlanningScreen({ onBack, onRidePress, onPersonalRidePres
           onClose={() => setShowCompleteAlert(false)}
         />
       )}
+
+      <LegalInfoModal
+        visible={showLegalModal}
+        onClose={() => { setShowLegalModal(false); setPendingInvoiceParams(null); }}
+        initialBusinessName={legalModalBusinessName}
+        onSaved={() => runPendingInvoiceAndShowShare()}
+        onLater={() => {
+          Alert.alert(
+            'Infos légales requises',
+            'Pour générer une facture conforme, renseignez vos infos légales (SIRET, adresse) depuis Mes outils. La course a bien été marquée comme terminée.'
+          );
+        }}
+      />
 
       {/* Popup Partage facture */}
       {generatedInvoice && (

@@ -1,5 +1,5 @@
 /**
- * Thème centralisé Corail VTC
+ * Thème centralisé Corail
  * Une seule source de vérité pour couleurs, espacements et rayons.
  * Utiliser partout : import { theme } from '../theme';
  */

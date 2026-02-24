@@ -205,7 +205,7 @@ export const QRCodeScreen: React.FC<QRCodeScreenProps> = ({ onBack, onNavigateTo
             <Text style={styles.infoText}>
               {hasPublicPage
                 ? 'Vos clients peuvent scanner ce QR code pour découvrir votre profil et vous contacter.'
-                : 'Le QR code contient vos coordonnées. Créez une Page Publique pour partager un lien vers votre profil.'}
+                : 'Le QR code contient vos coordonnées. Créez une Page Pro pour partager un lien vers votre profil.'}
             </Text>
           </View>
         </View>
@@ -218,7 +218,7 @@ export const QRCodeScreen: React.FC<QRCodeScreenProps> = ({ onBack, onNavigateTo
             activeOpacity={0.8}
           >
             <Ionicons name="globe-outline" size={20} color="#0ea5e9" />
-            <Text style={styles.ctaPublicPageText}>Créer ma Page Publique (lien + profil en ligne)</Text>
+            <Text style={styles.ctaPublicPageText}>Créer ma Page Pro (lien + profil en ligne)</Text>
             <Ionicons name="chevron-forward" size={18} color="#94a3b8" />
           </TouchableOpacity>
         )}

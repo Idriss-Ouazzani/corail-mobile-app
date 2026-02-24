@@ -27,12 +27,12 @@ function PrivacyPolicyContent() {
 
       <Section title="1. Introduction">
         <Text style={styles.text}>
-          Corail VTC ("nous", "notre", "nos") s'engage à protéger et respecter votre vie privée. 
+          Corail ("nous", "notre", "nos") s'engage à protéger et respecter votre vie privée. 
           Cette politique de confidentialité explique comment nous collectons, utilisons, partageons 
           et protégeons vos données personnelles lorsque vous utilisez notre application mobile.
         </Text>
         <Text style={styles.text}>
-          Corail VTC est un service de mise en relation entre chauffeurs VTC professionnels. 
+          Corail est un service de mise en relation entre chauffeurs VTC professionnels. 
           Nous ne sommes pas responsables du transport lui-même.
         </Text>
       </Section>
@@ -81,8 +81,8 @@ function PrivacyPolicyContent() {
           sont visibles par les chauffeurs qui prennent ou publient des courses que vous gérez.
         </BulletPoint>
         <BulletPoint>
-          <Text style={styles.bold}>Prestataires de services :</Text> Firebase (authentification), 
-          Supabase (base de données), Sentry (monitoring), Stripe (paiements).
+          <Text style={styles.bold}>Prestataires de services :</Text> prestataires techniques pour 
+          l'authentification, l'hébergement des données, le monitoring et les paiements.
         </BulletPoint>
         <BulletPoint>
           <Text style={styles.bold}>Obligations légales :</Text> Si requis par la loi ou une autorité judiciaire.
@@ -137,9 +137,9 @@ function PrivacyPolicyContent() {
           Nous mettons en œuvre des mesures de sécurité pour protéger vos données :
         </Text>
         <BulletPoint>Chiffrement des données en transit (HTTPS/TLS)</BulletPoint>
-        <BulletPoint>Authentification sécurisée (Firebase Auth)</BulletPoint>
-        <BulletPoint>Row Level Security (RLS) sur la base de données</BulletPoint>
-        <BulletPoint>Monitoring et détection d'anomalies (Sentry)</BulletPoint>
+        <BulletPoint>Authentification sécurisée</BulletPoint>
+        <BulletPoint>Contrôle d'accès strict sur la base de données</BulletPoint>
+        <BulletPoint>Monitoring et détection d'anomalies</BulletPoint>
         <BulletPoint>Accès restreint aux données internes</BulletPoint>
       </Section>
 
@@ -147,18 +147,17 @@ function PrivacyPolicyContent() {
         <Text style={styles.text}>
           Notre application mobile n'utilise PAS de cookies. Nous utilisons uniquement :
         </Text>
-        <BulletPoint>Analytics anonymes pour améliorer l'app (Firebase Analytics)</BulletPoint>
-        <BulletPoint>Crash reporting pour corriger les bugs (Sentry)</BulletPoint>
+        <BulletPoint>Crash reporting pour corriger les bugs</BulletPoint>
         <Text style={styles.text}>
-          Vous pouvez désactiver l'analytics dans Paramètres → Confidentialité.
+          Nous n'utilisons pas d'analytics à ce jour. Si nous en activons à l'avenir, 
+          vous pourrez gérer vos préférences depuis Paramètres → Confidentialité et données.
         </Text>
       </Section>
 
       <Section title="9. Transferts internationaux">
         <Text style={styles.text}>
-          Vos données sont hébergées en Union Européenne (serveurs Supabase EU). 
-          Certains sous-traitants (Firebase, Sentry) peuvent traiter vos données hors UE 
-          avec des garanties appropriées (clauses contractuelles types).
+          Vos données sont hébergées en Union Européenne. Certains sous-traitants techniques 
+          peuvent traiter des données hors UE avec des garanties appropriées (clauses contractuelles types).
         </Text>
       </Section>
 
@@ -174,7 +173,7 @@ function PrivacyPolicyContent() {
           Pour toute question concernant cette politique de confidentialité :
         </Text>
         <BulletPoint>Email : <Text style={styles.link}>privacy@corail.app</Text></BulletPoint>
-        <BulletPoint>Adresse : Corail VTC, [Adresse complète à compléter]</BulletPoint>
+        <BulletPoint>Adresse : Corail, [Adresse complète à compléter]</BulletPoint>
         <BulletPoint>DPO : <Text style={styles.link}>dpo@corail.app</Text></BulletPoint>
         
         <Text style={styles.text}>
@@ -185,7 +184,7 @@ function PrivacyPolicyContent() {
 
       <View style={styles.footer}>
         <Text style={styles.footerText}>
-          © 2026 Corail VTC. Tous droits réservés.
+          © 2026 Corail. Tous droits réservés.
         </Text>
       </View>
     </View>

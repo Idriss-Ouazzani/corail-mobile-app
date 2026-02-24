@@ -80,13 +80,13 @@ import ToolsScreen from './src/screens/ToolsScreen';
 import PlanningScreen from './src/screens/PlanningScreen';
 import CreateQuoteScreen from './src/screens/CreateQuoteScreen';
 import MyQuotesScreen from './src/screens/MyQuotesScreen';
-import GlobalCreditsBadge from './src/components/GlobalCreditsBadge';
 import { ValidationBanner } from './src/components/ValidationBanner';
 import ActivityFeed from './src/components/ActivityFeed';
 import MarketplaceTab from './src/components/MarketplaceTab';
 import MyRidesTab from './src/components/MyRidesTab';
 import ProfileTab from './src/components/ProfileTab';
 import { CreditsModal } from './src/components/CreditsModal';
+import { CreditsOnboardingModal } from './src/components/CreditsOnboardingModal';
 import { BottomNavigation } from './src/components/BottomNavigation';
 import { PublishRideModal } from './src/components/PublishRideModal';
 import { IncomingRideModal } from './src/components/IncomingRideModal';
@@ -132,6 +132,8 @@ function AppContent() {
     user,
     authLoading,
     verificationStatus,
+    driverVerificationStatus,
+    isDriverVerified,
     verificationLoading,
     userFullName,
     userPhone,
@@ -218,6 +220,8 @@ function AppContent() {
     setShowSubscription,
     showCreditsModal,
     setShowCreditsModal,
+    showCreditsOnboarding,
+    setShowCreditsOnboarding,
     showPersonalRides,
     setShowPersonalRides,
     showPlanning,
@@ -230,6 +234,8 @@ function AppContent() {
     setShowQRCode,
     showVTCProfile,
     setShowVTCProfile,
+    showVerificationProfile,
+    setShowVerificationProfile,
     showDriverRequests,
     setShowDriverRequests,
     showPrivacyPolicy,
@@ -300,6 +306,16 @@ function AppContent() {
     }
   }, [currentUserId]);
 
+  // 🔔 Compteur de notifications in-app (pastille cloche)
+  const [unreadNotificationsCount, setUnreadNotificationsCount] = useState(0);
+  const loadUnreadNotificationsCount = React.useCallback(async () => {
+    if (!currentUserId) return;
+    try {
+      const count = await apiClient.getUnreadNotificationsCount();
+      setUnreadNotificationsCount(count);
+    } catch (_) {}
+  }, [currentUserId]);
+
   // 🚗 Handlers pour les courses entrantes
   const handleAcceptRide = async () => {
     if (!incomingRide) return;
@@ -347,6 +363,19 @@ function AppContent() {
     loadPendingInvitations();
   }, [loadPendingInvitations]);
 
+  useEffect(() => {
+    loadUnreadNotificationsCount();
+  }, [loadUnreadNotificationsCount]);
+
+  // Rafraîchir la pastille de la cloche quand l'app repasse au premier plan (ex: après une push)
+  useEffect(() => {
+    if (!currentUserId) return;
+    const sub = AppState.addEventListener('change', (next: AppStateStatus) => {
+      if (next === 'active') loadUnreadNotificationsCount();
+    });
+    return () => sub.remove();
+  }, [currentUserId, loadUnreadNotificationsCount]);
+
   // 🪸 Rappel « Terminer votre course » : afficher quand l'app repasse au premier plan (course CLAIMED > 30 min)
   useEffect(() => {
     if (!currentUserId) return;
@@ -364,6 +393,7 @@ function AppContent() {
     userName: userFullName,
     userCredits,
     verificationStatus,
+    isDriverVerified,
     loadRides,
     loadPersonalRides,
     loadCredits,
@@ -401,12 +431,12 @@ function AppContent() {
     console.log('🔍 useEffect Realtime déclenché. Conditions:', {
       currentUserId: !!currentUserId,
       user: !!user,
-      verificationStatus,
+      isDriverVerified,
     });
     
-    // Vérifier que l'utilisateur est authentifié et vérifié
-    if (!currentUserId || !user || verificationStatus !== 'VERIFIED') {
-      console.log('⚠️ Conditions non remplies pour le système Realtime');
+    // Vérifier que l'utilisateur est authentifié et profil chauffeur vérifié (accès réseau)
+    if (!currentUserId || !user || !isDriverVerified) {
+      console.log('⚠️ Conditions non remplies pour le système Realtime (notifications courses)');
       return;
     }
 
@@ -548,7 +578,7 @@ function AppContent() {
         onAccept={async () => {
           try {
             await apiClient.acceptTerms();
-            toast.success('Bienvenue !', 'Vous pouvez maintenant utiliser Corail VTC.');
+            toast.success('Bienvenue !', 'Vous pouvez maintenant utiliser Corail.');
             // Recharger le statut pour mettre à jour hasAcceptedTerms
             await loadVerificationStatus();
           } catch (error: any) {
@@ -598,6 +628,8 @@ function AppContent() {
     userProfessionalCard,
     currentUserId,
     verificationStatus,
+    isDriverVerified,
+    loadVerificationStatus,
     showPersonalInfo,
     setShowPersonalInfo,
     showNotifications,
@@ -626,6 +658,8 @@ function AppContent() {
     setShowAdminPanel,
     showVTCProfile,
     setShowVTCProfile,
+    showVerificationProfile,
+    setShowVerificationProfile,
     showDriverRequests,
     setShowDriverRequests,
     showPrivacyPolicy,
@@ -657,6 +691,10 @@ function AppContent() {
     loadPersonalRides,
     loadRides,
     loadCredits,
+    loadUnreadNotificationsCount,
+    setCurrentScreen,
+    setCoursesTab,
+    setActiveFilter,
   });
   if (modalScreen !== null) return modalScreen;
 
@@ -667,15 +705,13 @@ function AppContent() {
   return (
     <View style={appStyles.container}>
       <LinearGradient colors={['#0f172a', '#1e293b', '#334155']} style={appStyles.gradient}>
-        {/* Global Credits Badge - Affiché partout */}
-        <GlobalCreditsBadge credits={userCredits} onPress={() => setShowCreditsModal(true)} />
-        
         {currentScreen === 'dashboard' && (
           <DashboardScreen
             verificationStatus={verificationStatus}
+            driverVerificationStatus={driverVerificationStatus}
+            isDriverVerified={isDriverVerified}
             onRefreshVerification={loadVerificationStatus}
             userFullName={userFullName}
-            userCredits={userCredits}
             userRides={rides}
             pendingInvitationsCount={pendingInvitationsCount}
             onNavigateToCourses={() => {
@@ -701,6 +737,11 @@ function AppContent() {
             }}
             onOpenGroupInvitations={() => setShowGroupInvitations(true)}
             onNavigateToDriverRequests={() => setShowDriverRequests(true)}
+            onNavigateToPagePro={() => setShowVTCProfile(true)}
+            onNavigateToVerificationProfile={() => setShowVerificationProfile(true)}
+            onShowNotifications={() => setShowNotifications(true)}
+            unreadNotificationsCount={unreadNotificationsCount}
+            onRefreshUnreadCount={loadUnreadNotificationsCount}
           />
         )}
         {currentScreen === 'courses' && (
@@ -708,10 +749,14 @@ function AppContent() {
             activeTab={coursesTab}
             onTabChange={setCoursesTab}
             verificationStatus={verificationStatus}
+            isDriverVerified={isDriverVerified}
             onRefreshVerification={loadVerificationStatus}
+            onOpenVerificationProfile={() => setShowVerificationProfile(true)}
+            userCredits={userCredits}
+            onShowCreditsOnboarding={() => setShowCreditsOnboarding(true)}
             marketplaceContent={
               <MarketplaceTab
-                verificationStatus={verificationStatus}
+                isDriverVerified={isDriverVerified}
                 onRefreshVerification={loadVerificationStatus}
                 rides={rides}
                 currentUserId={currentUserId}
@@ -723,12 +768,11 @@ function AppContent() {
                 onFilterChange={setActiveFilter}
                 onShowFilters={() => setShowFilters(true)}
                 onCreateRide={() => {
-                  // Vérifier le statut de vérification avant de publier
-                  if (verificationStatus !== 'VERIFIED') {
+                  if (!isDriverVerified) {
                     haptic.warning();
                     toast.warning(
-                      '⏳ Vérification en cours',
-                      'Votre profil doit être vérifié pour publier des courses sur la marketplace'
+                      'Profil vérifié requis',
+                      'Pour accéder aux opportunités réseau, votre profil doit être vérifié.'
                     );
                     return;
                   }
@@ -806,6 +850,7 @@ function AppContent() {
             rides={rides}
             personalRides={personalRides}
             isAdmin={isAdmin}
+            isDriverVerified={isDriverVerified}
             formatName={formatName}
             onShowPersonalInfo={() => setShowPersonalInfo(true)}
             onShowNotifications={() => setShowNotifications(true)}
@@ -831,10 +876,22 @@ function AppContent() {
           currentFilters={filters}
         />
 
-        {/* Credits Info Modal */}
+        {/* Credits Info Modal (legacy, plus ouvert depuis le badge global) */}
         <CreditsModal
           visible={showCreditsModal}
           onClose={() => setShowCreditsModal(false)}
+        />
+
+        {/* Onboarding crédits - léger, contextuel (Marketplace) */}
+        <CreditsOnboardingModal
+          visible={showCreditsOnboarding}
+          onClose={() => setShowCreditsOnboarding(false)}
+          onDontShowAgain={async () => {
+            await AsyncStorage.setItem('@corail_credits_onboarding_seen', 'true');
+            try {
+              await apiClient.setCreditsOnboardingSeen();
+            } catch (_e) {}
+          }}
         />
 
         {/* Bottom Navigation */}
@@ -851,7 +908,7 @@ function AppContent() {
         <PublishRideModal
           visible={showPublishModal}
           personalRide={selectedPersonalRide}
-          verificationStatus={verificationStatus}
+          isDriverVerified={isDriverVerified}
           onClose={() => {
             setShowPublishModal(false);
             setSelectedPersonalRide(null);

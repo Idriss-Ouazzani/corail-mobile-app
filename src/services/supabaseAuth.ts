@@ -1,5 +1,5 @@
 /**
- * Supabase Authentication Service pour Corail VTC
+ * Supabase Authentication Service pour Corail
  * Authentification Supabase
  */
 

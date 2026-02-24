@@ -1,9 +1,10 @@
 /**
  * CoursesScreen - Annonces + Mes courses (2 onglets)
  * UI lisible et soignée pour conducteurs.
+ * Badge crédits visible dans le header (tous onglets).
  */
 
-import React from 'react';
+import React, { useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -14,27 +15,49 @@ import {
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { BlurView } from 'expo-blur';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { theme } from '../theme';
+
+const CREDITS_ONBOARDING_SEEN_KEY = '@corail_credits_onboarding_seen';
 
 interface CoursesScreenProps {
   verificationStatus: string | null;
+  /** Accès réseau / marketplace (profil chauffeur vérifié) */
+  isDriverVerified?: boolean;
   onRefreshVerification: () => Promise<void>;
   activeTab: 'marketplace' | 'myrides';
   onTabChange: (tab: 'marketplace' | 'myrides') => void;
+  userCredits?: number;
+  onShowCreditsOnboarding?: () => void;
+  onOpenVerificationProfile?: () => void;
   marketplaceContent: React.ReactNode;
   myRidesContent: React.ReactNode;
 }
 
 export default function CoursesScreen({
   verificationStatus,
+  isDriverVerified = false,
   onRefreshVerification,
   activeTab,
   onTabChange,
+  userCredits = 0,
+  onShowCreditsOnboarding,
+  onOpenVerificationProfile,
   marketplaceContent,
   myRidesContent,
 }: CoursesScreenProps) {
-  const isVerified = verificationStatus === 'VERIFIED';
-  const showAnnoncesLock = activeTab === 'marketplace' && !isVerified;
+  const showAnnoncesLock = activeTab === 'marketplace' && !isDriverVerified;
+  const hasTriggeredOnboardingRef = useRef(false);
+
+  // Afficher l'onboarding crédits une seule fois à la première arrivée sur Marketplace (si pas déjà "Ne plus afficher")
+  useEffect(() => {
+    if (activeTab !== 'marketplace' || hasTriggeredOnboardingRef.current) return;
+    AsyncStorage.getItem(CREDITS_ONBOARDING_SEEN_KEY).then((seen) => {
+      if (seen === 'true') return;
+      hasTriggeredOnboardingRef.current = true;
+      onShowCreditsOnboarding?.();
+    });
+  }, [activeTab, onShowCreditsOnboarding]);
 
   const renderContent = () => {
     switch (activeTab) {
@@ -48,8 +71,16 @@ export default function CoursesScreen({
                 <View style={styles.annoncesOverlayMessage}>
                   <Ionicons name="lock-closed" size={32} color={theme.colors.textMuted} />
                   <Text style={styles.annoncesOverlayText}>
-                    Vous pourrez accéder à l'ensemble des annonces une fois votre profil validé.
+                    Débloquez l'accès au réseau
                   </Text>
+                  <Text style={[styles.annoncesOverlayText, { fontSize: 13, marginTop: 6 }]}>
+                    Votre profil doit être vérifié pour voir les annonces et publier.
+                  </Text>
+                  {onOpenVerificationProfile && (
+                    <TouchableOpacity style={styles.annoncesOverlayCta} onPress={onOpenVerificationProfile}>
+                      <Text style={styles.annoncesOverlayCtaText}>Vérifier mon profil</Text>
+                    </TouchableOpacity>
+                  )}
                 </View>
               </View>
             )}
@@ -66,9 +97,15 @@ export default function CoursesScreen({
                 <BlurView intensity={80} tint="dark" style={StyleSheet.absoluteFill} />
                 <View style={styles.annoncesOverlayMessage}>
                   <Ionicons name="lock-closed" size={32} color={theme.colors.textMuted} />
-                  <Text style={styles.annoncesOverlayText}>
-                    Vous pourrez accéder à l'ensemble des annonces une fois votre profil validé.
+                  <Text style={styles.annoncesOverlayText}>Débloquez l'accès au réseau</Text>
+                  <Text style={[styles.annoncesOverlayText, { fontSize: 13, marginTop: 6 }]}>
+                    Votre profil doit être vérifié pour voir les annonces et publier.
                   </Text>
+                  {onOpenVerificationProfile && (
+                    <TouchableOpacity style={styles.annoncesOverlayCta} onPress={onOpenVerificationProfile}>
+                      <Text style={styles.annoncesOverlayCtaText}>Vérifier mon profil</Text>
+                    </TouchableOpacity>
+                  )}
                 </View>
               </View>
             )}
@@ -82,8 +119,20 @@ export default function CoursesScreen({
       <StatusBar barStyle="light-content" />
       
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>Courses</Text>
-        <Text style={styles.headerSubtitle}>Annonces et suivi de vos courses</Text>
+        <View style={styles.headerTop}>
+          <View>
+            <Text style={styles.headerTitle}>Courses</Text>
+            <Text style={styles.headerSubtitle}>Annonces et suivi de vos courses</Text>
+          </View>
+          <TouchableOpacity
+            style={styles.creditsBadge}
+            onPress={() => onShowCreditsOnboarding?.()}
+            activeOpacity={0.8}
+          >
+            <Text style={styles.creditsBadgeValue}>{userCredits}</Text>
+            <Text style={styles.creditsBadgeLabel}>crédits</Text>
+          </TouchableOpacity>
+        </View>
       </View>
 
       <View style={styles.tabsWrapper}>
@@ -152,6 +201,31 @@ const styles = StyleSheet.create({
     paddingTop: 56,
     paddingBottom: 14,
     paddingHorizontal: 20,
+  },
+  headerTop: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+  },
+  creditsBadge: {
+    backgroundColor: 'rgba(51, 65, 85, 0.6)',
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: 'rgba(71, 85, 105, 0.6)',
+    alignItems: 'center',
+    minWidth: 44,
+  },
+  creditsBadgeValue: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#f1f5f9',
+  },
+  creditsBadgeLabel: {
+    fontSize: 10,
+    color: '#94a3b8',
+    marginTop: 0,
   },
   headerTitle: {
     fontSize: 26,
@@ -229,5 +303,17 @@ const styles = StyleSheet.create({
     color: theme.colors.textMuted,
     textAlign: 'center',
     lineHeight: 22,
+  },
+  annoncesOverlayCta: {
+    marginTop: 16,
+    paddingVertical: 10,
+    paddingHorizontal: 20,
+    backgroundColor: theme.colors.primary,
+    borderRadius: 10,
+  },
+  annoncesOverlayCtaText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#fff',
   },
 });

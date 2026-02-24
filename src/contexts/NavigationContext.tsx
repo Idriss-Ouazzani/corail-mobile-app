@@ -74,6 +74,8 @@ interface NavigationContextType {
   setShowSubscription: (show: boolean) => void;
   showCreditsModal: boolean;
   setShowCreditsModal: (show: boolean) => void;
+  showCreditsOnboarding: boolean;
+  setShowCreditsOnboarding: (show: boolean) => void;
   showCreditsInfo: boolean;
   setShowCreditsInfo: (show: boolean) => void;
   
@@ -90,6 +92,8 @@ interface NavigationContextType {
   setShowQRCode: (show: boolean) => void;
   showVTCProfile: boolean;
   setShowVTCProfile: (show: boolean) => void;
+  showVerificationProfile: boolean;
+  setShowVerificationProfile: (show: boolean) => void;
   showDriverRequests: boolean;
   setShowDriverRequests: (show: boolean) => void;
   
@@ -163,6 +167,7 @@ export const NavigationProvider: React.FC<NavigationProviderProps> = ({ children
   // Modales - Abonnement & Crédits
   const [showSubscription, setShowSubscription] = useState(false);
   const [showCreditsModal, setShowCreditsModal] = useState(false);
+  const [showCreditsOnboarding, setShowCreditsOnboarding] = useState(false);
   const [showCreditsInfo, setShowCreditsInfo] = useState(true);
   
   // Modales - Écrans spéciaux
@@ -172,6 +177,7 @@ export const NavigationProvider: React.FC<NavigationProviderProps> = ({ children
   const [showAdminPanel, setShowAdminPanel] = useState(false);
   const [showQRCode, setShowQRCode] = useState(false);
   const [showVTCProfile, setShowVTCProfile] = useState(false);
+  const [showVerificationProfile, setShowVerificationProfile] = useState(false);
   const [showDriverRequests, setShowDriverRequests] = useState(false);
   
   // Modales - Pages légales
@@ -197,12 +203,14 @@ export const NavigationProvider: React.FC<NavigationProviderProps> = ({ children
     setShowGroupInvitations(false);
     setShowSubscription(false);
     setShowCreditsModal(false);
+    setShowCreditsOnboarding(false);
     setShowPersonalRides(false);
     setShowPlanning(false);
     setShowMyQuotes(false);
     setShowAdminPanel(false);
     setShowQRCode(false);
     setShowVTCProfile(false);
+    setShowVerificationProfile(false);
     setShowDriverRequests(false);
     setShowPrivacyPolicy(false);
     setShowTermsOfService(false);
@@ -268,6 +276,8 @@ export const NavigationProvider: React.FC<NavigationProviderProps> = ({ children
     setShowSubscription,
     showCreditsModal,
     setShowCreditsModal,
+    showCreditsOnboarding,
+    setShowCreditsOnboarding,
     showCreditsInfo,
     setShowCreditsInfo,
     showPersonalRides,
@@ -282,6 +292,8 @@ export const NavigationProvider: React.FC<NavigationProviderProps> = ({ children
     setShowQRCode,
     showVTCProfile,
     setShowVTCProfile,
+    showVerificationProfile,
+    setShowVerificationProfile,
     showDriverRequests,
     setShowDriverRequests,
     showPrivacyPolicy,

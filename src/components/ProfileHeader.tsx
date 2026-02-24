@@ -2,7 +2,7 @@
  * ProfileHeader - En-tête du profil avec avatar, nom, email et stats
  */
 
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, Image, TouchableOpacity } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
@@ -12,9 +12,9 @@ interface ProfileHeaderProps {
   displayEmail: string;
   initials: string;
   photoUrl?: string;
-  userCredits: number;
   badgesCount: number;
   completedRidesCount: number;
+  isDriverVerified?: boolean;
   onChangePhoto?: () => void;
 }
 
@@ -23,11 +23,19 @@ export default function ProfileHeader({
   displayEmail,
   initials,
   photoUrl,
-  userCredits,
   badgesCount,
   completedRidesCount,
+  isDriverVerified = false,
   onChangePhoto,
 }: ProfileHeaderProps) {
+  const [showVerifiedLabel, setShowVerifiedLabel] = useState(false);
+
+  useEffect(() => {
+    if (!showVerifiedLabel) return;
+    const t = setTimeout(() => setShowVerifiedLabel(false), 2000);
+    return () => clearTimeout(t);
+  }, [showVerifiedLabel]);
+
   return (
     <View style={styles.profileHeader}>
       <TouchableOpacity onPress={onChangePhoto} activeOpacity={0.8}>
@@ -44,16 +52,31 @@ export default function ProfileHeader({
           </View>
         </View>
       </TouchableOpacity>
-      <Text style={styles.profileName}>{displayName}</Text>
+      <View style={styles.nameRow}>
+        <Text style={styles.profileName}>{displayName}</Text>
+        {isDriverVerified && (
+          <>
+            <TouchableOpacity
+              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+              onPress={() => setShowVerifiedLabel(true)}
+              style={styles.verifiedBadge}
+              activeOpacity={0.8}
+              accessibilityLabel="Profil vérifié"
+            >
+              <Ionicons name="checkmark" size={12} color="#fff" />
+            </TouchableOpacity>
+            {showVerifiedLabel && (
+              <View style={styles.verifiedLabel}>
+                <Text style={styles.verifiedLabelText}>Profil vérifié</Text>
+              </View>
+            )}
+          </>
+        )}
+      </View>
       <Text style={styles.profileEmail}>{displayEmail}</Text>
 
-      {/* Stats — style accueil (todayRow) */}
+      {/* Stats — Badges et Courses (crédits affichés uniquement dans Marketplace) */}
       <View style={styles.profileStats}>
-        <View style={styles.profileStatItem}>
-          <Text style={styles.profileStatValue}>{userCredits}</Text>
-          <Text style={styles.profileStatLabel}>Crédits</Text>
-        </View>
-        <View style={styles.profileStatDivider} />
         <View style={styles.profileStatItem}>
           <Text style={styles.profileStatValue}>{badgesCount}</Text>
           <Text style={styles.profileStatLabel}>Badges</Text>
@@ -110,12 +133,38 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#fff',
   },
+  nameRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    flexWrap: 'wrap',
+  },
   profileName: {
     fontSize: 22,
     fontWeight: '700',
     color: '#f8fafc',
     marginBottom: 4,
     letterSpacing: -0.3,
+  },
+  verifiedBadge: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    backgroundColor: '#1d9bf0',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  verifiedLabel: {
+    backgroundColor: 'rgba(29, 155, 240, 0.25)',
+    paddingVertical: 4,
+    paddingHorizontal: 8,
+    borderRadius: 6,
+  },
+  verifiedLabelText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#7dd3fc',
   },
   profileEmail: {
     fontSize: 14,

@@ -1,6 +1,6 @@
 /**
- * DashboardScreen - Accueil épuré type Uber
- * Hero, crédits, CTA principal, explication crédits.
+ * DashboardScreen - Accueil épuré
+ * Hero, CTA principal, opportunités, Page Pro, planning, activité (sans affichage des crédits).
  */
 
 import React, { useState, useEffect } from 'react';
@@ -14,6 +14,7 @@ import {
   Alert,
   Linking,
   Platform,
+  Share,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
@@ -22,16 +23,19 @@ import { theme } from '../theme';
 import * as NotificationService from '../services/notifications';
 import { DashboardSkeleton } from '../components/skeletons';
 import { GroupInvitationsBanner } from '../components/GroupInvitationsBanner';
-import { ValidationBanner } from '../components/ValidationBanner';
 import { RideCard } from '../components/RideCard';
 import { CustomAlert } from '../components/CustomAlert';
-import { getInvoiceUrl } from '../constants/urls';
+import { LegalInfoModal } from '../components/LegalInfoModal';
+import { getInvoiceUrl, getVtcProfileUrl } from '../constants/urls';
+import { getCompletionScore, getPageProStatus } from '../utils/pageProCompletion';
 
 interface DashboardProps {
   verificationStatus: string | null;
+  /** Statut vérification chauffeur (documents) : not_started | pending | approved | rejected */
+  driverVerificationStatus?: string | null;
+  isDriverVerified?: boolean;
   onRefreshVerification: () => Promise<void>;
   userFullName: string;
-  userCredits: number;
   userRides: any[]; // All marketplace rides for the user
   pendingInvitationsCount?: number; // Nombre d'invitations en attente
   onNavigateToCourses: () => void;
@@ -42,15 +46,21 @@ interface DashboardProps {
   onCreateRide: () => void; // Ouvrir formulaire création en mode 'create'
   onRidePress: (ride: any) => void; // Ouvrir le détail d'une course
   onPersonalRidePress: (ride: any) => void; // Ouvrir le détail d'une course personnelle
-  onOpenGroupInvitations?: () => void; // Ouvrir l'écran des invitations
-  onNavigateToDriverRequests?: () => void; // Ouvrir l'écran des demandes (page publique)
+  onOpenGroupInvitations?: () => void;
+  onNavigateToDriverRequests?: () => void;
+  onNavigateToPagePro?: () => void; // Ouvrir Ma Page Pro (optimisation)
+  onNavigateToVerificationProfile?: () => void; // Écran "Vérifier mon profil"
+  onShowNotifications?: () => void; // Ouvrir le centre de notifications (cloche)
+  unreadNotificationsCount?: number; // Compteur pour la pastille (géré par App)
+  onRefreshUnreadCount?: () => void; // Rafraîchir le compteur (appelé après loadDashboardData)
 }
 
 export default function DashboardScreen({
   verificationStatus,
+  driverVerificationStatus = null,
+  isDriverVerified = false,
   onRefreshVerification,
   userFullName,
-  userCredits,
   userRides,
   pendingInvitationsCount = 0,
   onNavigateToCourses,
@@ -63,7 +73,13 @@ export default function DashboardScreen({
   onPersonalRidePress,
   onOpenGroupInvitations,
   onNavigateToDriverRequests,
+  onNavigateToPagePro,
+  onNavigateToVerificationProfile,
+  onShowNotifications,
+  unreadNotificationsCount = 0,
+  onRefreshUnreadCount,
 }: DashboardProps) {
+  // userCredits non affiché sur la home (affichage contextuel uniquement dans Marketplace)
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [todayRevenue, setTodayRevenue] = useState(0);
@@ -74,10 +90,23 @@ export default function DashboardScreen({
   const [generatedInvoice, setGeneratedInvoice] = useState<any>(null);
   const [showShareInvoiceAlert, setShowShareInvoiceAlert] = useState(false);
   const [pendingDriverRequestsCount, setPendingDriverRequestsCount] = useState(0);
+  const [pageProStatus, setPageProStatus] = useState<'inactive' | 'incomplete' | 'active' | null>(null);
+  const [pageProCompletion, setPageProCompletion] = useState<number>(0);
+  const [pageProMonthViews, setPageProMonthViews] = useState<number>(0);
+  const [pageProSlug, setPageProSlug] = useState<string | null>(null);
+  const [showLegalModal, setShowLegalModal] = useState(false);
+  const [pendingInvoiceParams, setPendingInvoiceParams] = useState<{ sourceType: 'RIDE' | 'PERSONAL'; sourceId: string } | null>(null);
+  const [showVerifiedLabel, setShowVerifiedLabel] = useState(false);
 
   useEffect(() => {
     loadDashboardData();
   }, []);
+
+  useEffect(() => {
+    if (!showVerifiedLabel) return;
+    const t = setTimeout(() => setShowVerifiedLabel(false), 2000);
+    return () => clearTimeout(t);
+  }, [showVerifiedLabel]);
 
   const loadDashboardData = async () => {
     try {
@@ -117,6 +146,39 @@ export default function DashboardScreen({
       } catch (_e) {}
       setPendingDriverRequestsCount(pendingRequestsCount);
 
+      try {
+        onRefreshUnreadCount?.();
+      } catch (_e) {}
+
+      try {
+        const vtcProfile = await apiClient.getMyVTCProfile();
+        setPageProMonthViews(vtcProfile?.view_count ?? 0);
+        if (!vtcProfile) {
+          setPageProStatus('inactive');
+          setPageProCompletion(0);
+          setPageProSlug(null);
+        } else {
+          setPageProSlug(vtcProfile.slug || null);
+          const formData = {
+            photoUrl: vtcProfile.photo_url || '',
+            bio: vtcProfile.bio || '',
+            zoneCity: vtcProfile.zone_city || '',
+            slug: vtcProfile.slug || '',
+            vehicleBrand: vtcProfile.vehicle_brand || '',
+            vehicleModel: vtcProfile.vehicle_model || '',
+            vehicleYear: vtcProfile.vehicle_year?.toString() || '',
+            vehicleSeats: vtcProfile.vehicle_seats != null && vtcProfile.vehicle_seats >= 2 && vtcProfile.vehicle_seats <= 7 ? vtcProfile.vehicle_seats : null,
+            services: Array.isArray(vtcProfile.services) ? vtcProfile.services : [],
+            amenities: Array.isArray(vtcProfile.amenities) ? vtcProfile.amenities : [],
+          };
+          setPageProCompletion(getCompletionScore(formData));
+          setPageProStatus(getPageProStatus(formData, !!vtcProfile.is_public));
+        }
+      } catch (_e) {
+        setPageProStatus('inactive');
+        setPageProCompletion(0);
+      }
+
       const now = Date.now();
       const oneHourInMs = 60 * 60 * 1000;
       
@@ -140,7 +202,7 @@ export default function DashboardScreen({
       setInProgressRides(inProgress);
       setUpcomingRides(upcoming);
 
-      // Planifier les notifications "1 minute avant" pour les courses à venir
+      // Planifier les notifications "1 minute avant" pour les courses à venir + ajout dans la cloche
       for (const ride of upcoming) {
         if (ride.pickup_address && ride.dropoff_address) {
           await NotificationService.scheduleRideImminentReminder(
@@ -149,18 +211,37 @@ export default function DashboardScreen({
             ride.pickup_address,
             ride.dropoff_address
           );
+          await apiClient.insertInAppNotification({
+            type: 'ride_imminent',
+            title: 'Démarrage imminent de votre course',
+            body: `${ride.pickup_address} → ${ride.dropoff_address}`,
+            target_ride_id: ride.id,
+          });
         }
       }
 
-      // 🔔 Planifier le résumé quotidien si des courses prévues aujourd'hui
+      // 🔔 Résumé quotidien à 9h : uniquement si des courses ce jour-là + ajout dans la cloche
       const today = new Date().toDateString();
       const allTodayRides = [...inProgress, ...upcoming].filter((ride: any) => {
         if (!ride.scheduled_at) return false;
         return new Date(ride.scheduled_at).toDateString() === today;
       });
-      
-      if (allTodayRides.length > 0) {
-        await NotificationService.scheduleDailySummary(allTodayRides.length);
+      const nowDate = new Date();
+      const today9am = new Date(nowDate);
+      today9am.setHours(9, 0, 0, 0);
+      const next9am = nowDate < today9am ? today9am : (() => { const t = new Date(today9am); t.setDate(t.getDate() + 1); return t; })();
+      const next9amDateStr = next9am.toDateString();
+      const ridesOnNext9amDay = allScheduledRides.filter((ride: any) => {
+        if (!ride.scheduled_at) return false;
+        return new Date(ride.scheduled_at).toDateString() === next9amDateStr;
+      });
+      if (ridesOnNext9amDay.length > 0) {
+        await NotificationService.scheduleDailySummary(ridesOnNext9amDay.length, next9am);
+        await apiClient.insertInAppNotification({
+          type: 'daily_summary',
+          title: 'Planning du jour',
+          body: `Vous avez ${ridesOnNext9amDay.length} course${ridesOnNext9amDay.length > 1 ? 's' : ''} prévue${ridesOnNext9amDay.length > 1 ? 's' : ''} aujourd'hui.`,
+        });
       }
 
       // Calculer revenus du jour et de la semaine
@@ -185,16 +266,21 @@ export default function DashboardScreen({
 
   const handleCompleteRide = async (ride: any, generateInvoice: boolean = false) => {
     try {
-      // Marquer la course comme COMPLETED
       await apiClient.updatePersonalRide(ride.id, { status: 'COMPLETED' });
 
       if (generateInvoice) {
-        // Générer la facture
+        let profile: any = null;
+        try {
+          profile = await apiClient.getMyVTCProfile();
+        } catch (_e) {}
+        if (!profile?.legal_info_configured) {
+          setPendingInvoiceParams({ sourceType: 'PERSONAL', sourceId: ride.id });
+          setShowLegalModal(true);
+          await loadDashboardData();
+          return;
+        }
         try {
           const invoice = await apiClient.createInvoice('PERSONAL', ride.id);
-          console.log('✅ Facture générée:', invoice);
-          
-          // Stocker la facture et afficher le popup de partage
           setGeneratedInvoice(invoice);
           setShowShareInvoiceAlert(true);
         } catch (error: any) {
@@ -205,12 +291,24 @@ export default function DashboardScreen({
         Alert.alert('✅', 'Course terminée !');
       }
 
-      // Recharger les données
       await loadDashboardData();
     } catch (error: any) {
       console.error('Erreur complétion course:', error);
       Alert.alert('Erreur', 'Impossible de terminer la course');
     }
+  };
+
+  const runPendingInvoiceAndShowShare = async () => {
+    if (!pendingInvoiceParams) return;
+    try {
+      const invoice = await apiClient.createInvoice(pendingInvoiceParams.sourceType, pendingInvoiceParams.sourceId);
+      setGeneratedInvoice(invoice);
+      setShowShareInvoiceAlert(true);
+      await loadDashboardData();
+    } catch (error: any) {
+      Alert.alert('Erreur', error.message || 'Impossible de générer la facture');
+    }
+    setPendingInvoiceParams(null);
   };
 
   const handleCancelRide = async (ride: any) => {
@@ -227,7 +325,7 @@ export default function DashboardScreen({
   const handleShareWhatsApp = async (invoice: any) => {
     try {
       const invoiceUrl = getInvoiceUrl(invoice.public_token);
-      const message = `Facture ${invoice.invoice_number}\n\nMontant : ${(invoice.total_amount_cents / 100).toFixed(2)}€\n\nVoir la facture : ${invoiceUrl}`;
+      const message = `Merci pour votre course. Vous trouverez votre facture sur le lien suivant : ${invoiceUrl}`;
       const whatsappUrl = `https://wa.me/?text=${encodeURIComponent(message)}`;
       
       const canOpen = await Linking.canOpenURL(whatsappUrl);
@@ -305,6 +403,26 @@ export default function DashboardScreen({
 
   return (
     <View style={styles.container}>
+      {/* Barre supérieure avec cloche notifications */}
+      <View style={styles.topBar}>
+        <View style={styles.topBarSpacer} />
+        <Text style={styles.topBarTitle}>Accueil</Text>
+        <TouchableOpacity
+          onPress={onShowNotifications}
+          style={styles.bellButton}
+          activeOpacity={0.7}
+          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+        >
+          <Ionicons name="notifications-outline" size={24} color="#e2e8f0" />
+          {unreadNotificationsCount > 0 && (
+            <View style={styles.bellBadge}>
+              <Text style={styles.bellBadgeText}>
+                {unreadNotificationsCount > 99 ? '99+' : unreadNotificationsCount}
+              </Text>
+            </View>
+          )}
+        </TouchableOpacity>
+      </View>
       <ScrollView
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.scrollContent}
@@ -313,24 +431,87 @@ export default function DashboardScreen({
         {/* Hero accueil */}
         <View style={styles.hero}>
           <Text style={styles.greeting}>Bonjour,</Text>
-          <Text style={styles.userName}>{firstName}</Text>
-          <Text style={styles.heroTagline}>Vos outils pour exercer en chauffeur privé</Text>
-          <View style={styles.creditsPill}>
-            <View style={styles.creditsPillIcon}>
-              <Text style={styles.creditsPillIconText}>C</Text>
-            </View>
-            <Text style={styles.creditsPillValue}>{userCredits}</Text>
-            <Text style={styles.creditsPillLabel}>crédits</Text>
+          <View style={styles.heroNameRow}>
+            <Text style={styles.userName}>{firstName}</Text>
+            {isDriverVerified && (
+              <>
+                <TouchableOpacity
+                  hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                  onPress={() => setShowVerifiedLabel(true)}
+                  style={styles.verifiedBadge}
+                  activeOpacity={0.8}
+                  accessibilityLabel="Profil vérifié"
+                >
+                  <Ionicons name="checkmark" size={12} color="#fff" />
+                </TouchableOpacity>
+                {showVerifiedLabel && (
+                  <View style={styles.verifiedLabel}>
+                    <Text style={styles.verifiedLabelText}>Profil vérifié</Text>
+                  </View>
+                )}
+              </>
+            )}
           </View>
+          <Text style={styles.heroTagline}>Vos outils pour exercer en chauffeur privé</Text>
         </View>
 
-        {(verificationStatus === 'PENDING' || verificationStatus === 'REJECTED') && (
-          <View style={styles.bannerWrap}>
-            <ValidationBanner verificationStatus={verificationStatus} onRefresh={onRefreshVerification} />
-          </View>
+        {/* Carte Profil vérifié (accès réseau / réservations site) — remplace l’ancienne bannière orange */}
+        {onNavigateToVerificationProfile && !isDriverVerified && (
+          <TouchableOpacity
+            activeOpacity={0.88}
+            onPress={onNavigateToVerificationProfile}
+            style={[
+              styles.verificationCard,
+              driverVerificationStatus === 'pending' && styles.verificationCardPending,
+              driverVerificationStatus === 'rejected' && styles.verificationCardRejected,
+              (driverVerificationStatus !== 'pending' && driverVerificationStatus !== 'rejected') && styles.verificationCardUnverified,
+            ]}
+          >
+            <View style={styles.verificationCardLeft}>
+              <Ionicons
+                name={driverVerificationStatus === 'pending' ? 'time' : 'shield-outline'}
+                size={18}
+                color={driverVerificationStatus === 'pending' ? '#b45309' : driverVerificationStatus === 'rejected' ? '#b91c1c' : '#78716c'}
+              />
+              <View style={styles.verificationCardTextWrap}>
+                <Text style={styles.verificationCardTitle} numberOfLines={1}>
+                  {driverVerificationStatus === 'pending'
+                    ? 'Vérification en cours'
+                    : driverVerificationStatus === 'rejected'
+                      ? 'Profil rejeté'
+                      : 'Profil non vérifié'}
+                </Text>
+                <Text style={styles.verificationCardSubtitle} numberOfLines={1}>
+                  {driverVerificationStatus === 'pending'
+                    ? 'Examen de vos documents en cours'
+                    : driverVerificationStatus === 'rejected'
+                      ? 'Modifiez vos documents et resoumettez'
+                      : 'Vérifiez votre profil pour débloquer le réseau'}
+                </Text>
+              </View>
+            </View>
+            <Ionicons name="chevron-forward" size={16} color="#94a3b8" />
+          </TouchableOpacity>
         )}
 
         <GroupInvitationsBanner count={pendingInvitationsCount} onPress={() => onOpenGroupInvitations?.()} />
+
+        {/* Course(s) en cours — bien visible en haut */}
+        {inProgressRides.length > 0 && (
+          <View style={styles.inProgressSection}>
+            <Text style={styles.inProgressSectionTitle}>En cours</Text>
+            {inProgressRides.map((ride: any) => (
+              <RideCard
+                key={ride.id}
+                ride={ride}
+                status="IN_PROGRESS"
+                onPress={() => onPersonalRidePress(ride)}
+                onComplete={(generateInvoice) => handleCompleteRide(ride, generateInvoice)}
+                onCancel={() => handleCancelRide(ride)}
+              />
+            ))}
+          </View>
+        )}
 
         {pendingDriverRequestsCount > 0 && onNavigateToDriverRequests && (
           <TouchableOpacity
@@ -351,27 +532,111 @@ export default function DashboardScreen({
                 <Text style={styles.driverRequestsBannerTitle}>
                   Demande{pendingDriverRequestsCount > 1 ? 's' : ''} reçue{pendingDriverRequestsCount > 1 ? 's' : ''}
                 </Text>
-                <Text style={styles.driverRequestsBannerSubtitle}>Depuis votre page publique</Text>
+                <Text style={styles.driverRequestsBannerSubtitle}>Depuis votre Page Pro</Text>
               </View>
             </View>
             <Ionicons name="chevron-forward" size={20} color="rgba(255,255,255,0.8)" />
           </TouchableOpacity>
         )}
 
-        {/* Aujourd'hui - une ligne */}
-        <View style={styles.todayRow}>
-          <View style={styles.todayItem}>
-            <Text style={styles.todayValue}>{todayRevenue.toFixed(2)} €</Text>
-            <Text style={styles.todayLabel}>Aujourd'hui</Text>
-          </View>
-          <View style={styles.todayDivider} />
-          <View style={styles.todayItem}>
-            <Text style={styles.todayValue}>{todayRides}</Text>
-            <Text style={styles.todayLabel}>courses</Text>
-          </View>
-        </View>
+        {/* Module Ma Page Pro — compacte à 100 %, Partager en avant */}
+        {pageProStatus !== null && onNavigateToPagePro && (() => {
+          const pct = pageProCompletion;
+          const isComplete = pct >= 100 || pageProStatus === 'active';
+          const canShare = pageProStatus === 'active' && pageProSlug;
 
-        {/* CTA principal : accès au suivi / outils pro */}
+          if (isComplete && canShare) {
+            return (
+              <TouchableOpacity
+                activeOpacity={0.9}
+                onPress={onNavigateToPagePro}
+                style={styles.pageProCardCompact}
+              >
+                <View style={styles.pageProCompactLeft}>
+                  <Text style={styles.pageProCardTitle}>Ma Page Pro</Text>
+                  <Text style={styles.pageProCardTagline}>Recevez des réservations sans intermédiaire.</Text>
+                </View>
+                <View style={styles.pageProCompactActions}>
+                  <TouchableOpacity
+                    activeOpacity={0.88}
+                    onPress={async () => {
+                      try {
+                        const url = getVtcProfileUrl(pageProSlug!);
+                        const message = `Réservez directement avec moi — mon profil chauffeur privé sur Corail : ${url}`;
+                        await Share.share({ message });
+                      } catch (_e) {}
+                    }}
+                    style={styles.pageProSharePrimary}
+                  >
+                    <Ionicons name="share-social" size={18} color="#fff" />
+                    <Text style={styles.pageProSharePrimaryText}>Partager</Text>
+                  </TouchableOpacity>
+                </View>
+              </TouchableOpacity>
+            );
+          }
+
+          const messageConstruction = pct < 50 ? 'Construisez votre page de réservation directe.' : null;
+          const messageAmelioration = pct >= 50 && pct < 100 ? 'Quelques infos en plus pour optimiser.' : null;
+          const messagePartage = canShare ? 'Page prête à être partagée.' : null;
+          const message = messagePartage || messageAmelioration || messageConstruction;
+          return (
+            <View style={styles.pageProCard}>
+              <Text style={styles.pageProCardTitle}>Ma Page Pro</Text>
+              <Text style={styles.pageProCardTagline}>
+                Recevez des réservations sans intermédiaire.
+              </Text>
+              <Text style={styles.pageProCardPct}>{pct} % complété</Text>
+              <View style={styles.pageProProgressTrack}>
+                <View style={[styles.pageProProgressFill, { width: `${Math.min(100, pct)}%` }]} />
+              </View>
+              <Text style={styles.pageProCardMessage}>{message}</Text>
+              {canShare ? (
+                <View style={styles.pageProCardShareRow}>
+                  <TouchableOpacity
+                    activeOpacity={0.88}
+                    onPress={async () => {
+                      try {
+                        const url = getVtcProfileUrl(pageProSlug!);
+                        const msg = `Réservez directement avec moi — mon profil chauffeur privé sur Corail : ${url}`;
+                        await Share.share({ message: msg });
+                      } catch (_e) {}
+                    }}
+                    style={styles.pageProCta}
+                  >
+                    <Ionicons name="share-social" size={18} color="#fff" />
+                    <Text style={styles.pageProCtaText}>Partager</Text>
+                  </TouchableOpacity>
+                </View>
+              ) : (
+                <TouchableOpacity
+                  activeOpacity={0.88}
+                  onPress={onNavigateToPagePro}
+                  style={styles.pageProCta}
+                >
+                  <Text style={styles.pageProCtaText}>Améliorer ma page</Text>
+                </TouchableOpacity>
+              )}
+            </View>
+          );
+        })()}
+
+        {/* Aujourd'hui — affiché seulement s'il y a au moins une course ou un CA */}
+        {(todayRevenue > 0 || todayRides > 0) && (
+          <View style={styles.todayRow}>
+            <View style={styles.todayItem}>
+              <Text style={styles.todayValue}>{todayRevenue.toFixed(2)} €</Text>
+              <Text style={styles.todayLabel}>Aujourd'hui</Text>
+            </View>
+            <View style={styles.todayDivider} />
+            <View style={styles.todayItem}>
+              <Text style={styles.todayValue}>{todayRides}</Text>
+              <Text style={styles.todayLabel}>courses</Text>
+            </View>
+          </View>
+        )}
+
+        {/* CTA principal : accès au suivi / mes outils */}
         <TouchableOpacity style={styles.ctaPrimary} onPress={onNavigateToTools} activeOpacity={0.9}>
           <LinearGradient
             colors={['#0ea5e9', '#06b6d4']}
@@ -381,7 +646,7 @@ export default function DashboardScreen({
           >
             <Ionicons name="briefcase" size={24} color="#fff" />
             <View style={styles.ctaPrimaryTextBlock}>
-              <Text style={styles.ctaPrimaryText}>Mes outils pro</Text>
+              <Text style={styles.ctaPrimaryText}>Mes outils</Text>
               <Text style={styles.ctaPrimarySubtext}>Devis, planning, factures, QR Code</Text>
             </View>
             <Ionicons name="chevron-forward" size={20} color="rgba(255,255,255,0.9)" />
@@ -433,55 +698,20 @@ export default function DashboardScreen({
           <Ionicons name="chevron-forward" size={16} color="#64748b" />
         </TouchableOpacity>
 
-        {/* Comment fonctionnent les crédits - compact et lisible */}
-        <View style={styles.creditsBlock}>
-          <Text style={styles.creditsBlockTitle}>Comment fonctionnent les crédits ?</Text>
-          <View style={styles.creditsCard}>
-            <View style={styles.creditsRow}>
-              <View style={styles.creditsRowIconGreen}>
-                <Ionicons name="add" size={16} color="#34d399" />
-              </View>
-              <Text style={styles.creditsRowText}>
-                <Text style={styles.creditsRowBold}>+1</Text> à chaque course publiée
-              </Text>
-            </View>
-            <View style={styles.creditsRow}>
-              <View style={styles.creditsRowIconGreen}>
-                <Ionicons name="gift" size={16} color="#34d399" />
-              </View>
-              <Text style={styles.creditsRowText}>
-                <Text style={styles.creditsRowBold}>+1</Text> bonus si la course est terminée
-              </Text>
-            </View>
-            <View style={[styles.creditsRow, { marginBottom: 0 }]}>
-              <View style={styles.creditsRowIconOrange}>
-                <Ionicons name="remove" size={16} color="#fb923c" />
-              </View>
-              <Text style={styles.creditsRowText}>
-                <Text style={styles.creditsRowBoldOrange}>−1</Text> pour prendre une course parmi les annonces
-              </Text>
-            </View>
-          </View>
-        </View>
-
-        {/* Courses EN COURS uniquement (priorité absolue) - affichage compact */}
-        {inProgressRides.length > 0 && (
-          <View style={styles.inProgressSection}>
-            <Text style={styles.inProgressSectionTitle}>En cours</Text>
-            {inProgressRides.map((ride: any) => (
-              <RideCard
-                key={ride.id}
-                ride={ride}
-                status="IN_PROGRESS"
-                onPress={() => onPersonalRidePress(ride)}
-                onComplete={(generateInvoice) => handleCompleteRide(ride, generateInvoice)}
-                onCancel={() => handleCancelRide(ride)}
-              />
-            ))}
-          </View>
-        )}
-
       </ScrollView>
+
+      <LegalInfoModal
+        visible={showLegalModal}
+        onClose={() => { setShowLegalModal(false); setPendingInvoiceParams(null); }}
+        initialBusinessName={userFullName}
+        onSaved={() => runPendingInvoiceAndShowShare()}
+        onLater={() => {
+          Alert.alert(
+            'Infos légales requises',
+            'Pour générer une facture conforme, renseignez vos infos légales (SIRET, adresse) depuis Mes outils. La course a bien été marquée comme terminée.'
+          );
+        }}
+      />
 
       {/* Popup de partage de facture */}
       {generatedInvoice && (
@@ -521,13 +751,77 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: theme.colors.background,
   },
+  topBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingTop: Platform.OS === 'ios' ? 56 : 24,
+    paddingHorizontal: 20,
+    paddingBottom: 12,
+    backgroundColor: theme.colors.background,
+  },
+  topBarSpacer: { width: 40 },
+  topBarTitle: {
+    fontSize: 17,
+    fontWeight: '600',
+    color: theme.colors.text,
+  },
+  bellButton: {
+    width: 40,
+    height: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
+    position: 'relative',
+  },
+  bellBadge: {
+    position: 'absolute',
+    top: 0,
+    right: 0,
+    minWidth: 18,
+    height: 18,
+    borderRadius: 9,
+    backgroundColor: '#ef4444',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 5,
+  },
+  bellBadgeText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#fff',
+  },
   scrollContent: {
     paddingHorizontal: theme.spacing.lg,
-    paddingTop: Platform.OS === 'ios' ? 56 : 24,
+    paddingTop: 8,
     paddingBottom: 100,
   },
   hero: {
     marginBottom: theme.spacing.lg,
+  },
+  heroNameRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    flexWrap: 'wrap',
+  },
+  verifiedBadge: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    backgroundColor: '#1d9bf0',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  verifiedLabel: {
+    backgroundColor: 'rgba(29, 155, 240, 0.25)',
+    paddingVertical: 4,
+    paddingHorizontal: 8,
+    borderRadius: 6,
+  },
+  verifiedLabelText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#7dd3fc',
   },
   heroTagline: {
     fontSize: 14,
@@ -545,43 +839,53 @@ const styles = StyleSheet.create({
     color: theme.colors.text,
     letterSpacing: -0.5,
   },
-  creditsPill: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    alignSelf: 'flex-start',
-    marginTop: theme.spacing.sm,
-    paddingVertical: theme.spacing.xs,
-    paddingHorizontal: theme.spacing.sm,
-    backgroundColor: theme.colors.surface,
-    borderRadius: 20,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-    gap: 6,
-  },
-  creditsPillIcon: {
-    width: 22,
-    height: 22,
-    borderRadius: 11,
-    backgroundColor: 'rgba(249, 115, 22, 0.2)',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  creditsPillIconText: {
-    fontSize: 12,
-    fontWeight: '800',
-    color: theme.colors.warningOrange,
-  },
-  creditsPillValue: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: theme.colors.text,
-  },
-  creditsPillLabel: {
-    fontSize: 13,
-    color: theme.colors.textMuted,
-  },
   bannerWrap: {
     marginBottom: 8,
+  },
+  verificationCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 16,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 10,
+    borderWidth: 1,
+    backgroundColor: 'rgba(148, 163, 184, 0.08)',
+    borderColor: 'rgba(148, 163, 184, 0.2)',
+  },
+  verificationCardUnverified: {
+    backgroundColor: 'rgba(120, 113, 108, 0.08)',
+    borderColor: 'rgba(120, 113, 108, 0.2)',
+  },
+  verificationCardPending: {
+    backgroundColor: 'rgba(180, 83, 9, 0.08)',
+    borderColor: 'rgba(180, 83, 9, 0.22)',
+  },
+  verificationCardRejected: {
+    backgroundColor: 'rgba(185, 28, 28, 0.08)',
+    borderColor: 'rgba(185, 28, 28, 0.22)',
+  },
+  verificationCardLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+    minWidth: 0,
+  },
+  verificationCardTextWrap: {
+    flex: 1,
+    minWidth: 0,
+    marginLeft: 10,
+  },
+  verificationCardTitle: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#e2e8f0',
+  },
+  verificationCardSubtitle: {
+    fontSize: 11,
+    color: '#94a3b8',
+    marginTop: 1,
   },
   driverRequestsBanner: {
     flexDirection: 'row',
@@ -636,6 +940,110 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: theme.colors.textMuted,
     marginTop: 2,
+  },
+  pageProCard: {
+    marginBottom: 20,
+    paddingVertical: 22,
+    paddingHorizontal: 20,
+    backgroundColor: theme.colors.surface,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: theme.colors.borderLight,
+  },
+  pageProCardTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: theme.colors.text,
+    letterSpacing: -0.3,
+  },
+  pageProCardTagline: {
+    fontSize: 14,
+    color: theme.colors.textMuted,
+    marginTop: 8,
+    lineHeight: 20,
+  },
+  pageProCardPct: {
+    fontSize: 13,
+    color: theme.colors.textMuted,
+    marginTop: 16,
+  },
+  pageProProgressTrack: {
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: theme.colors.borderMuted,
+    marginTop: 8,
+    overflow: 'hidden',
+  },
+  pageProProgressFill: {
+    height: '100%',
+    borderRadius: 3,
+    backgroundColor: theme.colors.info,
+  },
+  pageProCardMessage: {
+    fontSize: 13,
+    color: theme.colors.textMuted,
+    marginTop: 14,
+    lineHeight: 18,
+  },
+  pageProCta: {
+    marginTop: 20,
+    paddingVertical: 14,
+    paddingHorizontal: 20,
+    borderRadius: 12,
+    backgroundColor: theme.colors.info,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  pageProCardShareRow: {
+    alignItems: 'center',
+  },
+  pageProCtaText: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#fff',
+  },
+  pageProShareLink: {
+    marginTop: 14,
+    alignItems: 'center',
+    paddingVertical: 8,
+  },
+  pageProShareLinkText: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: theme.colors.info,
+  },
+  pageProCardCompact: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 20,
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    backgroundColor: theme.colors.surface,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: theme.colors.borderLight,
+  },
+  pageProCompactLeft: {
+    flex: 1,
+  },
+  pageProCompactActions: {
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  pageProSharePrimary: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderRadius: 12,
+    backgroundColor: theme.colors.info,
+  },
+  pageProSharePrimaryText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#fff',
   },
   todayRow: {
     flexDirection: 'row',
@@ -774,57 +1182,6 @@ const styles = StyleSheet.create({
   marketLinkText: {
     fontSize: 14,
     color: theme.colors.textMutedDark,
-  },
-  creditsBlock: {
-    marginBottom: theme.spacing.xl,
-  },
-  creditsBlockTitle: {
-    fontSize: 15,
-    fontWeight: '700',
-    color: theme.colors.textSecondary,
-    marginBottom: 10,
-  },
-  creditsCard: {
-    backgroundColor: theme.colors.surface,
-    borderRadius: theme.radii.sm,
-    padding: 14,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-  },
-  creditsRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 10,
-    gap: 10,
-  },
-  creditsRowIconGreen: {
-    width: 28,
-    height: 28,
-    borderRadius: 8,
-    backgroundColor: 'rgba(52, 211, 153, 0.15)',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  creditsRowIconOrange: {
-    width: 28,
-    height: 28,
-    borderRadius: 8,
-    backgroundColor: 'rgba(251, 146, 60, 0.15)',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  creditsRowText: {
-    flex: 1,
-    fontSize: 14,
-    color: theme.colors.textSoft,
-  },
-  creditsRowBold: {
-    fontWeight: '700',
-    color: theme.colors.successLight,
-  },
-  creditsRowBoldOrange: {
-    fontWeight: '700',
-    color: theme.colors.warningOrange,
   },
   inProgressSection: {
     marginBottom: theme.spacing.xl,

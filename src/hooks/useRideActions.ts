@@ -13,24 +13,23 @@ import analytics from '../services/analytics';
 
 interface UseRideActionsProps {
   currentUserId: string;
-  userName: string; // For notifications
+  userName: string;
   userCredits: number;
-  verificationStatus: string | null; // Verification status for marketplace access
+  verificationStatus: string | null;
+  /** Profil chauffeur vérifié (documents) – accès marketplace / publication réseau */
+  isDriverVerified?: boolean;
   loadRides: () => Promise<void>;
   loadPersonalRides: () => Promise<void>;
   loadCredits: () => Promise<void>;
 }
 
-/**
- * Hook custom pour gérer toutes les actions sur les courses
- * (create, claim, delete, complete)
- */
 export function useRideActions(props: UseRideActionsProps) {
   const {
     currentUserId,
     userName,
     userCredits,
     verificationStatus,
+    isDriverVerified = false,
     loadRides,
     loadPersonalRides,
     loadCredits,
@@ -153,19 +152,21 @@ export function useRideActions(props: UseRideActionsProps) {
    */
   const handleClaimRide = useCallback(async (ride: any) => {
     try {
-      // 🔐 Vérifier le statut de vérification avant de prendre une course
-      if (verificationStatus !== 'VERIFIED') {
+      // 🔐 Profil chauffeur vérifié requis pour prendre une course sur le réseau
+      if (!isDriverVerified) {
         haptic.warning();
         toast.warning(
-          '⏳ Vérification en cours',
-          'Votre profil doit être vérifié pour prendre des courses sur la marketplace'
+          'Profil vérifié requis',
+          'Pour accéder aux opportunités réseau, votre profil doit être vérifié.'
         );
         return null;
       }
 
-      // 🪸 Vérifier les crédits uniquement pour les courses publiées par un chauffeur (course client = 0 crédit)
+      // 🪸 Crédits : annonces publiques = -1, groupe ou demande client = 0
       const isClientRide = ride.source === 'client';
-      if (!isClientRide && userCredits < 1) {
+      const isGroupRide = (ride.visibility || 'PUBLIC') === 'GROUP';
+      const costsCredit = !isClientRide && !isGroupRide;
+      if (costsCredit && userCredits < 1) {
         haptic.warning();
         toast.insufficientCredits();
         return null;
@@ -178,7 +179,7 @@ export function useRideActions(props: UseRideActionsProps) {
       console.log('✅ Course réclamée avec succès');
       haptic.success();
       
-      const creditsSpent = isClientRide ? 0 : 1;
+      const creditsSpent = costsCredit ? 1 : 0;
       try {
         await analytics.trackRideClaimed({
           rideId: ride.id,
@@ -207,13 +208,19 @@ export function useRideActions(props: UseRideActionsProps) {
         );
       }
       
-      // 🔔 Planifier notification de rappel 1h avant
+      // 🔔 Planifier notification de rappel 1h avant + ajout dans la cloche
       await NotificationService.scheduleRideReminder(
         ride.id,
         ride.scheduled_at,
         ride.pickup_address,
         ride.dropoff_address
       );
+      await apiClient.insertInAppNotification({
+        type: 'ride_reminder',
+        title: 'Course dans 1 heure',
+        body: `${ride.pickup_address} → ${ride.dropoff_address}`,
+        target_ride_id: ride.id,
+      });
       
       // 🔔 Planifier rappel pour terminer la course
       await NotificationService.notifyCompleteRide(
@@ -237,7 +244,7 @@ export function useRideActions(props: UseRideActionsProps) {
       const updatedRide = await apiClient.getRide(ride.id);
       
       toast.rideClaimed();
-      if (!isClientRide) toast.creditSpent();
+      if (creditsSpent > 0) toast.creditSpent();
 
       return updatedRide;
     } catch (error: any) {
@@ -249,7 +256,7 @@ export function useRideActions(props: UseRideActionsProps) {
       toast.error('Erreur', error.message || 'Impossible de réclamer la course');
       throw error;
     }
-  }, [userCredits, loadCredits, loadRides, loadPersonalRides]);
+  }, [userCredits, isDriverVerified, loadCredits, loadRides, loadPersonalRides]);
 
   /**
    * Créer une course (marketplace ou personnelle)
@@ -297,20 +304,31 @@ export function useRideActions(props: UseRideActionsProps) {
           console.warn('⚠️ Analytics error (non-blocking):', analyticsError);
         }
         
-        // 🔔 Planifier notification de rappel 1h avant
+        // 🔔 Planifier notification de rappel 1h avant + ajout dans la cloche
         await NotificationService.scheduleRideReminder(
           response.id,
           ride.scheduled_at,
           ride.pickup_address,
           ride.dropoff_address
         );
+        await apiClient.insertInAppNotification({
+          type: 'ride_reminder',
+          title: 'Course dans 1 heure',
+          body: `${ride.pickup_address} → ${ride.dropoff_address}`,
+          target_ride_id: response.id,
+        });
         
         // Recharger les courses personnelles
         await loadPersonalRides();
         
         toast.rideCreated();
       } else {
-        // Sinon, créer une course normale (marketplace)
+        // Publication sur le réseau : profil vérifié requis
+        if (!isDriverVerified) {
+          haptic.warning();
+          toast.warning('Profil vérifié requis', 'Pour publier sur le réseau, votre profil doit être vérifié.');
+          return;
+        }
         const response = await apiClient.createRide({
           pickup_address: ride.pickup_address,
           dropoff_address: ride.dropoff_address,
@@ -354,13 +372,19 @@ export function useRideActions(props: UseRideActionsProps) {
         await loadCredits();
         console.log('✅ Données rechargées - course et crédits mis à jour');
         
-        // 🔔 Planifier notification de rappel 1h avant (pour le créateur aussi)
+        // 🔔 Planifier notification de rappel 1h avant (pour le créateur aussi) + ajout dans la cloche
         await NotificationService.scheduleRideReminder(
           response.id,
           ride.scheduled_at,
           ride.pickup_address,
           ride.dropoff_address
         );
+        await apiClient.insertInAppNotification({
+          type: 'ride_reminder',
+          title: 'Course dans 1 heure',
+          body: `${ride.pickup_address} → ${ride.dropoff_address}`,
+          target_ride_id: response.id,
+        });
         
         toast.rideCreated();
         toast.creditEarned();

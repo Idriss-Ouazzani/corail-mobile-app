@@ -21,6 +21,7 @@ import {
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { apiClient } from '../services/api';
+import { formatPhoneInput, formatPhoneForSubmit } from '../utils/phoneFormat';
 
 interface PersonalRide {
   id: string;
@@ -139,7 +140,7 @@ export default function PersonalRidesScreen({ onClose }: { onClose: () => void }
         distance_km: distance ? parseFloat(distance) : undefined,
         duration_minutes: duration ? parseInt(duration, 10) : undefined,
         client_name: clientName.trim() || undefined,
-        client_phone: clientPhone.trim() || undefined,
+        client_phone: formatPhoneForSubmit(clientPhone) || undefined,
         notes: notes.trim() || undefined,
         status: 'COMPLETED' as const,
       };
@@ -299,8 +300,8 @@ export default function PersonalRidesScreen({ onClose }: { onClose: () => void }
             <TextInput
               style={styles.input}
               value={clientPhone}
-              onChangeText={setClientPhone}
-              placeholder="+33 6 12 34 56 78"
+              onChangeText={(t) => setClientPhone(formatPhoneInput(t))}
+              placeholder="Ex: 06 12 34 56 78"
               keyboardType="phone-pad"
               placeholderTextColor="#64748b"
             />

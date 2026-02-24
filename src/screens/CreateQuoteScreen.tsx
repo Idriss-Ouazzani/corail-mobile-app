@@ -18,7 +18,9 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { apiClient } from '../services/api';
+import { formatPhoneInput, formatPhoneForSubmit } from '../utils/phoneFormat';
 import { ShareQuoteModal } from '../components/ShareQuoteModal';
+import { LegalInfoModal } from '../components/LegalInfoModal';
 import { useAuth } from '../contexts/AuthContext';
 import { getQuoteUrl } from '../constants/urls';
 
@@ -44,6 +46,8 @@ export default function CreateQuoteScreen({ onBack, onQuoteSent }: CreateQuoteSc
   const [sending, setSending] = useState(false);
   const [showShareModal, setShowShareModal] = useState(false);
   const [createdQuote, setCreatedQuote] = useState<any>(null);
+  const [showLegalModal, setShowLegalModal] = useState(false);
+  const [pendingQuoteData, setPendingQuoteData] = useState<any>(null);
 
   // Format date for display
   const formatDateDisplay = (date: Date): string => {
@@ -80,6 +84,27 @@ export default function CreateQuoteScreen({ onBack, onQuoteSent }: CreateQuoteSc
     }
   };
 
+  const doCreateQuoteAndShowShare = async (quoteData: any) => {
+    const response = await apiClient.createQuote(quoteData);
+    if (!response || !response.token) throw new Error('Token manquant');
+    const quoteUrl = getQuoteUrl(response.token);
+    const d = new Date(quoteData.scheduled_date + 'T' + quoteData.scheduled_time);
+    const dateFormatted = d.toLocaleDateString('fr-FR', { day: 'numeric', month: 'numeric' });
+    const timeFormatted = `${d.getHours().toString().padStart(2, '0')}h${d.getMinutes().toString().padStart(2, '0')}`;
+    setCreatedQuote({
+      quoteUrl,
+      clientName: quoteData.client_name?.trim(),
+      clientEmail: quoteData.client_email?.trim() || undefined,
+      clientPhone: quoteData.client_phone?.trim() || undefined,
+      price: (quoteData.price_cents / 100).toFixed(2),
+      date: dateFormatted,
+      time: timeFormatted,
+      pickupAddress: quoteData.pickup_address?.trim(),
+      dropoffAddress: quoteData.dropoff_address?.trim(),
+    });
+    setShowShareModal(true);
+  };
+
   const handleSendQuote = async () => {
     // Validation
     if (!clientName.trim()) {
@@ -109,7 +134,7 @@ export default function CreateQuoteScreen({ onBack, onQuoteSent }: CreateQuoteSc
       // Préparer les données
       const quoteData = {
         client_name: clientName.trim(),
-        client_phone: clientPhone.trim(),
+        client_phone: formatPhoneForSubmit(clientPhone).trim() || undefined,
         pickup_address: pickupAddress.trim(),
         dropoff_address: dropoffAddress.trim(),
         scheduled_date: selectedDate.toISOString().split('T')[0], // YYYY-MM-DD
@@ -120,41 +145,17 @@ export default function CreateQuoteScreen({ onBack, onQuoteSent }: CreateQuoteSc
 
       console.log('📤 Envoi du devis:', quoteData);
 
-      // Envoyer le devis via l'API
-      const response = await apiClient.createQuote(quoteData);
-
-      console.log('✅ Devis créé:', response);
-      console.log('🔗 Token généré:', response?.token);
-      
-      if (!response || !response.token) {
-        throw new Error('Le devis a été créé mais le token est manquant. Vérifiez les logs Supabase.');
+      let profile: any = null;
+      try {
+        profile = await apiClient.getMyVTCProfile();
+      } catch (_e) {}
+      if (!profile?.legal_info_configured) {
+        setPendingQuoteData(quoteData);
+        setShowLegalModal(true);
+        return;
       }
 
-      // Construire le lien du devis
-      const quoteUrl = getQuoteUrl(response.token);
-      
-      // Formater la date pour le message
-      const dateFormatted = selectedDate.toLocaleDateString('fr-FR', {
-        day: 'numeric',
-        month: 'numeric',
-      });
-      const timeFormatted = `${selectedDate.getHours().toString().padStart(2, '0')}h${selectedDate.getMinutes().toString().padStart(2, '0')}`;
-      
-      // Préparer les données pour le modal de partage
-      setCreatedQuote({
-        quoteUrl,
-        clientName: clientName.trim(),
-        clientEmail: clientEmail.trim() || undefined,
-        clientPhone: clientPhone.trim() || undefined,
-        price,
-        date: dateFormatted,
-        time: timeFormatted,
-        pickupAddress: pickupAddress.trim(),
-        dropoffAddress: dropoffAddress.trim(),
-      });
-      
-      // Afficher le modal de partage
-      setShowShareModal(true);
+      await doCreateQuoteAndShowShare(quoteData);
     } catch (error: any) {
       console.error('❌ Erreur envoi devis:', error);
       Alert.alert(
@@ -207,7 +208,7 @@ export default function CreateQuoteScreen({ onBack, onQuoteSent }: CreateQuoteSc
             <TextInput
               style={styles.input}
               value={clientPhone}
-              onChangeText={setClientPhone}
+              onChangeText={(t) => setClientPhone(formatPhoneInput(t))}
               placeholder="Ex: 06 12 34 56 78"
               placeholderTextColor="#64748b"
               keyboardType="phone-pad"
@@ -406,6 +407,27 @@ export default function CreateQuoteScreen({ onBack, onQuoteSent }: CreateQuoteSc
           driverName={user?.displayName || user?.email?.split('@')[0]}
         />
       )}
+
+      <LegalInfoModal
+        visible={showLegalModal}
+        onClose={() => { setShowLegalModal(false); setPendingQuoteData(null); }}
+        initialBusinessName={user?.user_metadata?.full_name || user?.email?.split('@')[0] || ''}
+        onSaved={() => {
+          if (pendingQuoteData) {
+            doCreateQuoteAndShowShare(pendingQuoteData).catch((e: any) =>
+              Alert.alert('Erreur', e.message || 'Impossible d\'envoyer le devis')
+            );
+            setPendingQuoteData(null);
+          }
+          setShowLegalModal(false);
+        }}
+        onLater={() => {
+          Alert.alert(
+            'Infos légales requises',
+            'Pour envoyer un devis conforme, renseignez vos infos légales (SIRET, adresse) depuis Mes outils.'
+          );
+        }}
+      />
     </View>
   );
 }

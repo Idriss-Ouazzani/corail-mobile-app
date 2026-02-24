@@ -110,6 +110,10 @@ class ApiClient {
     return supabaseApi.getCredits();
   }
 
+  async setCreditsOnboardingSeen() {
+    return supabaseApi.setCreditsOnboardingSeen();
+  }
+
   // BADGES
   async getUserBadges(userId: string) {
     return supabaseApi.getUserBadges(userId);
@@ -296,6 +300,19 @@ class ApiClient {
     return supabaseApi.deleteVTCProfile();
   }
 
+  // Driver verification (Profil vérifié – documents)
+  async getDriverVerification() {
+    return supabaseApi.getDriverVerification();
+  }
+
+  async uploadDriverVerificationDocument(docType: 'vtc_card' | 'id_card' | 'insurance', file: { uri: string; type?: string; name?: string; base64?: string }) {
+    return supabaseApi.uploadDriverVerificationDocument(docType, file);
+  }
+
+  async submitDriverVerification() {
+    return supabaseApi.submitDriverVerification();
+  }
+
   async updateUserPhoto(photoUrl: string) {
     return supabaseApi.updateUserPhoto(photoUrl);
   }
@@ -328,6 +345,32 @@ class ApiClient {
     return supabaseApi.refuseDriverRideRequest(requestId);
   }
 
+  // Admin: driver verification review
+  async listPendingDriverVerifications() {
+    return supabaseApi.listPendingDriverVerifications();
+  }
+
+  async getDriverVerificationDocumentSignedUrl(path: string, expiresIn?: number) {
+    return supabaseApi.getDriverVerificationDocumentSignedUrl(path, expiresIn);
+  }
+
+  async getDriverVerificationDocumentSignedUrlAdmin(path: string) {
+    return supabaseApi.getDriverVerificationDocumentSignedUrlAdmin(path);
+  }
+
+  async reviewDriverVerificationDocument(
+    vtcProfileId: string,
+    docType: 'vtc_card' | 'id_card' | 'insurance',
+    status: 'approved' | 'rejected',
+    adminNotes?: string | null
+  ) {
+    return supabaseApi.reviewDriverVerificationDocument(vtcProfileId, docType, status, adminNotes);
+  }
+
+  async rejectDriverVerification(vtcProfileId: string, reason: string) {
+    return supabaseApi.rejectDriverVerification(vtcProfileId, reason);
+  }
+
   // RGPD
   async requestDataExport() {
     return supabaseApi.requestDataExport();
@@ -339,6 +382,34 @@ class ApiClient {
 
   async acceptTerms() {
     return supabaseApi.acceptTerms();
+  }
+
+  // IN-APP NOTIFICATIONS (centre de notifications)
+  async listInAppNotifications(limit?: number) {
+    return supabaseApi.listInAppNotifications(limit ?? 50);
+  }
+
+  async getUnreadNotificationsCount(): Promise<number> {
+    return supabaseApi.getUnreadNotificationsCount();
+  }
+
+  async markNotificationRead(id: string) {
+    return supabaseApi.markNotificationRead(id);
+  }
+
+  async markAllNotificationsRead() {
+    return supabaseApi.markAllNotificationsRead();
+  }
+
+  async insertInAppNotification(payload: {
+    type: string;
+    title: string;
+    body?: string | null;
+    target_ride_id?: string | null;
+    target_screen?: string | null;
+    target_personal_ride_id?: string | null;
+  }) {
+    return supabaseApi.insertInAppNotification(payload);
   }
 }
 

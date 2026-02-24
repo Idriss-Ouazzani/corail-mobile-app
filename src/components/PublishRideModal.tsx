@@ -9,6 +9,7 @@ import { View, Text, TouchableOpacity, ScrollView, ActivityIndicator, Alert, Tex
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { apiClient } from '../services/api';
+import { formatPhoneInput, formatPhoneForSubmit, formatPhoneDisplay } from '../utils/phoneFormat';
 import { haptic } from '../services/haptic';
 import { toast } from '../services/toast';
 import { logger } from '../services/logger';
@@ -34,7 +35,7 @@ interface PersonalRide {
 interface PublishRideModalProps {
   visible: boolean;
   personalRide: PersonalRide | null;
-  verificationStatus: string | null;
+  isDriverVerified?: boolean;
   onClose: () => void;
   onPublished: () => void;
 }
@@ -42,7 +43,7 @@ interface PublishRideModalProps {
 export const PublishRideModal: React.FC<PublishRideModalProps> = ({
   visible,
   personalRide,
-  verificationStatus,
+  isDriverVerified = false,
   onClose,
   onPublished,
 }) => {
@@ -70,7 +71,7 @@ export const PublishRideModal: React.FC<PublishRideModalProps> = ({
       
       // Pré-remplir avec les infos existantes si disponibles
       setClientName(personalRide.client_name || '');
-      setClientPhone(personalRide.client_phone || '');
+      setClientPhone(personalRide.client_phone ? formatPhoneDisplay(personalRide.client_phone) : '');
       setClientEmail('');
     }
   }, [visible, personalRide]);
@@ -121,12 +122,11 @@ export const PublishRideModal: React.FC<PublishRideModalProps> = ({
   if (!visible || !personalRide) return null;
 
   const handlePublish = async () => {
-    // 🔐 Vérifier le statut de vérification avant de publier sur la marketplace (PUBLIC)
-    if (publishVisibility === 'PUBLIC' && verificationStatus !== 'VERIFIED') {
+    if (publishVisibility === 'PUBLIC' && !isDriverVerified) {
       haptic.warning();
       Alert.alert(
-        'Profil en cours de vérification',
-        'Vous pourrez publier sur la marketplace après validation de votre profil.'
+        'Profil vérifié requis',
+        'Pour accéder aux opportunités réseau, votre profil doit être vérifié.'
       );
       return;
     }
@@ -165,7 +165,7 @@ export const PublishRideModal: React.FC<PublishRideModalProps> = ({
           ? selectedGroups[0] 
           : undefined,
         client_name: clientName.trim(),
-        client_phone: clientPhone.trim() || undefined,
+        client_phone: formatPhoneForSubmit(clientPhone) || undefined,
         client_email: clientEmail.trim() || undefined,
       });
       
@@ -243,7 +243,7 @@ export const PublishRideModal: React.FC<PublishRideModalProps> = ({
                   placeholderTextColor="#64748b"
                   keyboardType="phone-pad"
                   value={clientPhone}
-                  onChangeText={setClientPhone}
+                  onChangeText={(t) => setClientPhone(formatPhoneInput(t))}
                 />
               </View>
               

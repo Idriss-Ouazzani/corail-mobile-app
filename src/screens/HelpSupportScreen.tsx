@@ -156,7 +156,7 @@ export const HelpSupportScreen: React.FC<HelpSupportScreenProps> = ({ onBack }) 
 
         {/* App Info */}
         <View style={styles.appInfo}>
-          <Text style={styles.appInfoTitle}>Corail VTC</Text>
+          <Text style={styles.appInfoTitle}>Corail</Text>
           <Text style={styles.appInfoText}>Version 1.0.0</Text>
           <Text style={styles.appInfoText}>© 2025 Corail. Tous droits réservés.</Text>
         </View>

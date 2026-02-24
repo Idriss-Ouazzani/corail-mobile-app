@@ -165,7 +165,7 @@ export const VTCProfilePhotoUpload: React.FC<VTCProfilePhotoUploadProps> = ({
     <View style={styles.container}>
       <Text style={styles.label}>Photo de profil</Text>
       <Text style={styles.hint}>
-        Apparaîtra sur votre page publique (corail.app/vtc/votre-slug)
+        Apparaîtra sur votre Page Pro (corail.app/vtc/votre-slug)
       </Text>
 
       <View style={styles.photoContainer}>

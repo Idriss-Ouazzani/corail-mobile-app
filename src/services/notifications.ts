@@ -209,9 +209,12 @@ export async function scheduleRideImminentReminder(
 }
 
 /**
- * 2. Résumé quotidien (8h du matin)
+ * 2. Résumé quotidien à 9h du matin
+ * Envoyé uniquement si la personne a des courses prévues ce jour-là.
+ * @param ridesCount Nombre de courses pour le jour cible
+ * @param forDate Jour concerné (à 9h). Si absent, on planifie pour demain 9h.
  */
-export async function scheduleDailySummary(ridesCount: number): Promise<void> {
+export async function scheduleDailySummary(ridesCount: number, forDate?: Date): Promise<void> {
   const prefs = await getNotificationPreferences();
   if (!prefs.enabled || !prefs.dailySummary || ridesCount === 0) return;
 
@@ -224,31 +227,29 @@ export async function scheduleDailySummary(ridesCount: number): Promise<void> {
       }
     }
 
-    // Planifier pour 8h demain matin
-    const tomorrow = new Date();
-    tomorrow.setDate(tomorrow.getDate() + 1);
-    tomorrow.setHours(8, 0, 0, 0);
-    
-    // Calculer le nombre de secondes jusqu'à demain 8h
-    const secondsUntilTomorrow = Math.floor((tomorrow.getTime() - Date.now()) / 1000);
-    
-    // Ne pas planifier si c'est trop proche (< 10 secondes)
-    if (secondsUntilTomorrow < 10) {
-      console.log('⏰ Résumé quotidien trop proche, pas de notification');
+    const target = forDate ? new Date(forDate) : new Date();
+    if (!forDate) {
+      target.setDate(target.getDate() + 1);
+    }
+    target.setHours(9, 0, 0, 0);
+
+    const secondsUntil = Math.floor((target.getTime() - Date.now()) / 1000);
+    if (secondsUntil < 10) {
+      console.log('⏰ Résumé quotidien 9h trop proche, pas de notification');
       return;
     }
 
     await Notifications.scheduleNotificationAsync({
       content: {
         title: '📅 Planning du jour',
-        body: `Vous avez ${ridesCount} course${ridesCount > 1 ? 's' : ''} prévue${ridesCount > 1 ? 's' : ''} aujourd'hui`,
+        body: `Vous avez ${ridesCount} course${ridesCount > 1 ? 's' : ''} prévue${ridesCount > 1 ? 's' : ''} aujourd'hui.`,
         data: { type: 'daily_summary' },
         sound: true,
       },
-      trigger: { type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL, seconds: secondsUntilTomorrow, repeats: false },
+      trigger: { type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL, seconds: secondsUntil, repeats: false },
     });
 
-    console.log(`✅ Résumé quotidien planifié pour demain 8h`);
+    console.log(`✅ Résumé quotidien planifié pour ${target.toLocaleDateString('fr-FR')} à 9h (${ridesCount} course(s))`);
   } catch (error) {
     console.error('❌ Erreur résumé quotidien:', error);
   }

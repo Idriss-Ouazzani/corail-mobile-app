@@ -1,20 +1,15 @@
-import React, { useState } from 'react';
+import React from 'react';
 import {
   View,
   Text,
   ScrollView,
   StyleSheet,
   TouchableOpacity,
-  TextInput,
   Image,
   Platform,
-  ActivityIndicator,
-  Alert,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { theme } from '../theme';
-import { apiClient } from '../services/api';
-import { useAuth } from '../contexts/AuthContext';
 
 const HERO_IMAGE = 'https://images.unsplash.com/photo-1522071820081-009f0129c71c?w=800&q=80';
 
@@ -32,32 +27,8 @@ const PersonalInfoScreen: React.FC<PersonalInfoScreenProps> = ({
   fullName = '',
   email = '',
   phone = '',
-  siret = '',
   vtcCard = '',
 }) => {
-  const { loadVerificationStatus } = useAuth();
-  const [isEditingSiret, setIsEditingSiret] = useState(false);
-  const [localSiret, setLocalSiret] = useState(siret);
-  const [savingSiret, setSavingSiret] = useState(false);
-
-  const handleSaveSiret = async () => {
-    const value = localSiret.trim();
-    if (value && value.length !== 9 && value.length !== 14) {
-      Alert.alert('SIRET / SIREN', 'Le SIREN comporte 9 chiffres, le SIRET 14 chiffres.');
-      return;
-    }
-    setSavingSiret(true);
-    try {
-      await apiClient.updateUserProfile({ siren: value || undefined });
-      await loadVerificationStatus();
-      setIsEditingSiret(false);
-    } catch (e: any) {
-      Alert.alert('Erreur', e.message || 'Impossible d\'enregistrer.');
-    } finally {
-      setSavingSiret(false);
-    }
-  };
-
   const getInitials = (name: string) => {
     if (!name) return '??';
     return name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
@@ -98,63 +69,6 @@ const PersonalInfoScreen: React.FC<PersonalInfoScreenProps> = ({
 
         <View style={styles.card}>
           <Text style={styles.sectionTitle}>Informations professionnelles</Text>
-          {isEditingSiret ? (
-            <View style={styles.siretEditRow}>
-              <View style={[styles.fieldIconWrap, { backgroundColor: theme.colors.accentLight + '25' }]}>
-                <Ionicons name="business" size={18} color={theme.colors.accentLight} />
-              </View>
-              <View style={styles.siretEditContent}>
-                <Text style={styles.fieldLabel}>SIRET / SIREN</Text>
-                <TextInput
-                  style={styles.siretInput}
-                  value={localSiret}
-                  onChangeText={setLocalSiret}
-                  placeholder="9 (SIREN) ou 14 chiffres (SIRET)"
-                  placeholderTextColor={theme.colors.textMutedDark}
-                  keyboardType="number-pad"
-                  maxLength={14}
-                  editable={!savingSiret}
-                />
-                <View style={styles.siretActions}>
-                  <TouchableOpacity
-                    style={styles.siretCancelBtn}
-                    onPress={() => { setIsEditingSiret(false); setLocalSiret(siret); }}
-                    disabled={savingSiret}
-                  >
-                    <Text style={styles.siretCancelText}>Annuler</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    style={styles.siretSaveBtn}
-                    onPress={handleSaveSiret}
-                    disabled={savingSiret}
-                  >
-                    {savingSiret ? (
-                      <ActivityIndicator size="small" color={theme.colors.white} />
-                    ) : (
-                      <Text style={styles.siretSaveText}>Enregistrer</Text>
-                    )}
-                  </TouchableOpacity>
-                </View>
-              </View>
-            </View>
-          ) : (
-            <View style={styles.fieldRow}>
-              <View style={[styles.fieldIconWrap, { backgroundColor: theme.colors.accentLight + '25' }]}>
-                <Ionicons name="business" size={18} color={theme.colors.accentLight} />
-              </View>
-              <View style={styles.fieldContent}>
-                <Text style={styles.fieldLabel}>SIRET / SIREN</Text>
-                <Text style={styles.fieldValue}>{siret?.trim() || 'Non renseigné'}</Text>
-              </View>
-              <TouchableOpacity
-                style={styles.editSiretButton}
-                onPress={() => { setLocalSiret(siret); setIsEditingSiret(true); }}
-              >
-                <Ionicons name="pencil" size={18} color={theme.colors.primary} />
-                <Text style={styles.editSiretButtonText}>Modifier</Text>
-              </TouchableOpacity>
-            </View>
-          )}
           <FieldRow icon="card" iconColor={theme.colors.info} label="Carte VTC" value={vtcCard} />
           <View style={styles.infoCard}>
             <Ionicons name="shield-checkmark" size={22} color={theme.colors.success} />
@@ -274,54 +188,6 @@ const styles = StyleSheet.create({
   fieldContent: { flex: 1, minWidth: 0 },
   fieldLabel: { fontSize: 12, color: theme.colors.textMutedDark, marginBottom: 2 },
   fieldValue: { fontSize: 15, fontWeight: '600', color: theme.colors.textSecondary },
-  editSiretButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    paddingVertical: 6,
-    paddingHorizontal: 10,
-  },
-  editSiretButtonText: { fontSize: 13, fontWeight: '600', color: theme.colors.primary },
-  siretEditRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    paddingVertical: 10,
-    borderBottomWidth: 1,
-    borderBottomColor: theme.colors.borderMuted,
-    gap: theme.spacing.sm,
-  },
-  siretEditContent: { flex: 1, minWidth: 0 },
-  siretInput: {
-    backgroundColor: theme.colors.inputBg,
-    borderRadius: theme.radii.sm,
-    padding: 12,
-    fontSize: 15,
-    color: theme.colors.textSecondary,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-    marginTop: 6,
-  },
-  siretActions: {
-    flexDirection: 'row',
-    gap: 10,
-    marginTop: 12,
-  },
-  siretCancelBtn: {
-    paddingVertical: 10,
-    paddingHorizontal: 16,
-    borderRadius: theme.radii.sm,
-    backgroundColor: theme.colors.surfaceElevated,
-  },
-  siretCancelText: { fontSize: 14, fontWeight: '600', color: theme.colors.textMuted },
-  siretSaveBtn: {
-    paddingVertical: 10,
-    paddingHorizontal: 20,
-    borderRadius: theme.radii.sm,
-    backgroundColor: theme.colors.primary,
-    minWidth: 120,
-    alignItems: 'center',
-  },
-  siretSaveText: { fontSize: 14, fontWeight: '700', color: theme.colors.white },
   infoCard: {
     flexDirection: 'row',
     alignItems: 'center',

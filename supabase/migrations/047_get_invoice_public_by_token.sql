@@ -1,8 +1,10 @@
 -- ============================================================================
 -- Migration 047: RPC get_invoice_public_by_token – facture + chauffeur + adresses
 -- ============================================================================
--- Une seule requête pour la page facture et le PDF : résout le chauffeur via
--- vtc_profile_id ou via source_type/source_id (ride/personal_ride).
+-- Résout le chauffeur comme la page devis (quotes.driver_id) :
+-- 1) vtc_profile_id sur la facture
+-- 2) source_type/source_id → ride/personal_ride → picker_id/creator_id/driver_id
+-- 3) quote_id (facture ou course) → quotes.driver_id (même logique que devis)
 -- ============================================================================
 
 CREATE OR REPLACE FUNCTION public.get_invoice_public_by_token(p_token text)
@@ -22,6 +24,7 @@ DECLARE
   v_pickup text;
   v_dropoff text;
   v_quote_id text;
+  v_quote_id_from_inv text;
   v_result jsonb;
   v_uid text;
   v_has_profile boolean := false;
@@ -42,8 +45,14 @@ BEGIN
   v_pickup := NULL;
   v_dropoff := NULL;
   v_quote_id := NULL;
+  v_quote_id_from_inv := NULL;
+  BEGIN
+    v_quote_id_from_inv := v_inv.quote_id;
+  EXCEPTION WHEN undefined_column OR others THEN
+    NULL;
+  END;
 
-  -- 2) Si pas de vtc_profile_id, dériver le chauffeur depuis la course
+  -- 2) Si pas de vtc_profile_id, dériver le chauffeur depuis la course (source_type/source_id)
   IF v_vpid IS NULL AND v_inv.source_type IS NOT NULL AND v_inv.source_id IS NOT NULL THEN
     IF v_inv.source_type = 'RIDE' THEN
       SELECT pickup_address, dropoff_address, quote_id, picker_id, creator_id
@@ -113,6 +122,31 @@ BEGIN
     END IF;
   END IF;
 
+  -- 2b) Fallback chauffeur via le devis (comme la page devis : driver_id sur quotes)
+  IF v_driver_user_id IS NULL AND v_quote_id IS NOT NULL THEN
+    SELECT driver_id INTO v_driver_user_id
+      FROM public.quotes
+      WHERE id = v_quote_id
+      LIMIT 1;
+  END IF;
+  IF v_driver_user_id IS NULL AND v_quote_id_from_inv IS NOT NULL THEN
+    SELECT driver_id INTO v_driver_user_id
+      FROM public.quotes
+      WHERE id = v_quote_id_from_inv
+      LIMIT 1;
+  END IF;
+  IF v_driver_user_id IS NOT NULL AND NOT v_has_profile THEN
+    SELECT id, user_id, display_name, legal_business_name, legal_address_line1,
+           legal_postal_code, legal_city, siret, vat_option, vat_number
+      INTO v_profile
+      FROM public.vtc_profiles
+      WHERE user_id = v_driver_user_id
+      LIMIT 1;
+    IF FOUND THEN
+      v_has_profile := true;
+    END IF;
+  END IF;
+
   -- 3) Fallback profil par user_id si pas encore chargé
   IF NOT v_has_profile AND v_driver_user_id IS NOT NULL THEN
     SELECT id, user_id, display_name, legal_business_name, legal_address_line1,
@@ -143,6 +177,10 @@ BEGIN
     END IF;
   END IF;
 
+  IF v_quote_id IS NULL AND v_quote_id_from_inv IS NOT NULL THEN
+    v_quote_id := v_quote_id_from_inv;
+  END IF;
+
   -- 5) Construire le JSON
   v_result := jsonb_build_object(
     'invoice', to_jsonb(v_inv),
@@ -166,4 +204,4 @@ END;
 $$;
 
 COMMENT ON FUNCTION public.get_invoice_public_by_token(text) IS
-  'Retourne la facture + infos chauffeur + adresses pour affichage public (page et PDF). Résout le chauffeur via vtc_profile_id ou via source_type/source_id.';
+  'Facture + chauffeur + adresses pour page/PDF. Chauffeur : vtc_profile_id, ou source_type/source_id, ou quote_id (quotes.driver_id comme le devis).';

@@ -70,7 +70,7 @@ export default function ConsentScreen({
               <CoralLogo size={44} />
             </View>
             <View style={styles.heroTextBlock}>
-              <Text style={styles.heroTitle}>Bienvenue sur Corail VTC</Text>
+              <Text style={styles.heroTitle}>Bienvenue sur Corail</Text>
               <Text style={styles.heroSubtitle}>Acceptez nos conditions pour continuer</Text>
             </View>
           </View>
@@ -85,7 +85,7 @@ export default function ConsentScreen({
             <Text style={styles.cardTitle}>Protection de vos données</Text>
           </View>
           <Text style={styles.cardText}>
-            Corail VTC respecte votre vie privée et protège vos données conformément au RGPD.
+            Corail respecte votre vie privée et protège vos données conformément au RGPD.
           </Text>
         </View>
 
@@ -130,7 +130,7 @@ export default function ConsentScreen({
               <Text style={styles.checkboxLink} onPress={onShowTermsOfService}>CGU</Text>
               {' '}et la{' '}
               <Text style={styles.checkboxLink} onPress={onShowPrivacyPolicy}>Politique de confidentialité</Text>
-              {' '}de Corail VTC.
+              {' '}de Corail.
             </Text>
           </TouchableOpacity>
 

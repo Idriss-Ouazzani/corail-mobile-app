@@ -26,7 +26,7 @@ function LegalNoticeContent() {
       <Text style={styles.lastUpdated}>Dernière mise à jour : 4 janvier 2026</Text>
 
       <Section title="1. Éditeur de l'application">
-        <InfoBlock label="Nom du projet" value="Corail VTC" />
+        <InfoBlock label="Nom du projet" value="Corail" />
         <InfoBlock label="Contact" value="contact@corail.app" />
         <Text style={styles.disclaimer}>
           Cette application est actuellement exploitée en phase de test, sans activité commerciale et sans structure juridique immatriculée. Les informations légales complètes (forme juridique, SIREN, SIRET, siège social, directeur de publication) seront publiées dès l'immatriculation de l'éditeur (micro-entreprise, société, etc.). En l'état, aucun revenu n'est généré par ce service.
@@ -40,16 +40,10 @@ function LegalNoticeContent() {
           value="Expo (Vercel Inc.)\n340 S Lemon Ave #4133\nWalnut, CA 91789, USA" 
         />
         
-        <Text style={styles.subtitle}>Base de données :</Text>
+        <Text style={styles.subtitle}>Base de données et authentification :</Text>
         <InfoBlock 
           label="Hébergeur" 
-          value="Supabase Inc.\nServeurs situés en Union Européenne\nwww.supabase.com" 
-        />
-        
-        <Text style={styles.subtitle}>Authentification :</Text>
-        <InfoBlock 
-          label="Fournisseur" 
-          value="Supabase (auth intégrée aux serveurs ci-dessus)" 
+          value="Prestataire technique\nServeurs situés en Union Européenne" 
         />
 
         <Text style={styles.subtitle}>Site web (devis et profils publics) :</Text>
@@ -61,8 +55,8 @@ function LegalNoticeContent() {
 
       <Section title="3. Propriété intellectuelle">
         <Text style={styles.text}>
-          L'ensemble de cette application (design, code source, logo, marque "Corail VTC", 
-          textes, images) est la propriété exclusive de Corail VTC et est protégé par le 
+          L'ensemble de cette application (design, code source, logo, marque "Corail",
+          textes, images) est la propriété exclusive de Corail et est protégé par le
           droit français et international sur la propriété intellectuelle.
         </Text>
         <Text style={styles.text}>
@@ -71,7 +65,7 @@ function LegalNoticeContent() {
           est interdite, sauf autorisation écrite préalable.
         </Text>
         <Text style={styles.text}>
-          La marque "Corail VTC" est une marque déposée. Toute utilisation non autorisée 
+          La marque "Corail" est une marque déposée. Toute utilisation non autorisée 
           constitue une contrefaçon passible de sanctions pénales.
         </Text>
       </Section>
@@ -81,7 +75,7 @@ function LegalNoticeContent() {
           Conformément au Règlement Général sur la Protection des Données (RGPD) et à la 
           loi Informatique et Libertés, vous disposez de droits sur vos données personnelles.
         </Text>
-        <InfoBlock label="Responsable de traitement" value="Corail VTC" />
+        <InfoBlock label="Responsable de traitement" value="Corail" />
         <InfoBlock label="Délégué à la protection des données (DPO)" value="dpo@corail.app" />
         <InfoBlock 
           label="Finalité des traitements" 
@@ -90,7 +84,7 @@ function LegalNoticeContent() {
         <InfoBlock label="Base légale" value="Exécution du contrat, intérêt légitime, consentement" />
         <InfoBlock 
           label="Destinataires des données" 
-          value="Personnel habilité de Corail VTC, sous-traitants (Supabase, Stripe, Sentry)" 
+          value="Personnel habilité de Corail, prestataires techniques (hébergement, paiement, suivi des erreurs)" 
         />
         <InfoBlock label="Durée de conservation" value="Durée du compte + 30 jours après suppression (sauf obligations légales comptables)" />
         
@@ -110,10 +104,10 @@ function LegalNoticeContent() {
 
       <Section title="5. Cookies et traceurs">
         <Text style={styles.text}>
-          L'application mobile Corail VTC n'utilise PAS de cookies. En revanche, nous utilisons :
+          L'application mobile Corail n'utilise PAS de cookies. En revanche, nous utilisons :
         </Text>
         <BulletPoint>
-          <Text style={styles.bold}>Monitoring :</Text> Sentry pour détecter et corriger les bugs (données techniques anonymisées)
+          <Text style={styles.bold}>Monitoring :</Text> outil de suivi des erreurs pour détecter et corriger les bugs (données techniques anonymisées)
         </BulletPoint>
         
         <Text style={styles.text}>
@@ -123,18 +117,14 @@ function LegalNoticeContent() {
 
       <Section title="6. Crédits et technologies">
         <Text style={styles.subtitle}>Technologies utilisées :</Text>
-        <BulletPoint>React Native & Expo (framework mobile)</BulletPoint>
-        <BulletPoint>TypeScript (langage de programmation)</BulletPoint>
-        <BulletPoint>Supabase (authentification et base de données PostgreSQL)</BulletPoint>
-        <BulletPoint>Stripe (paiements)</BulletPoint>
-        <BulletPoint>Next.js (site web devis)</BulletPoint>
-        <BulletPoint>API Adresse Gouv & Nominatim (recherche d'adresses)</BulletPoint>
-        <BulletPoint>OSRM (calcul d'itinéraires)</BulletPoint>
+        <BulletPoint>Application mobile (framework standard)</BulletPoint>
+        <BulletPoint>Authentification et base de données (hébergement UE)</BulletPoint>
+        <BulletPoint>Paiements en ligne</BulletPoint>
+        <BulletPoint>Site web (devis et profils publics)</BulletPoint>
+        <BulletPoint>Recherche d'adresses et calcul d'itinéraires</BulletPoint>
         
-        <Text style={styles.subtitle}>Icônes et design :</Text>
-        <BulletPoint>Ionicons (icônes)</BulletPoint>
-        <BulletPoint>Expo Vector Icons</BulletPoint>
-        <BulletPoint>Design original Corail VTC</BulletPoint>
+        <Text style={styles.subtitle}>Design :</Text>
+        <BulletPoint>Design original Corail</BulletPoint>
       </Section>
 
       <Section title="7. Législation applicable">
@@ -158,11 +148,11 @@ function LegalNoticeContent() {
 
       <Section title="8. Limitation de responsabilité">
         <Text style={styles.text}>
-          Corail VTC s'efforce d'assurer l'exactitude et la mise à jour des informations diffusées, 
+          Corail s'efforce d'assurer l'exactitude et la mise à jour des informations diffusées, 
           mais ne peut garantir l'exactitude, la précision ou l'exhaustivité de ces informations.
         </Text>
         <Text style={styles.text}>
-          Corail VTC ne saurait être tenue responsable :
+          Corail ne saurait être tenue responsable :
         </Text>
         <BulletPoint>Des interruptions de service (maintenance, pannes, cas de force majeure)</BulletPoint>
         <BulletPoint>Des dommages directs ou indirects résultant de l'utilisation de l'application</BulletPoint>
@@ -184,7 +174,7 @@ function LegalNoticeContent() {
 
       <View style={styles.footer}>
         <Text style={styles.footerText}>
-          © 2026 Corail VTC. Tous droits réservés.
+          © 2026 Corail. Tous droits réservés.
         </Text>
         <Text style={styles.footerText}>
           Version de l'application : 1.0.0

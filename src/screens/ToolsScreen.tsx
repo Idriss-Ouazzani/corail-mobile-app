@@ -77,7 +77,7 @@ export default function ToolsScreen({ verificationStatus, onRefreshVerification,
               <View style={[styles.toolCardIcon, styles.toolCardIconCyan]}>
                 <Ionicons name="globe-outline" size={26} color="#0ea5e9" />
               </View>
-              <Text style={styles.toolCardTitle}>Page Publique</Text>
+              <Text style={styles.toolCardTitle}>Ma Page Pro</Text>
             </TouchableOpacity>
 
             <TouchableOpacity style={[styles.toolCard, styles.toolCardViolet]} onPress={onOpenInvoices} activeOpacity={0.8}>

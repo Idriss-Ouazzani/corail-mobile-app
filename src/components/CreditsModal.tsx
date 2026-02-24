@@ -53,13 +53,13 @@ export const CreditsModal: React.FC<CreditsModalProps> = ({ visible, onClose }) 
               <View style={appStyles.creditsModalItem}>
                 <View style={appStyles.creditsModalDot} />
                 <Text style={appStyles.creditsModalItemText}>
-                  <Text style={appStyles.creditsModalBadgePositive}>+1 C</Text> à chaque course publiée
+                  <Text style={appStyles.creditsModalBadgePositive}>+1 C</Text> à chaque course publiée en public (groupe = 0)
                 </Text>
               </View>
               <View style={appStyles.creditsModalItem}>
                 <View style={appStyles.creditsModalDot} />
                 <Text style={appStyles.creditsModalItemText}>
-                  <Text style={appStyles.creditsModalBadgePositive}>+1 C</Text> à chaque course complétée
+                  <Text style={appStyles.creditsModalBadgePositive}>+1 C</Text> bonus pour l'auteur quand sa course est terminée par celui qui l'a prise
                 </Text>
               </View>
             </View>
@@ -73,7 +73,7 @@ export const CreditsModal: React.FC<CreditsModalProps> = ({ visible, onClose }) 
               <View style={appStyles.creditsModalItem}>
                 <View style={appStyles.creditsModalDot} />
                 <Text style={appStyles.creditsModalItemText}>
-                  <Text style={appStyles.creditsModalBadge}>-1 C</Text> pour prendre une course
+                  <Text style={appStyles.creditsModalBadge}>-1 C</Text> pour prendre une course dans les annonces (groupe ou client = 0)
                 </Text>
               </View>
             </View>

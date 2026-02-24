@@ -59,6 +59,7 @@ interface ProfileTabProps {
   rides: Ride[];
   personalRides?: any[];
   isAdmin: boolean;
+  isDriverVerified?: boolean;
   formatName: (name: string) => string;
   onShowPersonalInfo: () => void;
   onShowNotifications: () => void;
@@ -87,6 +88,7 @@ export default function ProfileTab({
   rides,
   personalRides = [],
   isAdmin,
+  isDriverVerified = false,
   formatName,
   onShowPersonalInfo,
   onShowNotifications,
@@ -274,9 +276,9 @@ export default function ProfileTab({
         displayEmail={displayEmail}
         initials={initials}
         photoUrl={userPhotoUrl}
-        userCredits={userCredits}
         badgesCount={badgesCount}
         completedRidesCount={completedRidesCount}
+        isDriverVerified={isDriverVerified}
         onChangePhoto={handleChangePhoto}
       />
       

@@ -133,7 +133,9 @@ export function MarketplaceRideCard({ ride, currentUserId, onPress }: Marketplac
               <Text style={styles.pricePerKm}>{pricePerKm} €/km</Text>
             )}
             <TouchableOpacity style={styles.btn} onPress={onPress} activeOpacity={0.8}>
-              <Text style={styles.btnText}>Prendre</Text>
+              <Text style={styles.btnText}>
+                {isClientDemand || isGroup ? 'Prendre' : 'Prendre (-1 crédit)'}
+              </Text>
               <Ionicons name="chevron-forward" size={14} color="#fff" />
             </TouchableOpacity>
           </View>

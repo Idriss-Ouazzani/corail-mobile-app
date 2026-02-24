@@ -26,6 +26,7 @@ import CreateRideScreen from '../screens/CreateRideScreen';
 import RideDetailScreen from '../screens/RideDetailScreen';
 import { VTCPublicProfileScreen } from '../screens/VTCPublicProfileScreen';
 import DriverRequestsScreen from '../screens/DriverRequestsScreen';
+import DriverVerificationProfileScreen from '../screens/DriverVerificationProfileScreen';
 import PrivacyPolicyScreen from '../screens/PrivacyPolicyScreen';
 import TermsOfServiceScreen from '../screens/TermsOfServiceScreen';
 import LegalNoticeScreen from '../screens/LegalNoticeScreen';
@@ -42,6 +43,8 @@ interface ModalScreensProps {
   userProfessionalCard: string;
   currentUserId: string;
   verificationStatus: string | null;
+  isDriverVerified?: boolean;
+  loadVerificationStatus?: () => Promise<void>;
   
   // Personal Info
   showPersonalInfo: boolean;
@@ -94,9 +97,10 @@ interface ModalScreensProps {
   // VTC Profile
   showVTCProfile: boolean;
   setShowVTCProfile: (show: boolean) => void;
-  // Driver requests (from public page)
   showDriverRequests: boolean;
   setShowDriverRequests: (show: boolean) => void;
+  showVerificationProfile: boolean;
+  setShowVerificationProfile: (show: boolean) => void;
   
   // Legal Pages
   showPrivacyPolicy: boolean;
@@ -134,6 +138,14 @@ interface ModalScreensProps {
   loadPersonalRides: () => Promise<void>;
   loadRides: () => Promise<void>;
   loadCredits: () => Promise<void>;
+  /** Rafraîchir le compteur de notifications (pastille) après fermeture de l'écran Notifications */
+  loadUnreadNotificationsCount?: () => void;
+  /** Navigation : écran actif (pour ouvrir Annonces depuis une notif) */
+  setCurrentScreen?: (screen: string) => void;
+  /** Onglet Courses : marketplace | myrides */
+  setCoursesTab?: (tab: 'marketplace' | 'myrides') => void;
+  /** Filtre Annonces : all | public | groups */
+  setActiveFilter?: (filter: 'all' | 'public' | 'groups') => void;
 }
 
 /**
@@ -151,6 +163,8 @@ export function renderModalScreens(props: ModalScreensProps): React.ReactElement
     userProfessionalCard,
     currentUserId,
     verificationStatus,
+    isDriverVerified = false,
+    loadVerificationStatus,
     showPersonalInfo,
     setShowPersonalInfo,
     showNotifications,
@@ -181,6 +195,8 @@ export function renderModalScreens(props: ModalScreensProps): React.ReactElement
     setShowVTCProfile,
     showDriverRequests,
     setShowDriverRequests,
+    showVerificationProfile,
+    setShowVerificationProfile,
     showPrivacyPolicy,
     setShowPrivacyPolicy,
     showTermsOfService,
@@ -210,7 +226,24 @@ export function renderModalScreens(props: ModalScreensProps): React.ReactElement
     loadPersonalRides,
     loadRides,
     loadCredits,
+    loadUnreadNotificationsCount,
+    setCurrentScreen,
+    setCoursesTab,
+    setActiveFilter,
   } = props;
+
+  // 🔐 Driver Verification Profile (documents)
+  if (showVerificationProfile) {
+    return (
+      <DriverVerificationProfileScreen
+        onBack={() => setShowVerificationProfile(false)}
+        onSubmitted={async () => {
+          setShowVerificationProfile(false);
+          await loadVerificationStatus?.();
+        }}
+      />
+    );
+  }
 
   // 👤 Personal Info Screen
   if (showPersonalInfo) {
@@ -228,7 +261,57 @@ export function renderModalScreens(props: ModalScreensProps): React.ReactElement
 
   // 🔔 Notifications Screen
   if (showNotifications) {
-    return <NotificationsScreen onBack={() => setShowNotifications(false)} />;
+    return (
+      <NotificationsScreen
+        onBack={() => {
+          setShowNotifications(false);
+          loadUnreadNotificationsCount?.();
+        }}
+        onOpenRideDetail={(rideId) => {
+          setShowNotifications(false);
+          loadUnreadNotificationsCount?.();
+          const apiClient = require('../services/api').apiClient;
+          apiClient.getRide(rideId).then((r: any) => {
+            if (r) setSelectedRide(r);
+          }).catch(() => {});
+        }}
+        onOpenAdminPanel={() => {
+          setShowNotifications(false);
+          loadUnreadNotificationsCount?.();
+          setShowAdminPanel(true);
+        }}
+        onOpenGroupInvitations={() => {
+          setShowNotifications(false);
+          loadUnreadNotificationsCount?.();
+          setShowGroupInvitations(true);
+        }}
+        onOpenVerificationProfile={() => {
+          setShowNotifications(false);
+          loadUnreadNotificationsCount?.();
+          setShowVerificationProfile(true);
+        }}
+        onOpenPersonalRideDetail={(personalRideId) => {
+          setShowNotifications(false);
+          loadUnreadNotificationsCount?.();
+          const apiClient = require('../services/api').apiClient;
+          apiClient.getPersonalRide(personalRideId).then((r: any) => {
+            if (r) setSelectedPersonalRide(r);
+          }).catch(() => {});
+        }}
+        onOpenMarketplaceGroups={() => {
+          setShowNotifications(false);
+          loadUnreadNotificationsCount?.();
+          setCurrentScreen?.('courses');
+          setCoursesTab?.('marketplace');
+          setActiveFilter?.('groups');
+        }}
+        onOpenDriverRequests={() => {
+          setShowNotifications(false);
+          loadUnreadNotificationsCount?.();
+          setShowDriverRequests(true);
+        }}
+      />
+    );
   }
 
   // ❓ Help & Support Screen
@@ -402,7 +485,7 @@ export function renderModalScreens(props: ModalScreensProps): React.ReactElement
     return (
       <CreateRideScreen
         mode={createRideMode}
-        verificationStatus={verificationStatus}
+        isDriverVerified={isDriverVerified}
         onBack={() => setShowCreateRide(false)}
         onCreate={async (ride) => {
           try {

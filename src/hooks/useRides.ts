@@ -77,13 +77,19 @@ export function useRides(currentUserId: string | null, userCredits: number) {
       console.log('🎯 Prise de course:', rideId);
       await apiClient.claimRide(rideId);
       
-      // Planifier notifications
+      // Planifier notifications + ajout dans la cloche
       await NotificationService.scheduleRideReminder(
         ride.id,
         ride.scheduled_at,
         ride.pickup_address,
         ride.dropoff_address
       );
+      await apiClient.insertInAppNotification({
+        type: 'ride_reminder',
+        title: 'Course dans 1 heure',
+        body: `${ride.pickup_address} → ${ride.dropoff_address}`,
+        target_ride_id: ride.id,
+      });
       
       await NotificationService.notifyCompleteRide(
         ride.id,
@@ -136,7 +142,7 @@ export function useRides(currentUserId: string | null, userCredits: number) {
       await apiClient.completeRide(rideId);
       await loadRides();
       
-      Alert.alert('Succès', 'Course terminée ! +1 crédit');
+      Alert.alert('Succès', 'Course terminée ! L\'auteur de la course a reçu un crédit bonus.');
       return true;
     } catch (err: any) {
       console.error('❌ Erreur complétion course:', err);

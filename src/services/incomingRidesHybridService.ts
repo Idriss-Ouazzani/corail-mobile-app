@@ -16,6 +16,12 @@ let groupRidesChannels: RealtimeChannel[] = [];
 let onNewRideCallback: ((ride: any) => void) | null = null;
 let currentUserId: string | null = null;
 
+const MAX_RECONNECT_ATTEMPTS = 4;
+const RECONNECT_DELAYS_MS = [2000, 4000, 8000, 12000];
+let marketplaceReconnectAttempt = 0;
+const groupReconnectAttempts: Record<string, number> = {};
+let reconnectTimeoutId: ReturnType<typeof setTimeout> | null = null;
+
 // Configuration des notifications (priorité haute + son + vibration)
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
@@ -54,6 +60,13 @@ export const initializeHybridSystem = async (
  */
 export const stopHybridSystem = async () => {
   console.log('🔕 Arrêt système hybride');
+  
+  if (reconnectTimeoutId) {
+    clearTimeout(reconnectTimeoutId);
+    reconnectTimeoutId = null;
+  }
+  marketplaceReconnectAttempt = 0;
+  Object.keys(groupReconnectAttempts).forEach((k) => delete groupReconnectAttempts[k]);
   
   if (ridesChannel) {
     await supabase.removeChannel(ridesChannel);
@@ -162,14 +175,28 @@ const startRealtimeListening = async (userId: string) => {
       }
     )
     .subscribe((status, err) => {
-      console.log('📡 Realtime marketplace status:', status);
-      if (err) {
-        console.error('❌ Erreur canal marketplace:', err);
+      if (__DEV__) console.log('📡 Realtime marketplace status:', status);
+      if (err && status !== 'CHANNEL_ERROR') {
+        console.warn('⚠️ Erreur canal marketplace:', err);
       }
       if (status === 'SUBSCRIBED') {
-        console.log('✅ Canal marketplace CONNECTÉ !');
+        marketplaceReconnectAttempt = 0;
+        if (__DEV__) console.log('✅ Canal marketplace connecté');
       } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
-        console.error('❌ Échec connexion marketplace:', status);
+        const attempt = marketplaceReconnectAttempt++;
+        if (attempt < MAX_RECONNECT_ATTEMPTS && currentUserId && !reconnectTimeoutId) {
+          const delay = RECONNECT_DELAYS_MS[attempt] ?? 12000;
+          console.warn(`Connexion marketplace interrompue. Réessai dans ${delay / 1000}s… (${attempt + 1}/${MAX_RECONNECT_ATTEMPTS})`);
+          const ch = ridesChannel;
+          ridesChannel = null;
+          if (ch) supabase.removeChannel(ch).catch(() => {});
+          reconnectTimeoutId = setTimeout(() => {
+            reconnectTimeoutId = null;
+            startRealtimeListening(currentUserId!);
+          }, delay);
+        } else if (attempt >= MAX_RECONNECT_ATTEMPTS && __DEV__) {
+          console.warn('Connexion marketplace indisponible:', status);
+        }
       }
     });
 
@@ -209,14 +236,29 @@ const startRealtimeListening = async (userId: string) => {
           }
         )
         .subscribe((status, err) => {
-          console.log(`📡 Realtime groupe ${groupId} status:`, status);
-          if (err) {
-            console.error(`❌ Erreur canal groupe ${groupId}:`, err);
+          if (__DEV__) console.log(`📡 Realtime groupe ${groupId} status:`, status);
+          if (err && status !== 'CHANNEL_ERROR') {
+            console.warn(`⚠️ Erreur canal groupe ${groupId}:`, err);
           }
           if (status === 'SUBSCRIBED') {
-            console.log(`✅ Canal groupe ${groupId} CONNECTÉ !`);
+            groupReconnectAttempts[groupId] = 0;
+            if (__DEV__) console.log(`✅ Canal groupe ${groupId} connecté`);
           } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
-            console.error(`❌ Échec connexion groupe ${groupId}:`, status);
+            const attempt = (groupReconnectAttempts[groupId] ?? 0);
+            groupReconnectAttempts[groupId] = attempt + 1;
+            if (attempt < MAX_RECONNECT_ATTEMPTS && currentUserId && !reconnectTimeoutId) {
+              const delay = RECONNECT_DELAYS_MS[attempt] ?? 12000;
+              console.warn(`Connexion groupe ${groupId} interrompue. Réessai dans ${delay / 1000}s… (${attempt + 1}/${MAX_RECONNECT_ATTEMPTS})`);
+              const idx = groupRidesChannels.findIndex((c) => c === channel);
+              if (idx !== -1) groupRidesChannels.splice(idx, 1);
+              supabase.removeChannel(channel).catch(() => {});
+              reconnectTimeoutId = setTimeout(() => {
+                reconnectTimeoutId = null;
+                startRealtimeListening(currentUserId!);
+              }, delay);
+            } else if (attempt >= MAX_RECONNECT_ATTEMPTS && __DEV__) {
+              console.warn(`Connexion groupe ${groupId} indisponible:`, status);
+            }
           }
         });
 

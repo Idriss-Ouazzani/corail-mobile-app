@@ -35,7 +35,7 @@ interface FilterOptions {
 }
 
 interface MarketplaceTabProps {
-  verificationStatus: string | null;
+  isDriverVerified?: boolean;
   onRefreshVerification: () => Promise<void>;
   rides: Ride[];
   currentUserId: string | null;
@@ -52,7 +52,7 @@ interface MarketplaceTabProps {
 }
 
 export default function MarketplaceTab({
-  verificationStatus,
+  isDriverVerified = false,
   onRefreshVerification,
   rides,
   currentUserId,

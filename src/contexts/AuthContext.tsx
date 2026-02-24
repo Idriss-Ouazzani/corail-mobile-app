@@ -20,6 +20,10 @@ interface AuthContextType {
   
   // Données de vérification
   verificationStatus: string | null;
+  /** Statut vérification chauffeur (documents) : not_started | pending | approved | rejected. Gating marketplace / Page Pro. */
+  driverVerificationStatus: string | null;
+  /** true si driver_verification_status === 'approved' (accès réseau, réservations site) */
+  isDriverVerified: boolean;
   verificationLoading: boolean;
   userFullName: string;
   userPhone: string;
@@ -65,7 +69,9 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [isAdmin, setIsAdmin] = useState<boolean>(false);
   const [hasAcceptedTerms, setHasAcceptedTerms] = useState<boolean>(false);
   const [verificationLoading, setVerificationLoading] = useState<boolean>(true);
+  const [driverVerificationStatus, setDriverVerificationStatus] = useState<string | null>(null);
   const previousVerificationStatusRef = useRef<string | null>(null);
+  const previousDriverVerificationStatusRef = useRef<string | null>(null);
 
   // ============================================================================
   // FONCTIONS
@@ -98,7 +104,12 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       setVerificationStatus(finalStatus);
       previousVerificationStatusRef.current = finalStatus;
 
-      // Notification "Profil vérifié" quand on passe de PENDING (ou autre) à VERIFIED
+      const driverStatus = response.driver_verification_status ?? null;
+      setDriverVerificationStatus(driverStatus);
+      const prevDriver = previousDriverVerificationStatusRef.current;
+      previousDriverVerificationStatusRef.current = driverStatus;
+
+      // Notification "Profil vérifié" (compte user)
       if (finalStatus === 'VERIFIED' && previousStatus != null && previousStatus !== 'VERIFIED') {
         try {
           await NotificationService.notifyVerificationAccepted();
@@ -106,6 +117,15 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
           console.warn('⚠️ Notification vérification non envoyée:', notifErr);
         }
       }
+      // Notification "Profil vérifié" chauffeur (documents approuvés)
+      if (driverStatus === 'approved' && prevDriver != null && prevDriver !== 'approved') {
+        try {
+          await NotificationService.notifyVerificationAccepted();
+        } catch (notifErr) {
+          console.warn('⚠️ Notification vérification chauffeur non envoyée:', notifErr);
+        }
+      }
+
       setUserFullName(response.full_name || '');
       setUserPhone(response.phone || '');
       setUserSiren(response.siren || '');
@@ -132,6 +152,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       console.error('❌ Erreur chargement statut vérification:', error);
       // Par défaut, si l'utilisateur n'existe pas, on considère qu'il n'est pas vérifié
       setVerificationStatus('UNVERIFIED');
+      setDriverVerificationStatus(null);
       setIsAdmin(false);
     } finally {
       setVerificationLoading(false);
@@ -179,6 +200,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         // 🧹 Nettoyer toutes les données de la session précédente
         apiClient.clearAuth();
         setVerificationStatus(null);
+        setDriverVerificationStatus(null);
         setUserFullName('');
         setUserPhone('');
         setUserSiren('');
@@ -219,6 +241,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     user,
     authLoading,
     verificationStatus,
+    driverVerificationStatus,
+    isDriverVerified: driverVerificationStatus === 'approved',
     verificationLoading,
     userFullName,
     userPhone,

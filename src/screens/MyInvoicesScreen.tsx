@@ -15,6 +15,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { apiClient } from '../services/api';
 import { getInvoiceUrl, getInvoicePdfUrl } from '../constants/urls';
+import { LegalInfoModal } from '../components/LegalInfoModal';
 
 // Photo sympa : documents / facturation (représente l'outil Factures)
 const HERO_IMAGE = 'https://images.unsplash.com/photo-1554224155-6726b3ff858f?w=800&q=80';
@@ -57,6 +58,9 @@ export const MyInvoicesScreen: React.FC<MyInvoicesScreenProps> = ({ onBack }) =>
   const [refreshing, setRefreshing] = useState(false);
   const [generatingInvoiceId, setGeneratingInvoiceId] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<'pending' | 'issued'>('pending');
+  const [showLegalModal, setShowLegalModal] = useState(false);
+  const [pendingInvoiceRide, setPendingInvoiceRide] = useState<RideWithInvoice | null>(null);
+  const [legalModalBusinessName, setLegalModalBusinessName] = useState('');
 
   useEffect(() => {
     loadData();
@@ -189,46 +193,48 @@ export const MyInvoicesScreen: React.FC<MyInvoicesScreenProps> = ({ onBack }) =>
     loadData();
   };
 
+  const doCreateInvoiceForRide = async (ride: RideWithInvoice) => {
+    const newInvoice = await apiClient.createInvoice(ride.source_type, ride.id);
+    Alert.alert(
+      'Facture générée',
+      `Facture ${newInvoice.invoice_number} créée avec succès !`,
+      [
+        { text: 'OK', onPress: () => loadData() },
+        {
+          text: 'Télécharger PDF',
+          onPress: () => {
+            Linking.openURL(getInvoicePdfUrl(newInvoice.public_token));
+            loadData();
+          },
+        },
+        {
+          text: 'Partager WhatsApp',
+          onPress: () => {
+            const message = `Merci pour votre course. Vous trouverez votre facture sur le lien suivant : ${getInvoiceUrl(newInvoice.public_token)}`;
+            Linking.openURL(`https://wa.me/?text=${encodeURIComponent(message)}`).catch(() =>
+              Alert.alert('Erreur', 'Impossible d\'ouvrir WhatsApp')
+            );
+            loadData();
+          },
+        },
+      ]
+    );
+  };
+
   const handleGenerateInvoice = async (ride: RideWithInvoice) => {
     try {
+      let profile: any = null;
+      try {
+        profile = await apiClient.getMyVTCProfile();
+      } catch (_e) {}
+      if (!profile?.legal_info_configured) {
+        setPendingInvoiceRide(ride);
+        setLegalModalBusinessName(profile?.display_name || '');
+        setShowLegalModal(true);
+        return;
+      }
       setGeneratingInvoiceId(ride.id);
-      console.log('🧾 Génération de facture...', { sourceType: ride.source_type, rideId: ride.id });
-
-      const newInvoice = await apiClient.createInvoice(ride.source_type, ride.id);
-      console.log('✅ Facture générée:', newInvoice);
-
-      Alert.alert(
-        'Facture générée',
-        `Facture ${newInvoice.invoice_number} créée avec succès !`,
-        [
-          { text: 'OK', onPress: () => loadData() },
-          {
-            text: 'Télécharger PDF',
-            onPress: () => {
-              const pdfUrl = getInvoicePdfUrl(newInvoice.public_token);
-              Linking.openURL(pdfUrl);
-              loadData();
-            },
-          },
-          {
-            text: 'Partager WhatsApp',
-            onPress: () => {
-              const invoiceUrl = getInvoiceUrl(newInvoice.public_token);
-              const clientName = ride.client_name || 'Client';
-              const message = `Bonjour ${clientName},\n\nVoici votre facture ${newInvoice.invoice_number} :\n${invoiceUrl}\n\nVous pouvez télécharger le PDF directement depuis ce lien.\n\nCordialement`;
-              
-              // Utiliser https://wa.me qui fonctionne sur iOS, Android et web
-              const whatsappUrl = `https://wa.me/?text=${encodeURIComponent(message)}`;
-              
-              Linking.openURL(whatsappUrl).catch(err => {
-                console.error('Erreur ouverture WhatsApp:', err);
-                Alert.alert('Erreur', 'Impossible d\'ouvrir WhatsApp');
-              });
-              loadData();
-            },
-          },
-        ]
-      );
+      await doCreateInvoiceForRide(ride);
     } catch (error: any) {
       console.error('❌ Erreur génération facture:', error);
       Alert.alert('Erreur', error.message || 'Impossible de générer la facture');
@@ -257,7 +263,7 @@ export const MyInvoicesScreen: React.FC<MyInvoicesScreenProps> = ({ onBack }) =>
           text: 'Partager WhatsApp',
           onPress: () => {
             const clientName = invoice.client_name || 'Client';
-            const message = `Bonjour ${clientName},\n\nVoici votre facture ${invoice.invoice_number} :\n${htmlUrl}\n\nVous pouvez télécharger le PDF directement depuis ce lien.\n\nCordialement`;
+            const message = `Merci pour votre course. Vous trouverez votre facture sur le lien suivant : ${htmlUrl}`;
             
             // Utiliser https://wa.me qui fonctionne sur iOS, Android et web
             const whatsappUrl = `https://wa.me/?text=${encodeURIComponent(message)}`;
@@ -432,7 +438,7 @@ export const MyInvoicesScreen: React.FC<MyInvoicesScreenProps> = ({ onBack }) =>
                         onPress={() => {
                           const invoiceUrl = getInvoiceUrl(ride.invoice!.public_token);
                           const clientName = ride.client_name || 'Client';
-                          const message = `Bonjour ${clientName},\n\nVoici votre facture ${ride.invoice!.invoice_number} :\n${invoiceUrl}\n\nVous pouvez télécharger le PDF directement depuis ce lien.\n\nCordialement`;
+                          const message = `Merci pour votre course. Vous trouverez votre facture sur le lien suivant : ${invoiceUrl}`;
                           const whatsappUrl = `https://wa.me/?text=${encodeURIComponent(message)}`;
                           
                           Linking.openURL(whatsappUrl).catch(err => {
@@ -497,6 +503,26 @@ export const MyInvoicesScreen: React.FC<MyInvoicesScreenProps> = ({ onBack }) =>
 
         <View style={{ height: 40 }} />
       </ScrollView>
+
+      <LegalInfoModal
+        visible={showLegalModal}
+        onClose={() => { setShowLegalModal(false); setPendingInvoiceRide(null); }}
+        initialBusinessName={legalModalBusinessName}
+        onSaved={() => {
+          if (pendingInvoiceRide) {
+            setGeneratingInvoiceId(pendingInvoiceRide.id);
+            doCreateInvoiceForRide(pendingInvoiceRide).finally(() => setGeneratingInvoiceId(null));
+            setPendingInvoiceRide(null);
+          }
+          setShowLegalModal(false);
+        }}
+        onLater={() => {
+          Alert.alert(
+            'Infos légales requises',
+            'Pour générer une facture conforme, renseignez vos infos légales (SIRET, adresse) depuis Mes outils.'
+          );
+        }}
+      />
     </View>
   );
 };

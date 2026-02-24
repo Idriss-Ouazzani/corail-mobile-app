@@ -184,6 +184,34 @@ export const trackQRCodeShared = async () => {
   await noop();
 };
 
+// ============================================================================
+// ÉVÉNEMENTS - Ma Page Pro (hub + wizard)
+// ============================================================================
+
+export const trackPageProOpened = async () => {
+  if (__DEV__) console.log('📊 [Analytics] page_pro_opened');
+  if (!ENABLED) return;
+  await noop();
+};
+
+export const trackPageProStepCompleted = async (params: { step: number; stepName: string }) => {
+  if (__DEV__) console.log('📊 [Analytics] page_pro_step_completed:', params);
+  if (!ENABLED) return;
+  await noop();
+};
+
+export const trackPageProActivated = async () => {
+  if (__DEV__) console.log('📊 [Analytics] page_pro_activated');
+  if (!ENABLED) return;
+  await noop();
+};
+
+export const trackPageProShared = async () => {
+  if (__DEV__) console.log('📊 [Analytics] page_pro_shared');
+  if (!ENABLED) return;
+  await noop();
+};
+
 export const trackFiltersApplied = async (params: {
   vehicleTypes: string[];
   priceRange?: [number, number];
