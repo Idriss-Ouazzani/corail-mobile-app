@@ -107,6 +107,7 @@ import { setupNotificationListeners } from './src/services/pushNotifications';
 import { logger } from './src/services/logger';
 import { formatName } from './src/utils/formatName';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as SplashScreen from 'expo-splash-screen';
 import LoadingScreen from './src/components/LoadingScreen';
 import OnboardingScreen from './src/screens/OnboardingScreen';
 import { appStyles } from './src/styles/App.styles';
@@ -222,6 +223,8 @@ function AppContent() {
     setShowCreditsModal,
     showCreditsOnboarding,
     setShowCreditsOnboarding,
+    equilibreDismissedThisSession,
+    setEquilibreDismissedThisSession,
     showPersonalRides,
     setShowPersonalRides,
     showPlanning,
@@ -248,6 +251,8 @@ function AppContent() {
     setShowPrivacyData,
     myRidesTab,
     setMyRidesTab,
+    forceShowOnboarding,
+    setForceShowOnboarding,
   } = useNavigation();
   
   // 🆔 ID de l'utilisateur courant (Supabase Auth ID)
@@ -266,8 +271,9 @@ function AppContent() {
   const [showIncomingModal, setShowIncomingModal] = useState(false);
   const appState = useRef(AppState.currentState);
 
-  // 🪸 Rappel « Terminer votre course » : après 30 min ou à la prochaine connexion
+  // 🪸 Rappel « Terminer votre course » : uniquement courses passées, 1 par 1
   const [showCompleteRideReminder, setShowCompleteRideReminder] = useState(false);
+  const [reminderQueue, setReminderQueue] = useState<any[]>([]);
   const claimedByMeRides = React.useMemo(() => {
     if (!currentUserId || !rides.length) return [];
     return rides.filter(
@@ -277,16 +283,25 @@ function AppContent() {
         String(r.picker_id) === String(currentUserId)
     );
   }, [rides, currentUserId]);
+  // Uniquement les courses dont l’horaire est déjà passé (à terminer)
+  const claimedByMeRidesPast = React.useMemo(() => {
+    const now = Date.now();
+    return claimedByMeRides
+      .filter((r) => r.scheduled_at && new Date(r.scheduled_at).getTime() <= now)
+      .sort((a, b) => new Date(a.scheduled_at).getTime() - new Date(b.scheduled_at).getTime());
+  }, [claimedByMeRides]);
   const REMINDER_30MIN_MS = 30 * 60 * 1000;
   const shouldShowReminder = React.useMemo(() => {
-    return claimedByMeRides.some(
+    return claimedByMeRidesPast.some(
       (r) => Date.now() - new Date(r.updated_at).getTime() >= REMINDER_30MIN_MS
     );
-  }, [claimedByMeRides]);
+  }, [claimedByMeRidesPast]);
   const shouldShowReminderRef = useRef(shouldShowReminder);
+  const claimedByMeRidesPastRef = useRef(claimedByMeRidesPast);
   useEffect(() => {
     shouldShowReminderRef.current = shouldShowReminder;
-  }, [shouldShowReminder]);
+    claimedByMeRidesPastRef.current = claimedByMeRidesPast;
+  }, [shouldShowReminder, claimedByMeRidesPast]);
 
   // ✅ Ref pour loadRides (éviter les réinitialisations Realtime)
   const loadRidesRef = useRef(loadRides);
@@ -294,17 +309,34 @@ function AppContent() {
     loadRidesRef.current = loadRides;
   }, [loadRides]);
 
-  // 📨 Charger le nombre d'invitations en attente
+  // 📨 Charger le nombre d'invitations en attente + s'assurer qu'elles apparaissent dans la cloche
   const loadPendingInvitations = React.useCallback(async () => {
     if (!currentUserId) return;
     try {
       const invitations = await apiClient.getMyGroupInvitations();
-      console.log('📨 Invitations en attente:', invitations.length);
-      setPendingInvitationsCount(invitations.length);
+      const list = Array.isArray(invitations) ? invitations : [];
+      setPendingInvitationsCount(list.length);
+      for (const inv of list) {
+        const key = `@corail_group_invitation_notif_${inv.id}`;
+        try {
+          const already = await AsyncStorage.getItem(key);
+          if (already === 'true') continue;
+          const groupName = inv.group?.name || 'Un groupe';
+          const inviterName = inv.inviter?.full_name?.trim() || 'Quelqu\'un';
+          await apiClient.insertInAppNotification({
+            type: 'group_invitation',
+            title: 'Invitation à un groupe',
+            body: `${inviterName} vous invite à rejoindre « ${groupName} ».`,
+            target_screen: 'group_invitations',
+          });
+          await AsyncStorage.setItem(key, 'true');
+        } catch (_) {}
+      }
+      if (list.length > 0) loadUnreadNotificationsCount();
     } catch (error) {
       console.error('❌ Erreur chargement invitations:', error);
     }
-  }, [currentUserId]);
+  }, [currentUserId, loadUnreadNotificationsCount]);
 
   // 🔔 Compteur de notifications in-app (pastille cloche)
   const [unreadNotificationsCount, setUnreadNotificationsCount] = useState(0);
@@ -376,12 +408,16 @@ function AppContent() {
     return () => sub.remove();
   }, [currentUserId, loadUnreadNotificationsCount]);
 
-  // 🪸 Rappel « Terminer votre course » : afficher quand l'app repasse au premier plan (course CLAIMED > 30 min)
+  // 🪸 Rappel « Terminer votre course » : afficher 1 par 1 quand l'app repasse au premier plan (courses passées CLAIMED > 30 min)
   useEffect(() => {
     if (!currentUserId) return;
     const sub = AppState.addEventListener('change', (nextAppState: AppStateStatus) => {
       if (nextAppState === 'active' && shouldShowReminderRef.current) {
-        setShowCompleteRideReminder(true);
+        const past = claimedByMeRidesPastRef.current;
+        if (past.length > 0) {
+          setReminderQueue([...past]);
+          setShowCompleteRideReminder(true);
+        }
       }
     });
     return () => sub.remove();
@@ -511,6 +547,18 @@ function AppContent() {
     });
   }, [user, hasAcceptedTerms]);
 
+  /** Même logique que les `return <LoadingScreen />` : tant que vrai, le splash natif reste affiché. */
+  const isBlockingLaunchScreen =
+    authLoading ||
+    (!!user && (verificationLoading || verificationStatus === null)) ||
+    (hasAcceptedTerms && onboardingSeen === null && !forceShowOnboarding);
+
+  useEffect(() => {
+    if (!isBlockingLaunchScreen) {
+      SplashScreen.hideAsync().catch(() => {});
+    }
+  }, [isBlockingLaunchScreen]);
+
   // 🧹 Nettoyer les modales quand l'utilisateur se déconnecte
   useEffect(() => {
     if (!user) {
@@ -592,16 +640,17 @@ function AppContent() {
     );
   }
 
-  // 📱 Onboarding au premier lancement (après consentement, une seule fois)
-  if (hasAcceptedTerms && onboardingSeen === null) {
+  // 📱 Onboarding au premier lancement (après consentement, une seule fois) ou si forcé (ex. depuis Aide & Support)
+  if (hasAcceptedTerms && onboardingSeen === null && !forceShowOnboarding) {
     return <LoadingScreen message="Chargement" />;
   }
-  if (hasAcceptedTerms && onboardingSeen === false) {
+  if ((hasAcceptedTerms && onboardingSeen === false) || forceShowOnboarding) {
     return (
       <OnboardingScreen
         onComplete={async () => {
           await AsyncStorage.setItem(ONBOARDING_SEEN_KEY, 'true');
           setOnboardingSeen(true);
+          setForceShowOnboarding(false);
         }}
       />
     );
@@ -712,6 +761,7 @@ function AppContent() {
             isDriverVerified={isDriverVerified}
             onRefreshVerification={loadVerificationStatus}
             userFullName={userFullName}
+            currentUserId={currentUserId}
             userRides={rides}
             pendingInvitationsCount={pendingInvitationsCount}
             onNavigateToCourses={() => {
@@ -753,11 +803,13 @@ function AppContent() {
             onRefreshVerification={loadVerificationStatus}
             onOpenVerificationProfile={() => setShowVerificationProfile(true)}
             userCredits={userCredits}
+            equilibreDismissedThisSession={equilibreDismissedThisSession}
             onShowCreditsOnboarding={() => setShowCreditsOnboarding(true)}
             marketplaceContent={
               <MarketplaceTab
                 isDriverVerified={isDriverVerified}
                 onRefreshVerification={loadVerificationStatus}
+                loadRides={loadRides}
                 rides={rides}
                 currentUserId={currentUserId}
                 loadingRides={loadingRides}
@@ -882,15 +934,20 @@ function AppContent() {
           onClose={() => setShowCreditsModal(false)}
         />
 
-        {/* Onboarding crédits - léger, contextuel (Marketplace) */}
+        {/* Onboarding Équilibre - à chaque visite Annonces, sauf si "Ne plus afficher" */}
         <CreditsOnboardingModal
           visible={showCreditsOnboarding}
-          onClose={() => setShowCreditsOnboarding(false)}
+          onClose={() => {
+            setShowCreditsOnboarding(false);
+            setEquilibreDismissedThisSession(true);
+          }}
           onDontShowAgain={async () => {
+            await AsyncStorage.setItem('@corail_equilibre_dont_show_again', 'true');
             await AsyncStorage.setItem('@corail_credits_onboarding_seen', 'true');
             try {
               await apiClient.setCreditsOnboardingSeen();
             } catch (_e) {}
+            setShowCreditsOnboarding(false);
           }}
         />
 
@@ -938,14 +995,31 @@ function AppContent() {
           timeoutSeconds={20}
         />
 
-        {/* 🪸 Rappel terminer la course (30 min ou à la connexion) */}
+        {/* 🪸 Rappel terminer la course : 1 course à la fois, uniquement passées */}
         <CompleteRideReminderModal
-          visible={showCompleteRideReminder && claimedByMeRides.length > 0}
-          rides={claimedByMeRides}
-          onDismiss={() => setShowCompleteRideReminder(false)}
-          onOpenRide={(ride) => {
-            setSelectedRide(ride);
+          visible={showCompleteRideReminder && reminderQueue.length > 0}
+          rides={reminderQueue.length > 0 ? [reminderQueue[0]] : []}
+          onDismiss={() => {
             setShowCompleteRideReminder(false);
+            setReminderQueue((q) => {
+              const next = q.slice(1);
+              if (next.length > 0) setTimeout(() => setShowCompleteRideReminder(true), 400);
+              return next;
+            });
+          }}
+          onOpenRide={async (ride) => {
+            let rideToOpen: typeof ride = ride;
+            try {
+              const fetched = await apiClient.getRide(ride.id);
+              if (fetched) rideToOpen = fetched;
+            } catch (_) {}
+            setShowCompleteRideReminder(false);
+            setReminderQueue((q) => {
+              const next = q.filter((r) => r.id !== ride.id);
+              if (next.length > 0) setTimeout(() => setShowCompleteRideReminder(true), 400);
+              return next;
+            });
+            setSelectedRide(rideToOpen);
           }}
         />
       </LinearGradient>
@@ -976,6 +1050,10 @@ function AppWithData() {
 }
 
 function App() {
+  useEffect(() => {
+    SplashScreen.preventAutoHideAsync().catch(() => {});
+  }, []);
+
   return (
     <>
       <AuthProvider>

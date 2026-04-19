@@ -9,6 +9,7 @@ import React, { useEffect, useRef } from 'react';
 import { View, Text, StyleSheet, Animated, Easing } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import CoralLogo from './CoralLogo';
+import { LAUNCH_GRADIENT_COLORS, LAUNCH_TEXT_MUTED } from '../theme/launchScreen';
 
 interface LoadingScreenProps {
   message?: string;
@@ -166,7 +167,7 @@ export const LoadingScreen: React.FC<LoadingScreenProps> = ({ message = 'Chargem
             
             {/* Logo container HD avec ombre élégante */}
             <View style={styles.logoContainerHD}>
-              <CoralLogo size={120} />
+              <CoralLogo size={150} />
             </View>
           </Animated.View>
 
@@ -200,11 +201,10 @@ const styles = StyleSheet.create({
   loadingTextRefined: {
     fontSize: 15,
     fontWeight: '400',
-    color: '#cbd5e1',
+    color: LAUNCH_TEXT_MUTED,
     letterSpacing: 4,
     textTransform: 'uppercase',
     marginBottom: 40,
-    opacity: 0.85,
   },
   dotsContainerRefined: {
     flexDirection: 'row',

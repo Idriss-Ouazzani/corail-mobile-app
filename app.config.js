@@ -17,6 +17,7 @@ module.exports = {
     orientation: 'portrait',
     icon: './assets/icon.png',
     userInterfaceStyle: 'dark',
+    // Splash natif : même base que src/theme/launchScreen.ts (LAUNCH_SPLASH_BACKGROUND)
     splash: {
       image: './assets/splash-icon.png',
       resizeMode: 'contain',
@@ -31,9 +32,10 @@ module.exports = {
         usesNonExemptEncryption: false,
       },
       infoPlist: {
-        NSCameraUsageDescription: 'Cette app a besoin d\'accéder à la caméra pour prendre des photos de profil.',
-        NSPhotoLibraryUsageDescription: 'Cette app a besoin d\'accéder à vos photos pour sélectionner des images.',
-        NSPhotoLibraryAddUsageDescription: 'Cette app a besoin de sauvegarder des photos dans votre galerie.',
+        NSCameraUsageDescription: 'Corail utilise la caméra pour votre photo de profil, par ex. un selfie pour votre avatar.',
+        NSPhotoLibraryUsageDescription: 'Corail utilise la photothèque pour choisir une image de profil, par ex. votre avatar chauffeur ou utilisateur.',
+        NSPhotoLibraryAddUsageDescription: 'Corail peut enregistrer une image dans la photothèque uniquement sur votre demande, par ex. un reçu ou une capture d\'écran.',
+        NSLocationWhenInUseUsageDescription: 'Corail utilise votre position pour afficher les courses à proximité et les lieux de prise en charge, par ex. les trajets disponibles près de vous.',
       },
     },
     android: {
@@ -42,7 +44,8 @@ module.exports = {
         backgroundColor: '#0c4a6e',
       },
       package: 'com.corail.vtcmarketplace',
-      versionCode: 1,
+      versionCode: 8,
+      // Empêche une dépendance (ex. Sentry, Play Services) d’ajouter AD_ID au manifeste final.
       permissions: [
         'INTERNET',
         'ACCESS_NETWORK_STATE',
@@ -51,6 +54,7 @@ module.exports = {
         'CAMERA',
         'READ_EXTERNAL_STORAGE',
         'WRITE_EXTERNAL_STORAGE',
+        'com.google.android.gms.permission.AD_ID',
       ],
     },
     web: {
@@ -81,6 +85,8 @@ module.exports = {
           },
         },
       ],
+      // Garantit que AD_ID est dans le manifeste (EAS Build peut ignorer expo.android.permissions)
+      './plugins/withAdIdPermission.js',
     ],
   },
 };
