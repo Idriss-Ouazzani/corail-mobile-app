@@ -123,7 +123,7 @@ export default function ProfileMenuList({
       </Card>
 
       <Card title="Nous contacter">
-        <Row icon="mail" iconColor="#6366f1" iconBg="rgba(99, 102, 241, 0.15)" label="Email" subtitle="corail.platform@gmail.com" onPress={() => Linking.openURL('mailto:corail.platform@gmail.com')} showOpen />
+        <Row icon="mail" iconColor="#6366f1" iconBg="rgba(99, 102, 241, 0.15)" label="Email" subtitle="contact@getcorail.com" onPress={() => Linking.openURL('mailto:contact@getcorail.com')} showOpen />
         <Row icon="send" iconColor="#0088cc" iconBg="rgba(0, 136, 204, 0.15)" label="Telegram" subtitle="@corailapp" onPress={() => Linking.openURL('https://t.me/corailapp')} showOpen />
       </Card>
 

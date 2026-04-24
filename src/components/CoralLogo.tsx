@@ -14,7 +14,7 @@ export const CoralLogo: React.FC<CoralLogoProps> = ({ size = 120, style }) => {
         { 
           width: size, 
           height: size,
-          transform: [{ scale: 2 }],
+          transform: [{ scale: 2.4 }],
         },
         style
       ]}

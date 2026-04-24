@@ -1,4 +1,3 @@
-import Image from "next/image";
 import {
   CheckCircle2,
   Lock,
@@ -49,21 +48,19 @@ export function Features() {
           {/* App Screenshots */}
           <div className="relative order-2 lg:order-1 min-w-0">
             <div className="flex justify-center gap-3 sm:gap-6 flex-wrap sm:flex-nowrap">
-              <div className="w-[140px] sm:w-[180px] lg:w-[220px] relative rounded-[1.25rem] sm:rounded-[1.75rem] overflow-hidden shadow-2xl shadow-black/10 ring-1 ring-border/50 shrink-0">
-                <Image
+              <div className="card-hover w-[140px] sm:w-[180px] lg:w-[220px] relative rounded-[1.25rem] sm:rounded-[1.75rem] overflow-hidden shadow-2xl shadow-black/10 ring-1 ring-border/50 shrink-0 transition-all duration-300">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
                   src="/images/app-factures.jpeg"
                   alt="Corail - Factures"
-                  width={220}
-                  height={440}
                   className="object-cover w-full h-auto"
                 />
               </div>
-              <div className="w-[140px] sm:w-[180px] lg:w-[220px] relative sm:-mt-10 rounded-[1.25rem] sm:rounded-[1.75rem] overflow-hidden shadow-2xl shadow-black/10 ring-1 ring-border/50 shrink-0">
-                <Image
+              <div className="card-hover w-[140px] sm:w-[180px] lg:w-[220px] relative sm:-mt-10 rounded-[1.25rem] sm:rounded-[1.75rem] overflow-hidden shadow-2xl shadow-black/10 ring-1 ring-border/50 shrink-0 transition-all duration-300">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
                   src="/images/app-outils.jpeg"
                   alt="Corail - Outils"
-                  width={220}
-                  height={440}
                   className="object-cover w-full h-auto"
                 />
               </div>
@@ -72,7 +69,7 @@ export function Features() {
           </div>
 
           {/* Content */}
-          <div className="order-1 lg:order-2 min-w-0">
+          <div className="order-1 lg:order-2 min-w-0 text-center">
             <p className="text-primary font-medium tracking-[0.2em] uppercase text-xs mb-6">
               L&apos;application
             </p>
@@ -87,7 +84,7 @@ export function Features() {
 
             <div className="grid grid-cols-2 gap-x-4 sm:gap-x-8 gap-y-8 min-w-0">
               {features.map((feature) => (
-                <div key={feature.title} className="flex gap-3 sm:gap-4 p-4 rounded-2xl -m-4 hover:bg-muted/30 transition-colors group min-w-0">
+                <div key={feature.title} className="card-hover flex flex-col sm:flex-row gap-3 sm:gap-4 p-4 rounded-2xl -m-4 hover:bg-muted/30 transition-all duration-300 group min-w-0 text-center sm:text-left items-center sm:items-start w-full sm:w-auto">
                   <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl sm:rounded-2xl bg-primary/10 flex items-center justify-center shrink-0 group-hover:bg-primary/15 transition-colors">
                     <feature.icon className="h-5 w-5 sm:h-6 sm:w-6 text-primary" />
                   </div>

@@ -152,7 +152,38 @@ export function ReserverForm({ preferredDriverSlug, driverFirstName }: Props) {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div className="space-y-2">
+        {/* Mobile / tablet : champs natifs pour éviter troncature Android et bug sélection iOS */}
+        <div className="grid grid-cols-[1fr_1fr] gap-3 md:hidden col-span-2">
+          <div className="space-y-2 min-w-0">
+            <Label htmlFor="reserver-date-native">Date</Label>
+            <div className="relative h-12 rounded-xl border border-[var(--border)] bg-[var(--background)] overflow-hidden">
+              <CalendarIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-[var(--muted-foreground)] pointer-events-none z-10" />
+              <input
+                id="reserver-date-native"
+                type="date"
+                min={format(new Date(), "yyyy-MM-dd")}
+                value={date ? format(date, "yyyy-MM-dd") : ""}
+                onChange={(e) => setDate(e.target.value ? new Date(e.target.value + "T12:00:00") : undefined)}
+                className="w-full h-full pl-11 pr-1 bg-transparent border-0 text-sm [color-scheme:dark]"
+              />
+            </div>
+          </div>
+          <div className="space-y-2 min-w-[7rem]">
+            <Label htmlFor="reserver-time-native">Heure</Label>
+            <div className="relative h-12 min-w-[7rem] rounded-xl border border-[var(--border)] bg-[var(--background)] overflow-visible">
+              <Clock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-[var(--muted-foreground)] pointer-events-none z-10" />
+              <input
+                id="reserver-time-native"
+                type="time"
+                value={time}
+                onChange={(e) => setTime(e.target.value)}
+                className="w-full min-w-[6rem] h-full pl-11 pr-2 bg-transparent border-0 text-sm [color-scheme:dark]"
+              />
+            </div>
+          </div>
+        </div>
+        {/* Desktop : Popover date + Select heure */}
+        <div className="hidden md:block space-y-2">
           <Label>Date</Label>
           <Popover open={datePickerOpen} onOpenChange={setDatePickerOpen}>
             <PopoverTrigger asChild>
@@ -181,7 +212,7 @@ export function ReserverForm({ preferredDriverSlug, driverFirstName }: Props) {
             </PopoverContent>
           </Popover>
         </div>
-        <div className="space-y-2">
+        <div className="hidden md:block space-y-2">
           <Label>Heure</Label>
           <Select value={time} onValueChange={setTime}>
             <SelectTrigger className="h-12 pl-11 rounded-xl bg-[var(--background)] border-[var(--border)]">

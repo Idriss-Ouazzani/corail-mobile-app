@@ -31,6 +31,7 @@ interface MarketplaceRidesListProps {
   rides: MarketplaceListRide[];
   loading: boolean;
   currentUserId: string | null;
+  publicUsersRowId?: string | null;
   onRidePress: (ride: MarketplaceListRide) => void;
 }
 
@@ -38,6 +39,7 @@ export default function MarketplaceRidesList({
   rides,
   loading,
   currentUserId,
+  publicUsersRowId = null,
   onRidePress,
 }: MarketplaceRidesListProps) {
   if (loading) {
@@ -69,6 +71,7 @@ export default function MarketplaceRidesList({
           key={ride.id}
           ride={ride}
           currentUserId={currentUserId}
+          publicUsersRowId={publicUsersRowId}
           onPress={() => onRidePress(ride)}
         />
       ))}

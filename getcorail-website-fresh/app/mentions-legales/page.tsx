@@ -68,16 +68,10 @@ export default function MentionsLegalesPage() {
           </Section>
 
           <Section title="2. Hébergement">
-            <p className="text-sm font-medium text-foreground/90">Site web getcorail.com :</p>
-            <InfoBlock
-              label="Hébergeur"
-              value="Vercel Inc.\n340 S Lemon Ave #4133\nWalnut, CA 91789, USA\nwww.vercel.com"
-            />
-            <p className="text-sm font-medium text-foreground/90 mt-4">Base de données et backend :</p>
-            <InfoBlock
-              label="Hébergeur"
-              value="Supabase Inc.\nServeurs situés en Union Européenne\nwww.supabase.com"
-            />
+            <p className="text-sm leading-relaxed">
+              Le site getcorail.com et les données associées sont hébergés par des prestataires
+              dont les serveurs sont situés en Union européenne, dans le respect du RGPD.
+            </p>
           </Section>
 
           <Section title="3. Propriété intellectuelle">
@@ -119,7 +113,7 @@ export default function MentionsLegalesPage() {
 
           <Section title="5. Cookies et traceurs">
             <p className="text-sm leading-relaxed">
-              Le site getcorail.com peut utiliser des cookies techniques et des analytics (Vercel Analytics).
+              Le site getcorail.com peut utiliser des cookies techniques et de mesure d&apos;audience.
               L&apos;application mobile n&apos;utilise pas de cookies. Vous pouvez gérer vos préférences dans
               les paramètres de votre navigateur.
             </p>
@@ -150,10 +144,9 @@ export default function MentionsLegalesPage() {
 
           <Section title="8. Contact">
             <p className="text-sm leading-relaxed">Pour toute question concernant ces mentions légales :</p>
-            <InfoBlock label="Email général" value="contact@getcorail.com" />
-            <InfoBlock label="Support technique" value="contact@getcorail.com" />
-            <InfoBlock label="Questions juridiques" value="contact@getcorail.com" />
-            <InfoBlock label="Protection des données" value="contact@getcorail.com" />
+            <p className="text-sm leading-relaxed mt-2">
+              <a href="mailto:contact@getcorail.com" className="text-primary underline">contact@getcorail.com</a>
+            </p>
           </Section>
 
           <div className="mt-12 pt-8 border-t border-border text-center text-sm text-muted-foreground">

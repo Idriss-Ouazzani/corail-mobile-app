@@ -55,7 +55,11 @@ export function useGroups(currentUserId: string | null) {
   const inviteToGroup = useCallback(async (groupId: string, identifier: string) => {
     try {
       console.log('📧 Invitation au groupe...');
-      await apiClient.inviteToGroup({ groupId, email: identifier });
+      const trimmed = identifier.trim();
+      const looksLikeEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmed);
+      await apiClient.inviteToGroup(
+        looksLikeEmail ? { groupId, email: trimmed } : { groupId, phone: trimmed }
+      );
       Alert.alert('Succès', 'Invitation envoyée !');
       return true;
     } catch (err: any) {

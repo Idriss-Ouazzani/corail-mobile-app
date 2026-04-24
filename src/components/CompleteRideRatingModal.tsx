@@ -18,7 +18,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 
 const STAR_COUNT = 5;
-const PLACEHOLDER = 'Optionnel : un mot pour l\'auteur de la course…';
+const PLACEHOLDER = 'Optionnel : un mot pour le chauffeur…';
 
 interface CompleteRideRatingModalProps {
   visible: boolean;
@@ -51,9 +51,9 @@ export function CompleteRideRatingModal({
           style={styles.keyboard}
         >
           <Pressable style={styles.card} onPress={(e) => e.stopPropagation()}>
-            <Text style={styles.title}>Noter cette course</Text>
+            <Text style={styles.title}>Retour sur la course</Text>
             <Text style={styles.subtitle}>
-              Votre note et votre commentaire seront envoyés à l'auteur de la publication.
+              Votre retour est transmis au collègue.
             </Text>
 
             <View style={styles.starsRow}>
@@ -101,7 +101,7 @@ export function CompleteRideRatingModal({
                 activeOpacity={0.9}
               >
                 <Text style={styles.submitButtonText}>
-                  {isLoading ? 'Envoi…' : 'Terminer et envoyer la note'}
+                  {isLoading ? 'Envoi…' : 'Envoyer'}
                 </Text>
               </TouchableOpacity>
               <TouchableOpacity style={styles.cancelButton} onPress={onClose} disabled={isLoading}>
@@ -179,10 +179,15 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   submitButton: {
-    backgroundColor: '#0ea5e9',
+    backgroundColor: '#0369a1',
     paddingVertical: 16,
-    borderRadius: 16,
+    borderRadius: 14,
     alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.12,
+    shadowRadius: 4,
+    elevation: 2,
   },
   submitButtonDisabled: {
     opacity: 0.5,

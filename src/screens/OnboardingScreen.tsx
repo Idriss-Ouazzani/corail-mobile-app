@@ -1,7 +1,7 @@
 /**
  * OnboardingScreen - Présentation de l'app au premier lancement
- * Swipe entre les slides : VTC → Chauffeur privé, Devis/Factures, Planning, Gratuité, C'est parti
- * Images réelles (Unsplash) pour illustrer chaque situation.
+ * Flow : Page pro (getcorail.com) → Réseau chauffeurs indépendants → 0% commission, 100% gratuit → Ambition → C'est parti
+ * Swipe horizontal, style simple et élégant.
  */
 
 import React, { useRef, useState } from 'react';
@@ -15,47 +15,63 @@ import {
   NativeSyntheticEvent,
   NativeScrollEvent,
   Image,
+  ImageSourcePropType,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { Image as ExpoImage } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as Haptics from 'expo-haptics';
 
-const { width: SCREEN_WIDTH } = Dimensions.get('window');
+const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
+const IMAGE_MAX_HEIGHT = Math.min(320, SCREEN_HEIGHT * 0.42);
 
-// Photos Unsplash (libres de droit) : situations réelles
-const U = (id: string, w = 600) =>
-  `https://images.unsplash.com/photo-${id}?w=${w}&q=85`;
+// Images locales : page pro (flow du site getcorail.com)
+const PAGE_PRO_1 = require('../../assets/onboarding/ma-page-pro-1.jpeg') as ImageSourcePropType;
+const PAGE_PRO_2 = require('../../assets/onboarding/ma-page-pro-2.jpeg') as ImageSourcePropType;
+
+// Images libres de droits (Unsplash)
+const UNSPLASH_LINK_SHARE = 'https://images.unsplash.com/photo-1560179707-f14e90ef3623?w=800&q=85'; // échange pro / partage avec clients
+const UNSPLASH_NETWORK = 'https://images.unsplash.com/photo-1522071820081-009f0129c71c?w=800&q=80';
+const UNSPLASH_FREE = 'https://images.unsplash.com/photo-1600880292203-757bb62b4baf?w=800&q=90';
+const UNSPLASH_AMBITION = 'https://images.unsplash.com/photo-1555215695-3004980ad54e?w=800&q=85';
+const UNSPLASH_LETS_GO = 'https://images.unsplash.com/photo-1544620347-c4fd4a3d5957?w=800&q=85'; // transport / c'est parti (ex-page 2)
 
 const SLIDES = [
   {
     key: '1',
-    image: U('1449965408869-eaa3f722e40d'), // voiture / conduite pro
-    title: 'VTC → Chauffeur privé',
-    subtitle: 'Passez d’un statut VTC classique à chauffeur privé. Corail vous accompagne au quotidien.',
+    images: [PAGE_PRO_1, PAGE_PRO_2] as [ImageSourcePropType, ImageSourcePropType],
+    title: 'Votre page professionnelle',
+    subtitle: 'Sur getcorail.com, vos clients découvrent votre profil, vos tarifs et peuvent vous réserver en direct. Complétez « Ma Page Pro » dans l’app pour activer votre lien.',
   },
   {
     key: '2',
-    image: U('1554224155-6726b3ff858f'), // documents / factures
-    title: 'Devis & factures',
-    subtitle: 'Créez des devis en quelques taps, générez vos factures et gardez la main sur votre activité.',
+    imageUri: UNSPLASH_LINK_SHARE,
+    title: 'Un lien à partager',
+    subtitle: 'Partagez le lien de votre page avec vos clients. Ils vous contactent, vous enchaînez les courses sans intermédiaire.',
   },
   {
     key: '3',
-    image: U('1506784365847-bbad939e9335'), // calendrier / planning
-    title: 'Votre planning',
-    subtitle: 'Visualisez vos courses à venir, personnelles et marketplace, dans un calendrier clair.',
+    imageUri: UNSPLASH_NETWORK,
+    title: 'Un nouveau réseau de chauffeurs indépendants',
+    subtitle: 'Entraide entre professionnels : publiez vos courses indisponibles, prenez celles des autres. Un réseau structuré, sans plateforme qui s’intercale.',
   },
   {
     key: '4',
-    image: U('1513885535751-8b9238bd345a'), // cadeau / gratuit
-    title: 'Gratuit pour le chauffeur',
-    subtitle: 'Aucun abonnement. Vous publiez des courses, vous en prenez d’autres : le service reste gratuit pour vous.',
+    imageUri: UNSPLASH_FREE,
+    title: '0% de commission. 100% gratuit.',
+    subtitle: 'Aucun abonnement. Vous publiez une course = vous gagnez un crédit. Vous en prenez une = vous en utilisez un. Le service reste gratuit pour vous.',
   },
   {
     key: '5',
-    image: U('1544620347-c4fd4a3d5957'), // route / départ
+    imageUri: UNSPLASH_AMBITION,
+    title: 'Notre ambition',
+    subtitle: 'Structurer la profession et donner aux chauffeurs une infrastructure pour aujourd’hui. Un réseau pour demain.',
+  },
+  {
+    key: '6',
+    imageUri: UNSPLASH_LETS_GO,
     title: 'C’est parti',
-    subtitle: 'Accédez à votre tableau de bord, aux annonces et à vos outils pro.',
+    subtitle: 'Accédez à votre tableau de bord, complétez votre page pro et rejoignez le réseau.',
   },
 ];
 
@@ -86,18 +102,62 @@ export default function OnboardingScreen({ onComplete }: OnboardingScreenProps) 
     onComplete();
   };
 
-  const renderSlide = ({ item }: { item: (typeof SLIDES)[0] }) => (
-    <View style={styles.slide}>
-      <View style={styles.contentBlock}>
-        <View style={styles.imageWrap}>
-          <Image source={{ uri: item.image }} style={styles.slideImage} resizeMode="cover" />
-          <View style={styles.imageOverlay} pointerEvents="none" />
+  const renderSlide = ({ item }: { item: (typeof SLIDES)[0] }) => {
+    const hasImages = 'images' in item && Array.isArray((item as { images?: ImageSourcePropType[] }).images);
+    const hasImage = !!(item as { image?: ImageSourcePropType }).image;
+    const hasImageUri = !!(item as { imageUri?: string }).imageUri;
+    const hasIcon = 'icon' in item && item.icon;
+    return (
+      <View style={styles.slide}>
+        <View style={styles.contentBlock}>
+          <View style={[styles.imageWrap, { height: IMAGE_MAX_HEIGHT }]}>
+            {hasImages ? (
+              <View style={styles.twoImagesRow}>
+                {(item as { images: ImageSourcePropType[] }).images.map((img, i) => (
+                  <ExpoImage
+                    key={i}
+                    source={img}
+                    style={styles.twoImagesExpo}
+                    contentFit="contain"
+                    transition={150}
+                  />
+                ))}
+                <View style={styles.imageOverlay} pointerEvents="none" />
+              </View>
+            ) : hasImage ? (
+              <>
+                <Image
+                  source={(item as { image: ImageSourcePropType }).image}
+                  style={styles.slideImage}
+                  resizeMode="contain"
+                />
+                <View style={styles.imageOverlay} pointerEvents="none" />
+              </>
+            ) : hasImageUri ? (
+              <>
+                <Image
+                  source={{ uri: (item as { imageUri: string }).imageUri }}
+                  style={styles.slideImage}
+                  resizeMode="contain"
+                />
+                <View style={styles.imageOverlay} pointerEvents="none" />
+              </>
+            ) : (
+              <View style={styles.iconWrap}>
+                <Ionicons
+                  name={hasIcon ? (item as { icon: keyof typeof Ionicons.glyphMap }).icon : 'help-circle'}
+                  size={64}
+                  color="#0ea5e9"
+                />
+              </View>
+            )}
+          </View>
+          <Text style={styles.title}>{item.title}</Text>
+          <Text style={styles.subtitle}>{item.subtitle}</Text>
         </View>
-        <Text style={styles.title}>{item.title}</Text>
-        <Text style={styles.subtitle}>{item.subtitle}</Text>
       </View>
-    </View>
-  );
+    );
+  };
 
   const isLast = index === SLIDES.length - 1;
 
@@ -168,7 +228,6 @@ const styles = StyleSheet.create({
   imageWrap: {
     width: SCREEN_WIDTH - 56,
     maxWidth: 320,
-    height: 200,
     borderRadius: 20,
     overflow: 'hidden',
     marginBottom: 32,
@@ -179,6 +238,22 @@ const styles = StyleSheet.create({
     shadowRadius: 12,
     elevation: 8,
   },
+  twoImagesRow: {
+    flexDirection: 'row',
+    flex: 1,
+    width: '100%',
+    gap: 12,
+    alignItems: 'stretch',
+    position: 'relative',
+  },
+  /** RN Image + height 100 % dans une ligne flex peut rendre une hauteur nulle ; expo-image + flex évite les cases vides. */
+  twoImagesExpo: {
+    flex: 1,
+    minWidth: 0,
+    minHeight: 120,
+    borderRadius: 12,
+    backgroundColor: '#1e293b',
+  },
   slideImage: {
     width: '100%',
     height: '100%',
@@ -186,6 +261,13 @@ const styles = StyleSheet.create({
   imageOverlay: {
     ...StyleSheet.absoluteFillObject,
     backgroundColor: 'rgba(15, 23, 42, 0.35)',
+  },
+  iconWrap: {
+    width: '100%',
+    height: '100%',
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(14, 165, 233, 0.12)',
   },
   title: {
     fontSize: 24,

@@ -42,7 +42,7 @@ function PrivacyPolicyContent() {
         <BulletPoint>Nom complet</BulletPoint>
         <BulletPoint>Adresse email</BulletPoint>
         <BulletPoint>Numéro de téléphone</BulletPoint>
-        <BulletPoint>Numéro SIREN</BulletPoint>
+        <BulletPoint>Numéro SIRET</BulletPoint>
         <BulletPoint>Numéro de carte VTC professionnelle</BulletPoint>
         <BulletPoint>Photo de profil (optionnelle)</BulletPoint>
 
@@ -81,8 +81,7 @@ function PrivacyPolicyContent() {
           sont visibles par les chauffeurs qui prennent ou publient des courses que vous gérez.
         </BulletPoint>
         <BulletPoint>
-          <Text style={styles.bold}>Prestataires de services :</Text> prestataires techniques pour 
-          l'authentification, l'hébergement des données, le monitoring et les paiements.
+          <Text style={styles.bold}>Prestataires :</Text> hébergement, monitoring et outils nécessaires au fonctionnement du service.
         </BulletPoint>
         <BulletPoint>
           <Text style={styles.bold}>Obligations légales :</Text> Si requis par la loi ou une autorité judiciaire.
@@ -115,7 +114,7 @@ function PrivacyPolicyContent() {
         
         <Text style={styles.text}>
           Pour exercer ces droits, rendez-vous dans Profil → Paramètres → Confidentialité et données, 
-          ou contactez-nous à : <Text style={styles.link}>privacy@corail.app</Text>
+          ou contactez-nous à : <Text style={styles.link}>contact@getcorail.com</Text>
         </Text>
       </Section>
 
@@ -134,12 +133,11 @@ function PrivacyPolicyContent() {
 
       <Section title="7. Sécurité">
         <Text style={styles.text}>
-          Nous mettons en œuvre des mesures de sécurité pour protéger vos données :
+          Nous mettons en œuvre des mesures de sécurité adaptées :
         </Text>
-        <BulletPoint>Chiffrement des données en transit (HTTPS/TLS)</BulletPoint>
+        <BulletPoint>Chiffrement des données en transit</BulletPoint>
         <BulletPoint>Authentification sécurisée</BulletPoint>
-        <BulletPoint>Contrôle d'accès strict sur la base de données</BulletPoint>
-        <BulletPoint>Monitoring et détection d'anomalies</BulletPoint>
+        <BulletPoint>Contrôle d'accès aux données</BulletPoint>
         <BulletPoint>Accès restreint aux données internes</BulletPoint>
       </Section>
 
@@ -156,7 +154,7 @@ function PrivacyPolicyContent() {
 
       <Section title="9. Transferts internationaux">
         <Text style={styles.text}>
-          Vos données sont hébergées en Union Européenne. Certains sous-traitants techniques 
+          Vos données sont hébergées en Union européenne. Certains sous-traitants
           peuvent traiter des données hors UE avec des garanties appropriées (clauses contractuelles types).
         </Text>
       </Section>
@@ -172,9 +170,8 @@ function PrivacyPolicyContent() {
         <Text style={styles.text}>
           Pour toute question concernant cette politique de confidentialité :
         </Text>
-        <BulletPoint>Email : <Text style={styles.link}>privacy@corail.app</Text></BulletPoint>
-        <BulletPoint>Adresse : Corail, [Adresse complète à compléter]</BulletPoint>
-        <BulletPoint>DPO : <Text style={styles.link}>dpo@corail.app</Text></BulletPoint>
+        <BulletPoint>Email : <Text style={styles.link}>contact@getcorail.com</Text></BulletPoint>
+        <BulletPoint>DPO : <Text style={styles.link}>contact@getcorail.com</Text></BulletPoint>
         
         <Text style={styles.text}>
           Vous pouvez également déposer une réclamation auprès de la CNIL : 

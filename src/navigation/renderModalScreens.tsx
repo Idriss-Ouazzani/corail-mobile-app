@@ -140,8 +140,12 @@ interface ModalScreensProps {
   loadCredits: () => Promise<void>;
   /** Rafraîchir le compteur de notifications (pastille) après fermeture de l'écran Notifications */
   loadUnreadNotificationsCount?: () => void;
+  /** Après accept/refus demandes site : recharger pastille accueil (driver_ride_requests) */
+  onDriverRequestsListChanged?: () => void;
+  /** Après retour depuis un écran ouvert par tap sur une push (restaurer la pile modale / écran). */
+  restoreAfterNotificationTap?: () => void;
   /** Navigation : écran actif (pour ouvrir Annonces depuis une notif) */
-  setCurrentScreen?: (screen: string) => void;
+  setCurrentScreen?: (screen: 'dashboard' | 'courses' | 'tools' | 'profile') => void;
   /** Onglet Courses : marketplace | myrides */
   setCoursesTab?: (tab: 'marketplace' | 'myrides') => void;
   /** Filtre Annonces : all | public | groups */
@@ -227,16 +231,25 @@ export function renderModalScreens(props: ModalScreensProps): React.ReactElement
     loadRides,
     loadCredits,
     loadUnreadNotificationsCount,
+    onDriverRequestsListChanged,
+    restoreAfterNotificationTap,
     setCurrentScreen,
     setCoursesTab,
     setActiveFilter,
   } = props;
 
+  const endNotificationReturn = () => {
+    restoreAfterNotificationTap?.();
+  };
+
   // 🔐 Driver Verification Profile (documents)
   if (showVerificationProfile) {
     return (
       <DriverVerificationProfileScreen
-        onBack={() => setShowVerificationProfile(false)}
+        onBack={() => {
+          setShowVerificationProfile(false);
+          endNotificationReturn();
+        }}
         onSubmitted={async () => {
           setShowVerificationProfile(false);
           await loadVerificationStatus?.();
@@ -248,8 +261,18 @@ export function renderModalScreens(props: ModalScreensProps): React.ReactElement
   // 👤 Personal Info Screen
   if (showPersonalInfo) {
     return (
-      <PersonalInfoScreen 
-        onBack={() => setShowPersonalInfo(false)}
+      <PersonalInfoScreen
+        isDriverVerified={isDriverVerified}
+        onVerificationDocUpdated={loadVerificationStatus}
+        onLegalInfoSaved={loadVerificationStatus}
+        onOpenDriverVerification={() => {
+          setShowPersonalInfo(false);
+          setShowVerificationProfile(true);
+        }}
+        onBack={() => {
+          setShowPersonalInfo(false);
+          endNotificationReturn();
+        }}
         fullName={userFullName}
         email={userEmail}
         phone={userPhone}
@@ -266,6 +289,7 @@ export function renderModalScreens(props: ModalScreensProps): React.ReactElement
         onBack={() => {
           setShowNotifications(false);
           loadUnreadNotificationsCount?.();
+          endNotificationReturn();
         }}
         onOpenRideDetail={(rideId) => {
           setShowNotifications(false);
@@ -285,8 +309,14 @@ export function renderModalScreens(props: ModalScreensProps): React.ReactElement
           loadUnreadNotificationsCount?.();
           setShowGroupInvitations(true);
         }}
-        onOpenVerificationProfile={() => {
+        onOpenGroups={() => {
           setShowNotifications(false);
+          loadUnreadNotificationsCount?.();
+          setShowGroups(true);
+        }}
+        onOpenVerificationProfile={async () => {
+          setShowNotifications(false);
+          await loadVerificationStatus?.();
           loadUnreadNotificationsCount?.();
           setShowVerificationProfile(true);
         }}
@@ -310,18 +340,47 @@ export function renderModalScreens(props: ModalScreensProps): React.ReactElement
           loadUnreadNotificationsCount?.();
           setShowDriverRequests(true);
         }}
+        onOpenVTCProfile={async () => {
+          setShowNotifications(false);
+          await loadVerificationStatus?.();
+          loadUnreadNotificationsCount?.();
+          setShowVTCProfile(true);
+        }}
+        onOpenPlanning={() => {
+          setShowNotifications(false);
+          loadUnreadNotificationsCount?.();
+          setShowPlanning(true);
+        }}
+        onUnreadCountUpdated={async () => {
+          await loadUnreadNotificationsCount?.();
+        }}
       />
     );
   }
 
   // ❓ Help & Support Screen
   if (showHelpSupport) {
-    return <HelpSupportScreen onBack={() => setShowHelpSupport(false)} />;
+    return (
+      <HelpSupportScreen
+        onBack={() => {
+          setShowHelpSupport(false);
+          endNotificationReturn();
+        }}
+      />
+    );
   }
 
   // 🏆 Badges Screen
   if (showBadges) {
-    return <BadgesScreen onBack={() => setShowBadges(false)} currentUserId={currentUserId} />;
+    return (
+      <BadgesScreen
+        onBack={() => {
+          setShowBadges(false);
+          endNotificationReturn();
+        }}
+        currentUserId={currentUserId}
+      />
+    );
   }
 
   // 📨 Group Invitations Screen
@@ -332,6 +391,7 @@ export function renderModalScreens(props: ModalScreensProps): React.ReactElement
           setShowGroupInvitations(false);
           loadGroups(); // Recharger les groupes après avoir traité les invitations
           loadPendingInvitations(); // Recharger le compteur de badge
+          endNotificationReturn();
         }}
       />
     );
@@ -341,10 +401,18 @@ export function renderModalScreens(props: ModalScreensProps): React.ReactElement
   if (showDriverRequests) {
     return (
       <DriverRequestsScreen
-        onBack={() => setShowDriverRequests(false)}
+        onBack={() => {
+          setShowDriverRequests(false);
+          endNotificationReturn();
+        }}
         onRequestAccepted={() => {
           setShowDriverRequests(false);
           loadPersonalRides();
+          onDriverRequestsListChanged?.();
+          endNotificationReturn();
+        }}
+        onRequestsUpdated={() => {
+          onDriverRequestsListChanged?.();
         }}
       />
     );
@@ -354,7 +422,10 @@ export function renderModalScreens(props: ModalScreensProps): React.ReactElement
   if (showQRCode) {
     return (
       <QRCodeScreen
-        onBack={() => setShowQRCode(false)}
+        onBack={() => {
+          setShowQRCode(false);
+          endNotificationReturn();
+        }}
         onNavigateToProfile={() => {
           setShowQRCode(false);
           setShowVTCProfile(true);
@@ -372,15 +443,28 @@ export function renderModalScreens(props: ModalScreensProps): React.ReactElement
 
   // 🚗 Personal Rides Screen
   if (showPersonalRides) {
-    return <PersonalRidesScreen onClose={() => setShowPersonalRides(false)} />;
+    return (
+      <PersonalRidesScreen
+        onClose={() => {
+          setShowPersonalRides(false);
+          endNotificationReturn();
+        }}
+      />
+    );
   }
 
   // ✍️ Create Quote Screen
   if (showCreateQuote) {
     return (
       <CreateQuoteScreen
-        onBack={() => setShowCreateQuote(false)}
-        onQuoteSent={() => setShowCreateQuote(false)}
+        onBack={() => {
+          setShowCreateQuote(false);
+          endNotificationReturn();
+        }}
+        onQuoteSent={() => {
+          setShowCreateQuote(false);
+          endNotificationReturn();
+        }}
       />
     );
   }
@@ -389,7 +473,10 @@ export function renderModalScreens(props: ModalScreensProps): React.ReactElement
   if (showMyInvoices) {
     return (
       <MyInvoicesScreen
-        onBack={() => setShowMyInvoices(false)}
+        onBack={() => {
+          setShowMyInvoices(false);
+          endNotificationReturn();
+        }}
       />
     );
   }
@@ -398,7 +485,10 @@ export function renderModalScreens(props: ModalScreensProps): React.ReactElement
   if (showMyQuotes) {
     return (
       <MyQuotesScreen
-        onBack={() => setShowMyQuotes(false)}
+        onBack={() => {
+          setShowMyQuotes(false);
+          endNotificationReturn();
+        }}
         onCreateQuote={() => {
           setShowMyQuotes(false);
           setShowCreateQuote(true);
@@ -410,7 +500,10 @@ export function renderModalScreens(props: ModalScreensProps): React.ReactElement
   if (showVTCProfile) {
     return (
       <VTCPublicProfileScreen 
-        onBack={() => setShowVTCProfile(false)}
+        onBack={() => {
+          setShowVTCProfile(false);
+          endNotificationReturn();
+        }}
         currentUserId={currentUserId}
         currentUserEmail={userEmail}
         currentUserName={userFullName}
@@ -425,7 +518,12 @@ export function renderModalScreens(props: ModalScreensProps): React.ReactElement
   if (showPlanning) {
     return (
       <PlanningScreen 
-        onBack={() => setShowPlanning(false)}
+        onBack={() => {
+          setShowPlanning(false);
+          void loadRides();
+          void loadPersonalRides();
+          endNotificationReturn();
+        }}
         onRidePress={async (rideId) => {
           // Charger la course complète et ouvrir le détail
           try {
@@ -433,6 +531,7 @@ export function renderModalScreens(props: ModalScreensProps): React.ReactElement
             const ride = await apiClient.getRide(rideId);
             setSelectedRide(ride);
             setShowPlanning(false); // Fermer le planning pour voir le détail
+            void loadRides();
           } catch (error) {
             console.error('Erreur chargement course:', error);
           }
@@ -444,6 +543,7 @@ export function renderModalScreens(props: ModalScreensProps): React.ReactElement
             const ride = await apiClient.getPersonalRide(rideId);
             setSelectedPersonalRide(ride);
             setShowPlanning(false); // Fermer le planning pour voir le détail
+            void loadPersonalRides();
           } catch (error) {
             console.error('Erreur chargement course personnelle:', error);
           }
@@ -454,7 +554,14 @@ export function renderModalScreens(props: ModalScreensProps): React.ReactElement
 
   // 👨‍💼 Admin Panel Screen
   if (showAdminPanel) {
-    return <AdminPanelScreen onBack={() => setShowAdminPanel(false)} />;
+    return (
+      <AdminPanelScreen
+        onBack={() => {
+          setShowAdminPanel(false);
+          endNotificationReturn();
+        }}
+      />
+    );
   }
 
   // 👥 Group Detail Screen (avant Groups pour priorité)
@@ -462,7 +569,10 @@ export function renderModalScreens(props: ModalScreensProps): React.ReactElement
     return (
       <GroupDetailScreen
         group={selectedGroup}
-        onBack={() => setSelectedGroup(null)}
+        onBack={() => {
+          setSelectedGroup(null);
+          endNotificationReturn();
+        }}
       />
     );
   }
@@ -474,6 +584,7 @@ export function renderModalScreens(props: ModalScreensProps): React.ReactElement
         onBack={() => {
           setShowGroups(false);
           loadGroups(); // Recharger les groupes après fermeture
+          endNotificationReturn();
         }}
         onSelectGroup={(group) => setSelectedGroup(group)}
       />
@@ -486,7 +597,10 @@ export function renderModalScreens(props: ModalScreensProps): React.ReactElement
       <CreateRideScreen
         mode={createRideMode}
         isDriverVerified={isDriverVerified}
-        onBack={() => setShowCreateRide(false)}
+        onBack={() => {
+          setShowCreateRide(false);
+          endNotificationReturn();
+        }}
         onCreate={async (ride) => {
           try {
             await handleCreateRide(ride);
@@ -508,7 +622,10 @@ export function renderModalScreens(props: ModalScreensProps): React.ReactElement
         ride={selectedPersonalRide}
         currentUserId={currentUserId}
         userCredits={userCredits}
-        onBack={() => setSelectedPersonalRide(null)}
+        onBack={() => {
+          setSelectedPersonalRide(null);
+          endNotificationReturn();
+        }}
         onPublish={() => {
           // Ouvrir le modal de publication
           setShowPublishModal(true);
@@ -541,7 +658,10 @@ export function renderModalScreens(props: ModalScreensProps): React.ReactElement
         ride={selectedRide}
         currentUserId={currentUserId}
         userCredits={userCredits}
-        onBack={() => setSelectedRide(null)}
+        onBack={() => {
+          setSelectedRide(null);
+          endNotificationReturn();
+        }}
         onClaim={async () => {
           try {
             const updatedRide = await handleClaimRide(selectedRide);
@@ -627,21 +747,45 @@ export function renderModalScreens(props: ModalScreensProps): React.ReactElement
   // ======================================================================
 
   if (showPrivacyPolicy) {
-    return <PrivacyPolicyScreen onBack={() => setShowPrivacyPolicy(false)} />;
+    return (
+      <PrivacyPolicyScreen
+        onBack={() => {
+          setShowPrivacyPolicy(false);
+          endNotificationReturn();
+        }}
+      />
+    );
   }
 
   if (showTermsOfService) {
-    return <TermsOfServiceScreen onBack={() => setShowTermsOfService(false)} />;
+    return (
+      <TermsOfServiceScreen
+        onBack={() => {
+          setShowTermsOfService(false);
+          endNotificationReturn();
+        }}
+      />
+    );
   }
 
   if (showLegalNotice) {
-    return <LegalNoticeScreen onBack={() => setShowLegalNotice(false)} />;
+    return (
+      <LegalNoticeScreen
+        onBack={() => {
+          setShowLegalNotice(false);
+          endNotificationReturn();
+        }}
+      />
+    );
   }
 
   if (showPrivacyData) {
     return (
       <PrivacyDataScreen
-        onBack={() => setShowPrivacyData(false)}
+        onBack={() => {
+          setShowPrivacyData(false);
+          endNotificationReturn();
+        }}
         currentUserId={currentUserId}
         currentUserEmail={userEmail}
       />

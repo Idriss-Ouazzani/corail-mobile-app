@@ -26,7 +26,6 @@ interface MyRidesListProps {
   // Claimed tab data
   claimedRides: Ride[];
   completedRides: Ride[];
-  historyClaimed: Ride[];
   
   // Published tab data
   activePublished: Ride[];
@@ -184,7 +183,6 @@ export default function MyRidesList({
   activeTab,
   claimedRides,
   completedRides,
-  historyClaimed,
   activePublished,
   claimedPublished,
   historyPublished,
@@ -199,7 +197,9 @@ export default function MyRidesList({
     claimedTerminees: INITIAL_PAGE_SIZE,
     publishedEnLigne: INITIAL_PAGE_SIZE,
     publishedPrises: INITIAL_PAGE_SIZE,
+    publishedHistorique: INITIAL_PAGE_SIZE,
     personalActives: INITIAL_PAGE_SIZE,
+    personalHistorique: INITIAL_PAGE_SIZE,
   });
   const setLimit = useCallback((key: keyof typeof limits, value: number) => {
     setLimits((prev) => ({ ...prev, [key]: value }));
@@ -276,6 +276,7 @@ export default function MyRidesList({
   if (activeTab === 'published') {
     const shownEnLigne = activePublished.slice(0, limits.publishedEnLigne);
     const shownPrises = claimedPublished.slice(0, limits.publishedPrises);
+    const shownHistoriquePub = historyPublished.slice(0, limits.publishedHistorique);
     return (
       <>
         {activePublished.length > 0 && (
@@ -316,7 +317,31 @@ export default function MyRidesList({
           </View>
         )}
 
-        {activePublished.length === 0 && claimedPublished.length === 0 && (
+        {historyPublished.length > 0 && (
+          <View style={[styles.section, styles.historicSection]}>
+            <Text style={styles.sectionLabelHistoric}>Passées (historique)</Text>
+            {shownHistoriquePub.map((ride) => {
+              const st = (ride.status || '').toUpperCase();
+              const histLabel = st === 'EXPIRED' ? 'EXPIRÉE' : 'PASSÉE';
+              const histColor = st === 'EXPIRED' ? '#94a3b8' : '#64748b';
+              return (
+                <CompactRideRow
+                  key={ride.id}
+                  ride={ride}
+                  onPress={onRidePress}
+                  iconName="time-outline"
+                  iconColor="rgba(100, 116, 139, 0.25)"
+                  isHistoric={true}
+                  statusBadge={histLabel}
+                  statusBadgeColor={histColor}
+                />
+              );
+            })}
+            {renderVoirPlus(historyPublished.length, 'publishedHistorique')}
+          </View>
+        )}
+
+        {activePublished.length === 0 && claimedPublished.length === 0 && historyPublished.length === 0 && (
           <View style={styles.emptyState}>
             <Ionicons name="megaphone-outline" size={64} color="#475569" />
             <Text style={styles.emptyStateText}>Aucune annonce en ligne</Text>
@@ -332,6 +357,14 @@ export default function MyRidesList({
   // PERSONAL TAB
   if (activeTab === 'personal') {
     const shownPersonal = activePersonal.slice(0, limits.personalActives);
+    const shownHistoriquePerso = historyPersonal.slice(0, limits.personalHistorique);
+    const personalHistoryLabel = (status: string | undefined) => {
+      const u = (status || '').toUpperCase();
+      if (u === 'COMPLETED') return { text: 'TERMINÉE', color: '#10b981' };
+      if (u === 'EXPIRED') return { text: 'EXPIRÉE', color: '#94a3b8' };
+      if (u === 'CANCELLED') return { text: 'ANNULÉE', color: '#f97316' };
+      return { text: 'PASSÉE', color: '#64748b' };
+    };
     return (
       <>
         {activePersonal.length > 0 && (
@@ -353,7 +386,29 @@ export default function MyRidesList({
           </View>
         )}
 
-        {activePersonal.length === 0 && (
+        {historyPersonal.length > 0 && (
+          <View style={[styles.section, activePersonal.length > 0 && styles.historicSection]}>
+            <Text style={styles.sectionLabelHistoric}>Passées (historique)</Text>
+            {shownHistoriquePerso.map((ride) => {
+              const badge = personalHistoryLabel(ride.status);
+              return (
+                <CompactRideRow
+                  key={ride.id}
+                  ride={ride}
+                  onPress={onPersonalRidePress}
+                  iconName="lock-closed-outline"
+                  iconColor="rgba(100, 116, 139, 0.2)"
+                  isHistoric={true}
+                  statusBadge={badge.text}
+                  statusBadgeColor={badge.color}
+                />
+              );
+            })}
+            {renderVoirPlus(historyPersonal.length, 'personalHistorique')}
+          </View>
+        )}
+
+        {activePersonal.length === 0 && historyPersonal.length === 0 && (
           <View style={styles.emptyState}>
             <Ionicons name="lock-closed-outline" size={64} color="#475569" />
             <Text style={styles.emptyStateText}>Aucune course privée</Text>

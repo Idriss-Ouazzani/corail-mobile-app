@@ -4,7 +4,7 @@
  * Badge crédits visible dans le header (tous onglets).
  */
 
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect } from 'react';
 import {
   View,
   Text,
@@ -18,7 +18,8 @@ import { BlurView } from 'expo-blur';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { theme } from '../theme';
 
-const CREDITS_ONBOARDING_SEEN_KEY = '@corail_credits_onboarding_seen';
+/** Clé utilisée uniquement quand l'utilisateur clique "Ne plus afficher" (pas à la simple fermeture). */
+const EQUILIBRE_DONT_SHOW_AGAIN_KEY = '@corail_equilibre_dont_show_again';
 
 interface CoursesScreenProps {
   verificationStatus: string | null;
@@ -28,6 +29,8 @@ interface CoursesScreenProps {
   activeTab: 'marketplace' | 'myrides';
   onTabChange: (tab: 'marketplace' | 'myrides') => void;
   userCredits?: number;
+  /** True si l'utilisateur a fermé le pop-up Équilibre cette session → ne pas réafficher avant redémarrage */
+  equilibreDismissedThisSession?: boolean;
   onShowCreditsOnboarding?: () => void;
   onOpenVerificationProfile?: () => void;
   marketplaceContent: React.ReactNode;
@@ -41,23 +44,26 @@ export default function CoursesScreen({
   activeTab,
   onTabChange,
   userCredits = 0,
+  equilibreDismissedThisSession = false,
   onShowCreditsOnboarding,
   onOpenVerificationProfile,
   marketplaceContent,
   myRidesContent,
 }: CoursesScreenProps) {
   const showAnnoncesLock = activeTab === 'marketplace' && !isDriverVerified;
-  const hasTriggeredOnboardingRef = useRef(false);
 
-  // Afficher l'onboarding crédits une seule fois à la première arrivée sur Marketplace (si pas déjà "Ne plus afficher")
+  // À chaque visite sur Annonces : afficher le pop-up Équilibre 1 fois par session (ou si "Ne plus afficher" pas coché)
   useEffect(() => {
-    if (activeTab !== 'marketplace' || hasTriggeredOnboardingRef.current) return;
-    AsyncStorage.getItem(CREDITS_ONBOARDING_SEEN_KEY).then((seen) => {
-      if (seen === 'true') return;
-      hasTriggeredOnboardingRef.current = true;
-      onShowCreditsOnboarding?.();
-    });
-  }, [activeTab, onShowCreditsOnboarding]);
+    if (activeTab !== 'marketplace') return;
+    if (equilibreDismissedThisSession) return;
+    const timer = setTimeout(() => {
+      AsyncStorage.getItem(EQUILIBRE_DONT_SHOW_AGAIN_KEY).then((dontShow) => {
+        if (dontShow === 'true') return;
+        onShowCreditsOnboarding?.();
+      });
+    }, 350);
+    return () => clearTimeout(timer);
+  }, [activeTab, equilibreDismissedThisSession, onShowCreditsOnboarding]);
 
   const renderContent = () => {
     switch (activeTab) {
@@ -120,18 +126,29 @@ export default function CoursesScreen({
       
       <View style={styles.header}>
         <View style={styles.headerTop}>
-          <View>
+          <View style={styles.headerTitleBlock}>
             <Text style={styles.headerTitle}>Courses</Text>
-            <Text style={styles.headerSubtitle}>Annonces et suivi de vos courses</Text>
+            <Text style={styles.headerSubtitle}>Réseau public & réservations directes</Text>
           </View>
-          <TouchableOpacity
-            style={styles.creditsBadge}
-            onPress={() => onShowCreditsOnboarding?.()}
-            activeOpacity={0.8}
-          >
-            <Text style={styles.creditsBadgeValue}>{userCredits}</Text>
-            <Text style={styles.creditsBadgeLabel}>crédits</Text>
-          </TouchableOpacity>
+          <View style={styles.headerRight}>
+            {activeTab === 'marketplace' && (
+              <TouchableOpacity
+                style={styles.equilibreInfoButton}
+                onPress={() => onShowCreditsOnboarding?.()}
+                activeOpacity={0.7}
+                accessibilityLabel="À propos de l'équilibre du réseau"
+              >
+                <Ionicons name="information-circle-outline" size={20} color={theme.colors.textMuted} />
+              </TouchableOpacity>
+            )}
+            <TouchableOpacity
+              style={[styles.creditsBadge, activeTab !== 'marketplace' && styles.creditsBadgeMuted]}
+              onPress={() => onShowCreditsOnboarding?.()}
+              activeOpacity={0.8}
+            >
+              <Text style={[styles.creditsBadgeValue, activeTab !== 'marketplace' && styles.creditsBadgeValueMuted]}>{userCredits}</Text>
+            </TouchableOpacity>
+          </View>
         </View>
       </View>
 
@@ -207,25 +224,40 @@ const styles = StyleSheet.create({
     alignItems: 'flex-start',
     justifyContent: 'space-between',
   },
+  headerTitleBlock: {
+    flex: 1,
+  },
+  headerRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  equilibreInfoButton: {
+    padding: 4,
+  },
   creditsBadge: {
     backgroundColor: 'rgba(51, 65, 85, 0.6)',
     paddingVertical: 6,
-    paddingHorizontal: 10,
+    paddingHorizontal: 12,
     borderRadius: 10,
     borderWidth: 1,
     borderColor: 'rgba(71, 85, 105, 0.6)',
     alignItems: 'center',
-    minWidth: 44,
+    justifyContent: 'center',
+    minWidth: 40,
+  },
+  creditsBadgeMuted: {
+    opacity: 0.7,
+    backgroundColor: 'rgba(51, 65, 85, 0.4)',
+    borderColor: 'rgba(71, 85, 105, 0.4)',
   },
   creditsBadgeValue: {
     fontSize: 15,
     fontWeight: '700',
     color: '#f1f5f9',
   },
-  creditsBadgeLabel: {
-    fontSize: 10,
+  creditsBadgeValueMuted: {
     color: '#94a3b8',
-    marginTop: 0,
   },
   headerTitle: {
     fontSize: 26,

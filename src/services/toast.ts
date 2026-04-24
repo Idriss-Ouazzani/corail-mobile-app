@@ -144,8 +144,8 @@ export const toast = {
   insufficientCredits: () => {
     Toast.show({
       type: 'error',
-      text1: '⚠️ Crédits insuffisants',
-      text2: 'Publiez des courses pour gagner des crédits !',
+      text1: 'Équilibre insuffisant',
+      text2: 'Publiez des courses pour gagner de l\'équilibre du réseau.',
       visibilityTime: 4000,
       topOffset: 60,
     });

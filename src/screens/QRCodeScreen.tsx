@@ -9,10 +9,10 @@ import {
   Platform,
   ActivityIndicator,
   Image,
+  Share,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
-import * as Sharing from 'expo-sharing';
 import * as FileSystem from 'expo-file-system/legacy';
 import { captureRef } from 'react-native-view-shot';
 import QRCodeCard from '../components/QRCodeCard';
@@ -79,36 +79,38 @@ export const QRCodeScreen: React.FC<QRCodeScreenProps> = ({ onBack, onNavigateTo
       ? getVtcProfileUrl(vtcSlug)
       : buildVCard(userData);
   const footerLabel = hasPublicPage
-    ? 'Scannez pour voir mon profil'
+    ? 'Scannez pour vos prochaines courses'
     : 'Scannez pour mes coordonnées';
 
   const handleShare = async () => {
     try {
       setSharing(true);
-      
-      // Capturer le QR code comme image
       const uri = await captureRef(qrCodeRef, {
         format: 'png',
         quality: 1,
       });
 
-      // Vérifier si le partage est disponible
-      const isAvailable = await Sharing.isAvailableAsync();
-      
-      if (isAvailable) {
-        await Sharing.shareAsync(uri, {
-          mimeType: 'image/png',
-          dialogTitle: 'Partager mon QR Code professionnel',
+      const pageUrl = hasPublicPage && vtcSlug ? getVtcProfileUrl(vtcSlug) : null;
+      const message = pageUrl
+        ? `Réservez en direct sur ma page pro Corail :\n${pageUrl}`
+        : `Corail — mes coordonnées professionnelles. Scannez le QR (image) pour m’enregistrer.`;
+
+      if (Platform.OS === 'ios') {
+        await Share.share({
+          message,
+          url: uri,
         });
       } else {
-        Alert.alert(
-          'Partage non disponible',
-          'La fonctionnalité de partage n\'est pas disponible sur cet appareil.'
-        );
+        await Share.share({
+          message: pageUrl
+            ? `Réservez en direct — ma page pro Corail :\n${pageUrl}`
+            : message,
+          title: 'Mon QR Corail',
+        });
       }
     } catch (error: any) {
       console.error('Erreur partage QR code:', error);
-      Alert.alert('Erreur', 'Impossible de partager le QR code');
+      Alert.alert('Erreur', 'Impossible de partager');
     } finally {
       setSharing(false);
     }
@@ -190,7 +192,7 @@ export const QRCodeScreen: React.FC<QRCodeScreenProps> = ({ onBack, onNavigateTo
               <Ionicons name="qr-code" size={26} color="#fff" />
             </View>
             <Text style={styles.heroText}>
-              Partagez vos coordonnées ou votre profil pro en un scan.
+              Votre page pro en un scan, ou le lien en un clic.
             </Text>
           </View>
         </View>
@@ -204,8 +206,8 @@ export const QRCodeScreen: React.FC<QRCodeScreenProps> = ({ onBack, onNavigateTo
             </Text>
             <Text style={styles.infoText}>
               {hasPublicPage
-                ? 'Vos clients peuvent scanner ce QR code pour découvrir votre profil et vous contacter.'
-                : 'Le QR code contient vos coordonnées. Créez une Page Pro pour partager un lien vers votre profil.'}
+                ? 'Le partage envoie aussi le lien de votre page (pas seulement l’image du QR).'
+                : 'Le QR code contient vos coordonnées. Créez une Page Pro pour y ajouter le lien de votre profil en ligne.'}
             </Text>
           </View>
         </View>
@@ -225,7 +227,7 @@ export const QRCodeScreen: React.FC<QRCodeScreenProps> = ({ onBack, onNavigateTo
 
         {/* QR Code Card */}
         <View ref={qrCodeRef} collapsable={false}>
-          <QRCodeCard userData={userData} qrValue={qrValue} footerLabel={footerLabel} size={220} />
+          <QRCodeCard qrValue={qrValue} footerLabel={footerLabel} size={220} />
         </View>
 
         {/* Actions */}

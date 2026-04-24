@@ -5,6 +5,7 @@
 
 import React from 'react';
 import { ScrollView, StyleSheet } from 'react-native';
+import { isSameCorailUser } from '../utils/isSameCorailUser';
 import MyRidesHeader from './MyRidesHeader';
 import MyRidesTabBar from './MyRidesTabBar';
 import MyRidesList from './MyRidesList';
@@ -41,6 +42,7 @@ interface MyRidesTabProps {
   rides: Ride[];
   personalRides: PersonalRide[];
   currentUserId: string | null;
+  publicUsersRowId?: string | null;
   activeTab: 'claimed' | 'published' | 'personal';
   onTabChange: (tab: 'claimed' | 'published' | 'personal') => void;
   onCreateRide: () => void;
@@ -55,6 +57,7 @@ export default function MyRidesTab({
   rides,
   personalRides,
   currentUserId,
+  publicUsersRowId = null,
   activeTab,
   onTabChange,
   onCreateRide,
@@ -67,8 +70,10 @@ export default function MyRidesTab({
   const claimedRides = claimedByMe.filter((ride) => ride.status === 'CLAIMED');
   const completedRides = claimedByMe.filter((ride) => ride.status === 'COMPLETED');
 
-  // Filter rides where current user is the creator (comparaison robuste)
-  const createdByMe = rides.filter((ride) => currentUserId && String(ride.creator_id) === String(currentUserId));
+  // Filter rides where current user is the creator (auth / public.users.id)
+  const createdByMe = rides.filter(
+    (ride) => currentUserId && isSameCorailUser(ride.creator_id, currentUserId, publicUsersRowId)
+  );
   
   // Published rides = PUBLIC + GROUP (ou non défini, considéré comme PUBLIC)
   const publishedByMe = createdByMe.filter((ride) => {
@@ -99,22 +104,18 @@ export default function MyRidesTab({
     return scheduledTime >= Date.now();
   });
 
-  // 📜 HISTORIQUE: Courses passées (max 10, triées par date décroissante)
-  // Pour claimed: courses terminées dans le passé
-  const historyClaimed = claimedByMe.filter((ride) => {
-    if (ride.status !== 'COMPLETED') return false;
-    const scheduledTime = new Date(ride.scheduled_at ?? 0).getTime();
-    return scheduledTime < Date.now();
-  }).sort((a, b) => new Date(b.scheduled_at ?? 0).getTime() - new Date(a.scheduled_at ?? 0).getTime()).slice(0, 10);
+  // 📜 HISTORIQUE (claimed : section « Passées » = completedRides dans MyRidesList)
 
-  // Pour published: courses passées ou expirées
+  // Pour published : annonces passées non prises (pas CLAIMED/COMPLETED → déjà dans « Prises ») + EXPIRED
   const historyPublished = publishedByMe.filter((ride) => {
-    if (ride.status === 'PUBLISHED') {
+    const st = (ride.status || '').toUpperCase();
+    if (st === 'CLAIMED' || st === 'COMPLETED') return false;
+    if (st === 'PUBLISHED') {
       const scheduledTime = new Date(ride.scheduled_at ?? 0).getTime();
-      return scheduledTime < Date.now(); // Publiées dont la date est passée
+      return !Number.isNaN(scheduledTime) && scheduledTime < Date.now();
     }
-    return ride.status === 'EXPIRED' || ride.status === 'COMPLETED';
-  }).sort((a, b) => new Date(b.scheduled_at ?? 0).getTime() - new Date(a.scheduled_at ?? 0).getTime()).slice(0, 10);
+    return st === 'EXPIRED';
+  }).sort((a, b) => new Date(b.scheduled_at ?? 0).getTime() - new Date(a.scheduled_at ?? 0).getTime());
 
   // Pour personal: courses explicitement terminées/annulées/expirées OU courses avec date passée
   const historyPersonal = personalByMe.filter((ride) => {
@@ -125,7 +126,7 @@ export default function MyRidesTab({
     // Courses SCHEDULED mais dont la date est passée
     const scheduledTime = new Date(ride.scheduled_at ?? 0).getTime();
     return scheduledTime < Date.now();
-  }).sort((a, b) => new Date(b.scheduled_at ?? 0).getTime() - new Date(a.scheduled_at ?? 0).getTime()).slice(0, 10);
+  }).sort((a, b) => new Date(b.scheduled_at ?? 0).getTime() - new Date(a.scheduled_at ?? 0).getTime());
 
   const totalCount = activeTab === 'claimed' ? claimedByMe.length : activeTab === 'published' ? publishedByMe.length : personalByMe.length;
 
@@ -138,9 +139,9 @@ export default function MyRidesTab({
 
       <MyRidesTabBar
         activeTab={activeTab}
-        claimedCount={claimedRides.length}
-        publishedCount={activePublished.length}
-        personalCount={activePersonal.length}
+        claimedCount={claimedRides.length + completedRides.length}
+        publishedCount={activePublished.length + claimedPublished.length + historyPublished.length}
+        personalCount={activePersonal.length + historyPersonal.length}
         onTabChange={onTabChange}
       />
 
@@ -148,7 +149,6 @@ export default function MyRidesTab({
         activeTab={activeTab}
         claimedRides={claimedRides}
         completedRides={completedRides}
-        historyClaimed={historyClaimed}
         activePublished={activePublished}
         claimedPublished={claimedPublished}
         historyPublished={historyPublished}

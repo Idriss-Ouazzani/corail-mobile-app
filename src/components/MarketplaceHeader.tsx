@@ -17,6 +17,7 @@ export default function MarketplaceHeader({ ridesCount, onCreateRide }: Marketpl
     <View style={styles.pageHeaderRow}>
       <View style={{ flex: 1 }}>
         <Text style={styles.pageTitle}>Annonces</Text>
+        <Text style={styles.pageSubtitleDiscreet}>Réseau public Corail</Text>
         <Text style={styles.pageSubtitle}>
           {ridesCount} course{ridesCount !== 1 ? 's' : ''} disponible{ridesCount !== 1 ? 's' : ''}
         </Text>
@@ -52,6 +53,12 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     color: '#f1f5f9',
     letterSpacing: -0.2,
+  },
+  pageSubtitleDiscreet: {
+    fontSize: 11,
+    color: '#64748b',
+    marginTop: 2,
+    opacity: 0.85,
   },
   pageSubtitle: {
     fontSize: 14,

@@ -1,7 +1,6 @@
 /**
  * Écran des notifications in-app
- * Affiche les 10 dernières notifications ; les déjà consultées sont grisées.
- * Au tap sur une notification avec target_ride_id → marquer lu et ouvrir le détail de la course.
+ * Pagination : 10 notifications par page, bouton "Voir plus" pour charger la suite.
  */
 
 import React, { useState, useEffect, useCallback } from 'react';
@@ -26,6 +25,8 @@ interface NotificationsScreenProps {
   onOpenAdminPanel?: () => void;
   /** Appelé pour une invitation à un groupe : on ferme puis on ouvre l'écran des invitations. */
   onOpenGroupInvitations?: () => void;
+  /** Nouveau membre dans un groupe (notif admin) : liste des groupes. */
+  onOpenGroups?: () => void;
   /** Appelé pour "dossier refusé" : on ferme puis on ouvre l'écran de vérification du profil chauffeur. */
   onOpenVerificationProfile?: () => void;
   /** Appelé pour une course personnelle (ex. devis) : on ferme puis on ouvre le détail de la course personnelle. */
@@ -34,6 +35,12 @@ interface NotificationsScreenProps {
   onOpenMarketplaceGroups?: () => void;
   /** Appelé pour "réservation directe" (site) : on ferme puis on ouvre l'écran Demandes. */
   onOpenDriverRequests?: () => void;
+  /** planning du jour, résumé, rappel imminent : on ferme puis on ouvre Planning (vue « À venir »). */
+  onOpenPlanning?: () => void;
+  /** Profil chauffeur / Page Pro après validation admin. */
+  onOpenVTCProfile?: () => void;
+  /** Après marquage lu : rafraîchir pastille + badge OS (depuis App). */
+  onUnreadCountUpdated?: () => void | Promise<void>;
 }
 
 function formatNotificationDate(iso: string): string {
@@ -55,41 +62,62 @@ export const NotificationsScreen: React.FC<NotificationsScreenProps> = ({
   onOpenRideDetail,
   onOpenAdminPanel,
   onOpenGroupInvitations,
+  onOpenGroups,
   onOpenVerificationProfile,
   onOpenPersonalRideDetail,
   onOpenMarketplaceGroups,
   onOpenDriverRequests,
+  onOpenPlanning,
+  onOpenVTCProfile,
+  onUnreadCountUpdated,
 }) => {
+  const PAGE_SIZE = 10;
   const [list, setList] = useState<InAppNotification[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [hasMore, setHasMore] = useState(true);
 
-  const load = useCallback(async () => {
+  const load = useCallback(async (offset = 0, append = false) => {
+    if (offset === 0 && !append) setLoading(true);
+    if (offset > 0) setLoadingMore(true);
     try {
-      const data = await apiClient.listInAppNotifications(50);
-      setList(Array.isArray(data) ? data : []);
+      const data = await apiClient.listInAppNotifications(PAGE_SIZE, offset);
+      const next = Array.isArray(data) ? data : [];
+      setList((prev) => (append ? [...prev, ...next] : next));
+      setHasMore(next.length === PAGE_SIZE);
     } catch (e) {
       console.warn('listInAppNotifications', e);
-      setList([]);
+      if (!append) setList([]);
+      setHasMore(false);
     } finally {
       setLoading(false);
       setRefreshing(false);
+      setLoadingMore(false);
     }
   }, []);
 
   useEffect(() => {
-    load();
+    load(0, false);
   }, [load]);
 
   const onRefresh = useCallback(() => {
     setRefreshing(true);
-    load();
+    setHasMore(true);
+    load(0, false);
   }, [load]);
+
+  const onLoadMore = useCallback(() => {
+    if (loadingMore || !hasMore) return;
+    load(list.length, true);
+  }, [load, list.length, loadingMore, hasMore]);
 
   const handleNotificationPress = useCallback(
     async (n: InAppNotification) => {
       try {
         await apiClient.markNotificationRead(n.id);
+        await onUnreadCountUpdated?.();
+        await load(0, false);
       } catch (_) {}
       const isAdminNotification = n.type === 'driver_verification_submitted' || n.target_screen === 'admin_driver_verification';
       if (isAdminNotification && onOpenAdminPanel) {
@@ -103,14 +131,39 @@ export const NotificationsScreen: React.FC<NotificationsScreenProps> = ({
         onOpenGroupInvitations();
         return;
       }
+      if (n.type === 'group_member_joined' && onOpenGroups) {
+        onBack();
+        onOpenGroups();
+        return;
+      }
       const isVerificationRejected = n.type === 'verification_rejected' || n.target_screen === 'driver_verification_profile';
       if (isVerificationRejected && onOpenVerificationProfile) {
         onBack();
         onOpenVerificationProfile();
         return;
       }
-      const isMarketplaceGroups = n.type === 'ride_in_group' || n.target_screen === 'marketplace_groups';
-      if (isMarketplaceGroups && onOpenMarketplaceGroups) {
+      if (n.type === 'verification_approved' && onOpenVTCProfile) {
+        onBack();
+        onOpenVTCProfile();
+        return;
+      }
+      const isPlanningNotif =
+        n.type === 'daily_summary' ||
+        n.type === 'ride_imminent' ||
+        n.target_screen === 'planning' ||
+        n.target_screen === 'planning_upcoming';
+      if (isPlanningNotif && onOpenPlanning) {
+        onBack();
+        onOpenPlanning();
+        return;
+      }
+      const isRideInGroup = n.type === 'ride_in_group' || n.target_screen === 'marketplace_groups';
+      if (isRideInGroup && n.target_ride_id && onOpenRideDetail) {
+        onBack();
+        onOpenRideDetail(n.target_ride_id);
+        return;
+      }
+      if (isRideInGroup && onOpenMarketplaceGroups) {
         onBack();
         onOpenMarketplaceGroups();
         return;
@@ -131,7 +184,21 @@ export const NotificationsScreen: React.FC<NotificationsScreenProps> = ({
         onOpenRideDetail(n.target_ride_id);
       }
     },
-    [onBack, onOpenRideDetail, onOpenAdminPanel, onOpenGroupInvitations, onOpenVerificationProfile, onOpenPersonalRideDetail, onOpenMarketplaceGroups, onOpenDriverRequests]
+    [
+      onBack,
+      onOpenRideDetail,
+      onOpenAdminPanel,
+      onOpenGroupInvitations,
+      onOpenGroups,
+      onOpenVerificationProfile,
+      onOpenVTCProfile,
+      onOpenPersonalRideDetail,
+      onOpenMarketplaceGroups,
+      onOpenDriverRequests,
+      onOpenPlanning,
+      onUnreadCountUpdated,
+      load,
+    ]
   );
 
   return (
@@ -165,65 +232,87 @@ export const NotificationsScreen: React.FC<NotificationsScreenProps> = ({
               <Text style={styles.emptyText}>Aucune notification</Text>
             </View>
           ) : (
-            list.map((n) => {
-              const isRead = !!n.read_at;
-              return (
+            <>
+              {list.map((n) => {
+                const isRead = !!n.read_at;
+                return (
+                  <TouchableOpacity
+                    key={n.id}
+                    style={[styles.notifRow, !isRead && styles.notifRowUnread, isRead && styles.notifRowRead]}
+                    onPress={() => handleNotificationPress(n)}
+                    activeOpacity={0.7}
+                  >
+                    <View style={[styles.notifIconWrap, isRead && styles.notifIconWrapRead]}>
+                      <Ionicons
+                        name={
+                          n.type === 'ride_claimed'
+                            ? 'car-sport'
+                            : n.type === 'ride_completed'
+                            ? 'checkmark-circle'
+                            : n.type === 'ride_rating'
+                            ? 'star'
+                            : n.type === 'ride_cancelled'
+                            ? 'close-circle'
+                            : n.type === 'driver_verification_submitted'
+                            ? 'document-text'
+                            : n.type === 'verification_approved'
+                            ? 'shield-checkmark'
+                            : n.type === 'verification_rejected'
+                            ? 'alert-circle'
+                            : n.type === 'group_invitation'
+                            ? 'people'
+                            : n.type === 'group_member_joined'
+                            ? 'person-add'
+                            : n.type === 'quote_accepted'
+                            ? 'checkmark-done-circle'
+                            : n.type === 'quote_refused'
+                            ? 'close-circle-outline'
+                            : n.type === 'ride_in_group'
+                            ? 'car-sport'
+                            : n.type === 'ride_from_site'
+                            ? 'globe-outline'
+                            : 'notifications'
+                        }
+                        size={20}
+                        color={isRead ? '#64748b' : '#0ea5e9'}
+                      />
+                    </View>
+                    <View style={styles.notifBody}>
+                      <Text style={[styles.notifTitle, isRead && styles.notifTitleRead]} numberOfLines={1}>
+                        {n.title}
+                      </Text>
+                      {n.body ? (
+                        <Text style={[styles.notifSubtext, isRead && styles.notifSubtextRead]} numberOfLines={2}>
+                          {n.body}
+                        </Text>
+                      ) : null}
+                      <Text style={[styles.notifDate, isRead && styles.notifDateRead]}>{formatNotificationDate(n.created_at)}</Text>
+                    </View>
+                    {(n.target_ride_id ||
+                      n.target_personal_ride_id ||
+                      n.target_screen ||
+                      n.type === 'daily_summary' ||
+                      n.type === 'ride_imminent') ? (
+                      <Ionicons name="chevron-forward" size={18} color={isRead ? '#475569' : '#64748b'} />
+                    ) : null}
+                  </TouchableOpacity>
+                );
+              })}
+              {hasMore && list.length > 0 && (
                 <TouchableOpacity
-                  key={n.id}
-                  style={[styles.notifRow, !isRead && styles.notifRowUnread, isRead && styles.notifRowRead]}
-                  onPress={() => handleNotificationPress(n)}
+                  style={styles.loadMoreButton}
+                  onPress={onLoadMore}
+                  disabled={loadingMore}
                   activeOpacity={0.7}
                 >
-                  <View style={[styles.notifIconWrap, isRead && styles.notifIconWrapRead]}>
-                    <Ionicons
-                      name={
-                        n.type === 'ride_claimed'
-                          ? 'car-sport'
-                          : n.type === 'ride_completed'
-                          ? 'checkmark-circle'
-                          : n.type === 'ride_rating'
-                          ? 'star'
-                          : n.type === 'ride_cancelled'
-                          ? 'close-circle'
-                          : n.type === 'driver_verification_submitted'
-                          ? 'document-text'
-                          : n.type === 'verification_approved'
-                          ? 'shield-checkmark'
-                          : n.type === 'verification_rejected'
-                          ? 'alert-circle'
-                          : n.type === 'group_invitation'
-                          ? 'people'
-                          : n.type === 'quote_accepted'
-                          ? 'checkmark-done-circle'
-                          : n.type === 'quote_refused'
-                          ? 'close-circle-outline'
-                          : n.type === 'ride_in_group'
-                          ? 'car-sport'
-                          : n.type === 'ride_from_site'
-                          ? 'globe-outline'
-                          : 'notifications'
-                      }
-                      size={20}
-                      color={isRead ? '#64748b' : '#0ea5e9'}
-                    />
-                  </View>
-                  <View style={styles.notifBody}>
-                    <Text style={[styles.notifTitle, isRead && styles.notifTitleRead]} numberOfLines={1}>
-                      {n.title}
-                    </Text>
-                    {n.body ? (
-                      <Text style={[styles.notifSubtext, isRead && styles.notifSubtextRead]} numberOfLines={2}>
-                        {n.body}
-                      </Text>
-                    ) : null}
-                    <Text style={[styles.notifDate, isRead && styles.notifDateRead]}>{formatNotificationDate(n.created_at)}</Text>
-                  </View>
-                  {(n.target_ride_id || n.target_personal_ride_id || n.target_screen) ? (
-                    <Ionicons name="chevron-forward" size={18} color={isRead ? '#475569' : '#64748b'} />
-                  ) : null}
+                  {loadingMore ? (
+                    <ActivityIndicator size="small" color="#0ea5e9" />
+                  ) : (
+                    <Text style={styles.loadMoreText}>Voir plus</Text>
+                  )}
                 </TouchableOpacity>
-              );
-            })
+              )}
+            </>
           )}
         </View>
       </ScrollView>
@@ -360,6 +449,22 @@ const styles = StyleSheet.create({
   },
   notifDateRead: {
     color: '#475569',
+  },
+  loadMoreButton: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 16,
+    marginTop: 8,
+    marginBottom: 24,
+    backgroundColor: '#1e293b',
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: '#334155',
+  },
+  loadMoreText: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#0ea5e9',
   },
 });
 

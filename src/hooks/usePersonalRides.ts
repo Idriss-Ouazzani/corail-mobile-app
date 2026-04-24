@@ -32,7 +32,8 @@ export function usePersonalRides(currentUserId: string | null) {
     try {
       setLoading(true);
       console.log('🔄 Chargement courses personnelles...');
-      const data = await apiClient.listPersonalRides({ limit: 100 });
+      // Même requête que Planning / listPersonalRides (pas de limite) pour P0-4
+      const data = await apiClient.listPersonalRides({});
       setPersonalRides(data);
       console.log('✅ Courses perso chargées:', data.length);
     } catch (err: any) {

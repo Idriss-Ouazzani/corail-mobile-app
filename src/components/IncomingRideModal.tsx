@@ -162,7 +162,7 @@ export const IncomingRideModal: React.FC<IncomingRideModalProps> = ({
           </View>
           <Text style={styles.headerTitle}>Nouvelle annonce</Text>
           <Text style={styles.headerSubtitleNew}>
-            Une course a été publiée sur la marketplace{ride.creator_name ? ` par ${ride.creator_name}` : ''}.
+            Une course a été publiée sur le réseau public{ride.creator_name ? ` par ${ride.creator_name}` : ''}.
           </Text>
         </View>
 

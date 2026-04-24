@@ -263,7 +263,7 @@ export default function PrivacyDataScreen({
 
         <View style={styles.footer}>
           <Text style={styles.footerText}>
-            Questions ? DPO : <Text style={styles.footerLink}>dpo@corail.app</Text>
+            Questions ? <Text style={styles.footerLink}>contact@getcorail.com</Text>
           </Text>
         </View>
       </ScrollView>

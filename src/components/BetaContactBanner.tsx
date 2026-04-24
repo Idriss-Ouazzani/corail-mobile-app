@@ -10,7 +10,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 
 export default function BetaContactBanner() {
   const handleEmailPress = () => {
-    Linking.openURL('mailto:corail.platform@gmail.com?subject=Feedback Beta Corail');
+    Linking.openURL('mailto:contact@getcorail.com?subject=Feedback Beta Corail');
   };
 
   const handleTelegramPress = () => {

@@ -12,10 +12,13 @@ import {
   ActivityIndicator,
   RefreshControl,
   Alert,
+  Image,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { apiClient } from '../services/api';
+
+const HERO_IMAGE = 'https://images.unsplash.com/photo-1522071820081-009f0129c71c?w=800&q=80';
 
 interface Invitation {
   id: string;
@@ -134,11 +137,33 @@ export const GroupInvitationsScreen: React.FC<GroupInvitationsScreenProps> = ({ 
 
       <ScrollView
         style={styles.content}
+        contentContainerStyle={styles.contentContainer}
+        showsVerticalScrollIndicator={false}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />}
       >
+        <View style={styles.heroWrap}>
+          <Image source={{ uri: HERO_IMAGE }} style={styles.heroImage} resizeMode="cover" />
+          <View style={styles.heroOverlay} />
+          <View style={styles.heroContent}>
+            {invitations.length > 0 && (
+              <View style={styles.heroBadge}>
+                <Text style={styles.heroBadgeText}>{invitations.length} invitation{invitations.length > 1 ? 's' : ''}</Text>
+              </View>
+            )}
+            <Text style={styles.heroTitle}>Invitations</Text>
+            <Text style={styles.heroSubtitle}>
+              {invitations.length > 0
+                ? 'Rejoignez les groupes qui vous invitent'
+                : 'Les invitations à des groupes apparaîtront ici'}
+            </Text>
+          </View>
+        </View>
+
         {invitations.length === 0 ? (
           <View style={styles.emptyState}>
-            <Ionicons name="mail-open-outline" size={64} color="#475569" />
+            <View style={styles.emptyIconWrap}>
+              <Ionicons name="mail-open-outline" size={48} color="#64748b" />
+            </View>
             <Text style={styles.emptyStateTitle}>Aucune invitation</Text>
             <Text style={styles.emptyStateText}>
               Vous n'avez pas d'invitations en attente
@@ -271,12 +296,66 @@ const styles = StyleSheet.create({
   },
   content: {
     flex: 1,
-    padding: 16,
+  },
+  contentContainer: {
+    paddingHorizontal: 16,
+    paddingBottom: 32,
+  },
+  heroWrap: {
+    height: 160,
+    marginTop: 8,
+    marginBottom: 20,
+    borderRadius: 16,
+    overflow: 'hidden',
+  },
+  heroImage: {
+    ...StyleSheet.absoluteFillObject,
+  },
+  heroOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(15, 23, 42, 0.75)',
+  },
+  heroContent: {
+    ...StyleSheet.absoluteFillObject,
+    justifyContent: 'center',
+    paddingHorizontal: 20,
+  },
+  heroBadge: {
+    alignSelf: 'flex-start',
+    backgroundColor: 'rgba(255, 107, 71, 0.9)',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 20,
+    marginBottom: 8,
+  },
+  heroBadgeText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#fff',
+  },
+  heroTitle: {
+    fontSize: 22,
+    fontWeight: '700',
+    color: '#fff',
+    marginBottom: 4,
+  },
+  heroSubtitle: {
+    fontSize: 14,
+    color: 'rgba(255, 255, 255, 0.88)',
   },
   emptyState: {
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 80,
+    paddingVertical: 48,
+  },
+  emptyIconWrap: {
+    width: 88,
+    height: 88,
+    borderRadius: 44,
+    backgroundColor: 'rgba(30, 41, 59, 0.8)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 16,
   },
   emptyStateTitle: {
     fontSize: 20,

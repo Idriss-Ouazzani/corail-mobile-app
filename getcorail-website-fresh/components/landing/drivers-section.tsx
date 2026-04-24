@@ -1,4 +1,3 @@
-import Image from "next/image";
 import Link from "next/link";
 import { FileText, Calendar, Share2, UserCircle, ArrowRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -18,33 +17,55 @@ export function DriversSection() {
       
       <div className="relative z-10 max-w-7xl mx-auto px-6 lg:px-8">
         <div className="grid lg:grid-cols-2 gap-16 lg:gap-24 items-center">
-          {/* Driver Images */}
+          {/* Photos chauffeurs avec ma page pro au centre */}
           <div className="relative order-2 lg:order-1">
+            {/* Grille photos chauffeurs */}
             <div className="grid grid-cols-3 gap-5">
               <div className="col-span-2 aspect-[4/5] relative rounded-2xl overflow-hidden shadow-xl shadow-black/10 ring-1 ring-border/50">
-                <Image
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
                   src="/images/driver-1.jpg"
                   alt="Chauffeur du réseau Corail"
-                  fill
-                  className="object-cover"
+                  className="absolute inset-0 w-full h-full object-cover"
                 />
                 <div className="absolute inset-0 bg-gradient-to-t from-background/80 via-transparent to-transparent" />
               </div>
               <div className="space-y-5">
                 <div className="aspect-square relative rounded-2xl overflow-hidden shadow-lg ring-1 ring-border/40">
-                  <Image
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
                     src="/images/driver-2.jpg"
                     alt="Chauffeur du réseau Corail"
-                    fill
-                    className="object-cover"
+                    className="absolute inset-0 w-full h-full object-cover"
                   />
                 </div>
                 <div className="aspect-square relative rounded-2xl overflow-hidden shadow-lg ring-1 ring-border/40">
-                  <Image
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
                     src="/images/driver-3.jpg"
                     alt="Chauffeur du réseau Corail"
-                    fill
-                    className="object-cover"
+                    className="absolute inset-0 w-full h-full object-cover"
+                  />
+                </div>
+              </div>
+            </div>
+            {/* Ma page pro : centrée au milieu des 3 images */}
+            <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-20 px-2">
+              <div className="flex gap-4 sm:gap-6 lg:gap-8 pointer-events-auto">
+                <div className="w-[140px] sm:w-[180px] lg:w-[240px] rounded-[1.5rem] sm:rounded-[2rem] overflow-hidden shadow-2xl shadow-black/20 ring-2 ring-border/60 shrink-0 bg-card">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src="/images/ma-page-pro-1.jpeg"
+                    alt="Exemple de page pro Corail — profil chauffeur"
+                    className="w-full h-auto object-contain"
+                  />
+                </div>
+                <div className="w-[140px] sm:w-[180px] lg:w-[240px] rounded-[1.5rem] sm:rounded-[2rem] overflow-hidden shadow-2xl shadow-black/20 ring-2 ring-border/60 shrink-0 bg-card sm:-mt-10 lg:-mt-14">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src="/images/ma-page-pro-2.jpeg"
+                    alt="Exemple de page pro Corail — réservation"
+                    className="w-full h-auto object-contain"
                   />
                 </div>
               </div>
@@ -61,8 +82,12 @@ export function DriversSection() {
               Construire le plus grand réseau indépendant
             </h2>
 
-            <p className="text-foreground/60 text-base sm:text-lg lg:text-xl leading-relaxed mb-10 min-w-0">
+            <p className="text-foreground/60 text-base sm:text-lg lg:text-xl leading-relaxed mb-6 min-w-0">
               Corail développe un réseau national structuré de chauffeurs privés.
+            </p>
+
+            <p className="text-foreground/80 text-base lg:text-lg italic mb-10 min-w-0">
+              Plus le réseau grandit, plus vous recevez d&apos;opportunités.
             </p>
 
             <p className="text-foreground/80 font-medium mb-4 text-sm">Chaque membre dispose :</p>
@@ -70,7 +95,7 @@ export function DriversSection() {
               {memberBenefits.map((item) => {
                 const Icon = item.icon;
                 return (
-                  <div key={item.label} className="flex gap-3 sm:gap-4 p-4 rounded-2xl -m-4 hover:bg-muted/30 transition-colors group min-w-0">
+                  <div key={item.label} className="card-hover flex gap-3 sm:gap-4 p-4 rounded-2xl -m-4 hover:bg-muted/30 transition-all duration-300 group min-w-0">
                     <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl sm:rounded-2xl bg-primary/10 flex items-center justify-center shrink-0 group-hover:bg-primary/15 transition-colors">
                       <Icon className="h-5 w-5 sm:h-6 sm:w-6 text-primary" />
                     </div>

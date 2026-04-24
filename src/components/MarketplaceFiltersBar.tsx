@@ -1,17 +1,26 @@
 /**
- * MarketplaceFiltersBar - Barre de filtres du marketplace
+ * MarketplaceFiltersBar - Barre de filtres Annonces (visibilité uniquement)
+ * Toutes | Public | Groupes
  */
 
 import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
+export type MarketplaceFilterKey = 'all' | 'public' | 'groups';
+
 interface MarketplaceFiltersBarProps {
-  activeFilter: 'all' | 'public' | 'groups';
+  activeFilter: MarketplaceFilterKey;
   activeFiltersCount: number;
-  onFilterChange: (filter: 'all' | 'public' | 'groups') => void;
+  onFilterChange: (filter: MarketplaceFilterKey) => void;
   onShowAdvancedFilters: () => void;
 }
+
+const FILTERS: { key: MarketplaceFilterKey; label: string; icon: string }[] = [
+  { key: 'all', label: 'Toutes', icon: 'grid' },
+  { key: 'public', label: 'Public', icon: 'globe' },
+  { key: 'groups', label: 'Groupes', icon: 'people' },
+];
 
 export default function MarketplaceFiltersBar({
   activeFilter,
@@ -19,15 +28,8 @@ export default function MarketplaceFiltersBar({
   onFilterChange,
   onShowAdvancedFilters,
 }: MarketplaceFiltersBarProps) {
-  const filters = [
-    { key: 'all' as const, label: 'Toutes', icon: 'grid' },
-    { key: 'public' as const, label: 'Public', icon: 'globe' },
-    { key: 'groups' as const, label: 'Groupes', icon: 'people' },
-  ];
-
   return (
     <View style={styles.filtersRow}>
-      {/* Bouton Tri / Filtres en premier (plus visible) */}
       <TouchableOpacity
         style={[styles.filterIconButton, activeFiltersCount > 0 && styles.filterIconButtonActive]}
         onPress={onShowAdvancedFilters}
@@ -45,24 +47,31 @@ export default function MarketplaceFiltersBar({
         )}
       </TouchableOpacity>
 
-      {filters.map((filter) => (
-        <TouchableOpacity
-          key={filter.key}
-          style={[styles.filterChip, activeFilter === filter.key && styles.filterChipActive]}
-          onPress={() => onFilterChange(filter.key)}
-          activeOpacity={0.7}
-        >
-          <Ionicons 
-            name={filter.icon as any} 
-            size={15} 
-            color={activeFilter === filter.key ? '#fff' : '#94a3b8'} 
-            style={{ marginRight: 5 }}
-          />
-          <Text style={[styles.filterText, activeFilter === filter.key && styles.filterTextActive]}>
-            {filter.label}
-          </Text>
-        </TouchableOpacity>
-      ))}
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={styles.chipsScrollContent}
+        style={styles.chipsScroll}
+      >
+        {FILTERS.map((filter) => (
+          <TouchableOpacity
+            key={filter.key}
+            style={[styles.filterChip, activeFilter === filter.key && styles.filterChipActive]}
+            onPress={() => onFilterChange(filter.key)}
+            activeOpacity={0.7}
+          >
+            <Ionicons
+              name={filter.icon as any}
+              size={14}
+              color={activeFilter === filter.key ? '#fff' : '#94a3b8'}
+              style={styles.filterChipIcon}
+            />
+            <Text style={[styles.filterText, activeFilter === filter.key && styles.filterTextActive]}>
+              {filter.label}
+            </Text>
+          </TouchableOpacity>
+        ))}
+      </ScrollView>
     </View>
   );
 }
@@ -70,19 +79,23 @@ export default function MarketplaceFiltersBar({
 const styles = StyleSheet.create({
   filtersRow: {
     flexDirection: 'row',
-    gap: 8,
+    alignItems: 'center',
     marginBottom: 20,
+    gap: 6,
   },
+  chipsScroll: { flex: 1, minWidth: 0 },
+  chipsScrollContent: { flexDirection: 'row', gap: 6, paddingRight: 8 },
   filterChip: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: 'rgba(30, 41, 59, 0.7)',
-    paddingVertical: 8,
-    paddingHorizontal: 11,
+    paddingVertical: 6,
+    paddingHorizontal: 9,
     borderRadius: 10,
     borderWidth: 1,
     borderColor: 'rgba(51, 65, 85, 0.6)',
   },
+  filterChipIcon: { marginRight: 4 },
   filterChipActive: {
     backgroundColor: '#0ea5e9',
     borderColor: '#0ea5e9',
@@ -128,4 +141,3 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
 });
-

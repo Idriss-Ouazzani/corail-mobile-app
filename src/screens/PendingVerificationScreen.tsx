@@ -178,7 +178,7 @@ export const PendingVerificationScreen: React.FC<PendingVerificationScreenProps>
               <View style={styles.faqContent}>
                 <Text style={styles.faqQuestion}>Que vérifie-t-on ?</Text>
                 <Text style={styles.faqAnswer}>
-                  Nous vérifions votre carte professionnelle VTC et votre numéro SIREN auprès des autorités compétentes.
+                  Nous vérifions votre carte professionnelle VTC et vos informations légales (SIRET) auprès des autorités compétentes.
                 </Text>
               </View>
             </View>

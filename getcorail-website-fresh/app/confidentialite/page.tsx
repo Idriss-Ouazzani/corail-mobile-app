@@ -64,7 +64,7 @@ export default function ConfidentialitePage() {
             <Bullet>Nom complet</Bullet>
             <Bullet>Adresse email</Bullet>
             <Bullet>Numéro de téléphone</Bullet>
-            <Bullet>Numéro SIREN (chauffeurs)</Bullet>
+            <Bullet>Numéro SIRET (chauffeurs)</Bullet>
             <Bullet>Numéro de carte VTC professionnelle (chauffeurs)</Bullet>
             <Bullet>Photo de profil (optionnelle)</Bullet>
 
@@ -100,7 +100,7 @@ export default function ConfidentialitePage() {
               visibles par les chauffeurs qui prennent ou publient des courses que vous gérez.
             </Bullet>
             <Bullet>
-              <strong className="text-foreground">Prestataires :</strong> Supabase (base de données), Sentry (monitoring), etc.
+              <strong className="text-foreground">Prestataires :</strong> hébergement, monitoring et outils nécessaires au fonctionnement du service.
             </Bullet>
             <Bullet>
               <strong className="text-foreground">Obligations légales :</strong> si requis par la loi ou une autorité judiciaire.
@@ -128,23 +128,23 @@ export default function ConfidentialitePage() {
           </Section>
 
           <Section title="7. Sécurité">
-            <p className="text-sm leading-relaxed">Nous mettons en œuvre des mesures de sécurité :</p>
-            <Bullet>Chiffrement des données en transit (HTTPS/TLS)</Bullet>
+            <p className="text-sm leading-relaxed">Nous mettons en œuvre des mesures de sécurité adaptées :</p>
+            <Bullet>Chiffrement des données en transit</Bullet>
             <Bullet>Authentification sécurisée</Bullet>
-            <Bullet>Row Level Security sur la base de données</Bullet>
+            <Bullet>Contrôle d&apos;accès aux données</Bullet>
             <Bullet>Accès restreint aux données internes</Bullet>
           </Section>
 
           <Section title="8. Cookies et tracking">
             <p className="text-sm leading-relaxed">
-              Le site getcorail.com peut utiliser des cookies techniques et analytics (Vercel Analytics).
+              Le site getcorail.com peut utiliser des cookies techniques et de mesure d&apos;audience.
               L&apos;application mobile n&apos;utilise pas de cookies. Vous pouvez gérer les préférences dans les paramètres de votre navigateur ou de l&apos;app.
             </p>
           </Section>
 
           <Section title="9. Transferts internationaux">
             <p className="text-sm leading-relaxed">
-              Vos données sont hébergées en Union Européenne (Supabase EU). Certains sous-traitants
+              Vos données sont hébergées en Union européenne. Certains sous-traitants
               peuvent traiter des données hors UE avec des garanties appropriées (clauses contractuelles types).
             </p>
           </Section>

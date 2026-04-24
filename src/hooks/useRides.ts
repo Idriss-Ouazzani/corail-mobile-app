@@ -61,8 +61,8 @@ export function useRides(currentUserId: string | null, userCredits: number) {
       // Vérifier les crédits
       if (userCredits < 1) {
         Alert.alert(
-          'Crédits insuffisants',
-          'Vous avez besoin d\'au moins 1 crédit pour prendre une course. Publiez des courses pour gagner des crédits !',
+          'Équilibre insuffisant',
+          'Publiez des courses pour gagner de l\'équilibre du réseau.',
           [{ text: 'OK' }]
         );
         return false;

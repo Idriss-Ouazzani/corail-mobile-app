@@ -50,13 +50,13 @@ export const VerificationScreen: React.FC<VerificationScreenProps> = ({ onBack, 
         full_name: fullName,
         phone: formatPhoneForSubmit(phone),
         professional_card_number: professionalCard,
-        siren: '', // Plus demandé à l'inscription ; infos légales (SIRET) configurées plus tard pour devis/factures
+        // SIRET configuré plus tard sur vtc_profiles (infos légales)
         email,
       });
 
       Alert.alert(
         'Bienvenue !',
-        'Votre profil est enregistré. Explorez l\'app et, quand vous serez prêt, complétez la vérification par documents pour débloquer la marketplace et les réservations.',
+        'Votre profil est enregistré. Explorez l\'app et, quand vous serez prêt, complétez la vérification par documents pour débloquer le réseau public et les réservations directes.',
         [{ text: 'Découvrir', onPress: onSuccess }]
       );
     } catch (error: any) {
@@ -102,7 +102,7 @@ export const VerificationScreen: React.FC<VerificationScreenProps> = ({ onBack, 
                 <Text style={styles.journeyStepNumberText}>2</Text>
               </View>
               <Text style={styles.journeyStepLabel}>Vérification documents</Text>
-              <Text style={styles.journeyStepDesc}>Plus tard, vous déposerez carte pro, pièce d'identité et assurance pour débloquer marketplace et réservations.</Text>
+              <Text style={styles.journeyStepDesc}>Plus tard, vous déposerez carte pro, pièce d'identité et assurance pour débloquer le réseau public et les réservations directes.</Text>
             </View>
             <View style={styles.journeyStep}>
               <View style={[styles.journeyStepNumber, styles.journeyStepNumberNext]}>

@@ -1,5 +1,4 @@
 import Link from "next/link";
-import Image from "next/image";
 
 const footerLinks = {
   produit: [
@@ -10,6 +9,7 @@ const footerLinks = {
     { label: "Comment ça marche", href: "/#comment-ca-marche" },
   ],
   legal: [
+    { label: "Support", href: "/support" },
     { label: "Confidentialité", href: "/confidentialite" },
     { label: "CGU", href: "/cgu" },
     { label: "Mentions légales", href: "/mentions-legales" },
@@ -55,11 +55,10 @@ export function Footer() {
 
           <div className="col-span-2 flex flex-col sm:flex-row items-center sm:items-start gap-6 sm:gap-8">
             <Link href="/" className="shrink-0">
-              <Image
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
                 src="/images/corail-logo.png"
                 alt="Corail"
-                width={200}
-                height={67}
                 className="h-16 sm:h-20 w-auto"
               />
             </Link>

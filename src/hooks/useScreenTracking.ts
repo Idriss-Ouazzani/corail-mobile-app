@@ -9,13 +9,13 @@ import analytics from '../services/analytics';
 
 interface UseScreenTrackingProps {
   currentScreen: string;
-  user: any; // Firebase user
+  user: any;
   verificationStatus: string | null;
 }
 
 /**
- * Hook qui track automatiquement les changements d'écran dans Firebase Analytics
- * Ne track que si l'utilisateur est connecté et vérifié
+ * Hook qui track les changements d'écran (analytics).
+ * Ne track que si l'utilisateur est connecté et vérifié.
  */
 export const useScreenTracking = ({
   currentScreen,
@@ -27,7 +27,7 @@ export const useScreenTracking = ({
     // Ne tracker que si l'utilisateur est connecté et vérifié
     if (!user || verificationStatus !== 'VERIFIED') return;
 
-    // Map des noms d'écrans pour Firebase Analytics
+    // Map des noms d'écrans pour analytics
     const screenMap: Record<string, string> = {
       'dashboard': 'Dashboard',
       'courses': 'Courses',

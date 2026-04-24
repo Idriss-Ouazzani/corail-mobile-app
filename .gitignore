@@ -9,6 +9,8 @@ dist/
 web-build/
 
 # Native
+android/
+ios/
 *.orig.*
 *.jks
 *.p8
@@ -53,3 +55,6 @@ supabase/functions/.env
 
 # Deploy clone (même contenu que corail-landing-page-design, poussé vers getcorail-website sur GitHub/Vercel)
 getcorail-website/
+
+# Clone local imbriqué (.git + node_modules) — ne pas suivre dans ce dépôt
+getcorail-website-repo/

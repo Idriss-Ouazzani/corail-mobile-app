@@ -97,7 +97,7 @@ export const NotificationSettings: React.FC = () => {
         <Ionicons name="notifications-outline" size={24} color="#0ea5e9" />
         <View style={styles.introTextBlock}>
           <Text style={styles.introText}>
-            Choisissez les alertes que vous souhaitez recevoir. Les notifications « Nouvelles annonces » vous préviennent lorsqu'une course est publiée sur la marketplace ou dans vos groupes.
+            Choisissez les alertes que vous souhaitez recevoir. Les notifications « Nouvelles annonces » vous préviennent lorsqu'une course est publiée sur le réseau public ou dans vos groupes.
           </Text>
           <Text style={styles.introSubtext}>
             {scheduledCount} notification{scheduledCount > 1 ? 's' : ''} planifiée{scheduledCount > 1 ? 's' : ''}
@@ -188,7 +188,7 @@ export const NotificationSettings: React.FC = () => {
           </View>
 
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Annonces & marketplace</Text>
+            <Text style={styles.sectionTitle}>Annonces & réseau public</Text>
 
             <View style={styles.settingRow}>
               <View style={styles.settingLeft}>
@@ -198,7 +198,7 @@ export const NotificationSettings: React.FC = () => {
                 <View style={styles.settingText}>
                   <Text style={styles.settingTitle}>Nouvelles annonces</Text>
                   <Text style={styles.settingDescription}>
-                    Alerte lorsqu'une course est publiée (marketplace ou vos groupes)
+                    Alerte lorsqu'une course est publiée (réseau public ou vos groupes)
                   </Text>
                 </View>
               </View>
@@ -220,8 +220,8 @@ export const NotificationSettings: React.FC = () => {
                   <Ionicons name="warning-outline" size={20} color="#64748b" />
                 </View>
                 <View style={styles.settingText}>
-                  <Text style={styles.settingTitle}>Crédits faibles</Text>
-                  <Text style={styles.settingDescription}>Moins de 2 crédits restants</Text>
+                  <Text style={styles.settingTitle}>Équilibre faible</Text>
+                  <Text style={styles.settingDescription}>Moins de 2 en solde</Text>
                 </View>
               </View>
               <Switch

@@ -43,11 +43,11 @@ export const SplashScreen = ({ onFinish }: { onFinish: () => void }) => {
           },
         ]}
       >
-        <CoralLogo size={120} />
+        <CoralLogo size={150} />
         <View style={{ height: 20 }} />
         <Text style={styles.title}>Corail</Text>
         <View style={{ height: 20 }} />
-        <Text style={styles.subtitle}>VTC Marketplace</Text>
+        <Text style={styles.subtitle}>Réseau des chauffeurs indépendants</Text>
       </Animated.View>
       
       <View style={styles.footer}>

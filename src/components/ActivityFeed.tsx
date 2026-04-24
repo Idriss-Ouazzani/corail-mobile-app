@@ -100,7 +100,7 @@ const ActivityFeed: React.FC<ActivityFeedProps> = ({ verificationStatus, onRefre
         return {
           icon: 'megaphone' as const,
           color: '#0ea5e9',
-          title: 'Course publiée sur la marketplace',
+          title: 'Course publiée sur le réseau public',
           subtitle: pickup_address && dropoff_address
             ? `${pickup_address} → ${dropoff_address}`
             : 'Course publique',

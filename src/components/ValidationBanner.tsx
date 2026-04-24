@@ -35,7 +35,7 @@ export const ValidationBanner: React.FC<ValidationBannerProps> = ({
             </Text>
             <Text style={styles.subtitle}>
               {isPending 
-                ? 'Accès limité à la marketplace'
+                ? 'Accès limité au réseau public'
                 : 'Contactez le support'}
             </Text>
           </View>

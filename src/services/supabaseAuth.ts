@@ -126,15 +126,28 @@ export const supabaseAuth = {
   },
 
   /**
-   * Obtenir la session actuelle
+   * Obtenir la session actuelle.
+   * Si le refresh token est invalide (révoqué/expiré), on signe out pour nettoyer le stockage et éviter les erreurs en boucle.
    */
   async getSession(): Promise<Session | null> {
     try {
       const { data: { session }, error } = await supabase.auth.getSession();
-      
-      if (error) throw error;
+
+      if (error) {
+        const msg = error?.message ?? '';
+        if (msg.includes('Refresh Token') || msg.includes('refresh_token')) {
+          await supabase.auth.signOut();
+          return null;
+        }
+        throw error;
+      }
       return session;
-    } catch (error) {
+    } catch (error: unknown) {
+      const msg = (error as { message?: string })?.message ?? '';
+      if (msg.includes('Refresh Token') || msg.includes('refresh_token')) {
+        await supabase.auth.signOut();
+        return null;
+      }
       console.error('Erreur getting session:', error);
       return null;
     }
@@ -162,7 +175,6 @@ export const supabaseAuth = {
       callback(user);
     });
 
-    // Retourner la fonction de cleanup
     return () => subscription.unsubscribe();
   },
 

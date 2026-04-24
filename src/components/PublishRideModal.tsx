@@ -122,11 +122,11 @@ export const PublishRideModal: React.FC<PublishRideModalProps> = ({
   if (!visible || !personalRide) return null;
 
   const handlePublish = async () => {
-    if (publishVisibility === 'PUBLIC' && !isDriverVerified) {
+    if (!isDriverVerified) {
       haptic.warning();
       Alert.alert(
         'Profil vérifié requis',
-        'Pour accéder aux opportunités réseau, votre profil doit être vérifié.'
+        'Sans profil vérifié, vous ne pouvez pas publier une course personnelle sur le réseau ou vers un groupe.'
       );
       return;
     }

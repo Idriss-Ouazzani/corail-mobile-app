@@ -257,7 +257,7 @@ export default function PlanningScreen({ onBack, onRidePress, onPersonalRidePres
       // Marquer comme COMPLETED
       if (selectedRide.ride_source === 'MARKETPLACE') {
         // Pour marketplace, on ne peut pas changer le statut directement
-        Alert.alert('Info', 'Cette course marketplace sera marquée comme terminée après validation');
+        Alert.alert('Info', 'Cette course du réseau public sera marquée comme terminée après validation');
       } else {
         await apiClient.updatePersonalRide(selectedRide.id, { status: 'COMPLETED' });
       }
@@ -668,7 +668,7 @@ export default function PlanningScreen({ onBack, onRidePress, onPersonalRidePres
               <Ionicons name="calendar-outline" size={56} color="#64748b" />
               <Text style={styles.emptyStateTitle}>Aucune course prévue</Text>
               <Text style={styles.emptyStateText}>
-                Votre planning est vide pour les prochains jours. Les courses que vous récupérez sur la marketplace ou que vous créez en personnelles apparaîtront ici, avec la possibilité de lancer l'itinéraire ou de terminer la course pour générer la facture.
+                Votre planning est vide pour les prochains jours. Les courses que vous récupérez sur le réseau public ou que vous créez en privées apparaîtront ici, avec la possibilité de lancer l'itinéraire ou de terminer la course pour générer la facture.
               </Text>
             </View>
           )}

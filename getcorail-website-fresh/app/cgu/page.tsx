@@ -75,7 +75,7 @@ export default function CGUPage() {
             <p className="text-sm leading-relaxed">Pour utiliser l&apos;application Corail (chauffeurs), vous devez :</p>
             <Bullet>Être majeur(e) et professionnel(le) VTC</Bullet>
             <Bullet>Disposer d&apos;une carte VTC valide</Bullet>
-            <Bullet>Fournir un numéro SIREN valide</Bullet>
+            <Bullet>Fournir un numéro SIRET valide</Bullet>
             <Bullet>Accepter ces conditions d&apos;utilisation</Bullet>
             <Bullet>Fournir des informations exactes et à jour</Bullet>
             <p className="text-sm leading-relaxed">

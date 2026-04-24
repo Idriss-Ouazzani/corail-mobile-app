@@ -27,30 +27,17 @@ function LegalNoticeContent() {
 
       <Section title="1. Éditeur de l'application">
         <InfoBlock label="Nom du projet" value="Corail" />
-        <InfoBlock label="Contact" value="contact@corail.app" />
+        <InfoBlock label="Contact" value="contact@getcorail.com" />
         <Text style={styles.disclaimer}>
-          Cette application est actuellement exploitée en phase de test, sans activité commerciale et sans structure juridique immatriculée. Les informations légales complètes (forme juridique, SIREN, SIRET, siège social, directeur de publication) seront publiées dès l'immatriculation de l'éditeur (micro-entreprise, société, etc.). En l'état, aucun revenu n'est généré par ce service.
+          Cette application est actuellement exploitée en phase de test, sans activité commerciale et sans structure juridique immatriculée. Les informations légales complètes (forme juridique, SIRET, siège social, directeur de publication) seront publiées dès l'immatriculation de l'éditeur (micro-entreprise, société, etc.). En l'état, aucun revenu n'est généré par ce service.
         </Text>
       </Section>
 
       <Section title="2. Hébergement">
-        <Text style={styles.subtitle}>Application mobile :</Text>
-        <InfoBlock 
-          label="Hébergeur" 
-          value="Expo (Vercel Inc.)\n340 S Lemon Ave #4133\nWalnut, CA 91789, USA" 
-        />
-        
-        <Text style={styles.subtitle}>Base de données et authentification :</Text>
-        <InfoBlock 
-          label="Hébergeur" 
-          value="Prestataire technique\nServeurs situés en Union Européenne" 
-        />
-
-        <Text style={styles.subtitle}>Site web (devis et profils publics) :</Text>
-        <InfoBlock 
-          label="Hébergeur" 
-          value="Vercel Inc.\n340 S Lemon Ave #4133\nWalnut, CA 91789, USA\nwww.vercel.com" 
-        />
+        <Text style={styles.text}>
+          L'application Corail et le site getcorail.com sont hébergés par des prestataires
+          dont les serveurs sont situés en Union européenne, dans le respect du RGPD.
+        </Text>
       </Section>
 
       <Section title="3. Propriété intellectuelle">
@@ -76,7 +63,7 @@ function LegalNoticeContent() {
           loi Informatique et Libertés, vous disposez de droits sur vos données personnelles.
         </Text>
         <InfoBlock label="Responsable de traitement" value="Corail" />
-        <InfoBlock label="Délégué à la protection des données (DPO)" value="dpo@corail.app" />
+        <InfoBlock label="Délégué à la protection des données (DPO)" value="contact@getcorail.com" />
         <InfoBlock 
           label="Finalité des traitements" 
           value="Gestion des comptes, mise en relation entre chauffeurs, facturation, support client" 
@@ -94,7 +81,7 @@ function LegalNoticeContent() {
         
         <Text style={styles.text}>
           <Text style={styles.bold}>Vos droits :</Text> accès, rectification, effacement, portabilité, 
-          limitation, opposition. Contact : <Text style={styles.link}>privacy@corail.app</Text>
+          limitation, opposition. Contact : <Text style={styles.link}>contact@getcorail.com</Text>
         </Text>
         
         <Text style={styles.text}>
@@ -115,19 +102,7 @@ function LegalNoticeContent() {
         </Text>
       </Section>
 
-      <Section title="6. Crédits et technologies">
-        <Text style={styles.subtitle}>Technologies utilisées :</Text>
-        <BulletPoint>Application mobile (framework standard)</BulletPoint>
-        <BulletPoint>Authentification et base de données (hébergement UE)</BulletPoint>
-        <BulletPoint>Paiements en ligne</BulletPoint>
-        <BulletPoint>Site web (devis et profils publics)</BulletPoint>
-        <BulletPoint>Recherche d'adresses et calcul d'itinéraires</BulletPoint>
-        
-        <Text style={styles.subtitle}>Design :</Text>
-        <BulletPoint>Design original Corail</BulletPoint>
-      </Section>
-
-      <Section title="7. Législation applicable">
+      <Section title="6. Législation applicable">
         <Text style={styles.text}>
           Les présentes mentions légales sont régies par le droit français. En cas de litige, 
           les tribunaux français seront compétents.
@@ -146,7 +121,7 @@ function LegalNoticeContent() {
         </BulletPoint>
       </Section>
 
-      <Section title="8. Limitation de responsabilité">
+      <Section title="7. Limitation de responsabilité">
         <Text style={styles.text}>
           Corail s'efforce d'assurer l'exactitude et la mise à jour des informations diffusées, 
           mais ne peut garantir l'exactitude, la précision ou l'exhaustivité de ces informations.
@@ -163,13 +138,11 @@ function LegalNoticeContent() {
         <BulletPoint>De l'utilisation frauduleuse ou abusive de l'application par des tiers</BulletPoint>
       </Section>
 
-      <Section title="9. Contact">
+      <Section title="8. Contact">
         <Text style={styles.text}>Pour toute question concernant ces mentions légales :</Text>
-        <InfoBlock label="Email général" value="contact@corail.app" />
-        <InfoBlock label="Support technique" value="support@corail.app" />
-        <InfoBlock label="Questions juridiques" value="legal@corail.app" />
-        <InfoBlock label="Protection des données" value="privacy@corail.app" />
-        <InfoBlock label="Signalement d'abus" value="abuse@corail.app" />
+        <Text style={styles.text}>
+          <Text style={styles.link}>contact@getcorail.com</Text>
+        </Text>
       </Section>
 
       <View style={styles.footer}>

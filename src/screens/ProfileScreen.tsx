@@ -95,7 +95,7 @@ export const ProfileScreen = ({ navigation }: any) => {
           <View style={styles.footer}>
             <CoralLogo size={30} />
             <Text style={styles.version}>Corail v1.0.0</Text>
-            <Text style={styles.copyright}>© 2025 VTC Marketplace</Text>
+            <Text style={styles.copyright}>© 2025 Corail</Text>
           </View>
         </ScrollView>
       </LinearGradient>

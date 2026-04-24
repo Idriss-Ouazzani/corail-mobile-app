@@ -47,7 +47,7 @@ function TermsOfServiceContent() {
         <Text style={styles.text}>Pour utiliser Corail, vous devez :</Text>
         <BulletPoint>Être majeur(e) et professionnel(le) VTC</BulletPoint>
         <BulletPoint>Disposer d'une carte VTC valide</BulletPoint>
-        <BulletPoint>Fournir un numéro SIREN valide</BulletPoint>
+        <BulletPoint>Fournir un numéro SIRET valide (infos légales)</BulletPoint>
         <BulletPoint>Accepter ces conditions d'utilisation</BulletPoint>
         <BulletPoint>Fournir des informations exactes et à jour</BulletPoint>
         
@@ -164,15 +164,14 @@ function TermsOfServiceContent() {
           Ces CGU sont régies par le droit français. En cas de litige, une solution amiable sera 
           recherchée en priorité. À défaut, les tribunaux français seront compétents.
         </Text>
-        <BulletPoint>Médiation : <Text style={styles.link}>mediateur@corail.app</Text></BulletPoint>
+        <BulletPoint>Médiation : <Text style={styles.link}>contact@getcorail.com</Text></BulletPoint>
         <BulletPoint>Plateforme européenne de règlement en ligne : <Text style={styles.link}>ec.europa.eu/odr</Text></BulletPoint>
       </Section>
 
       <Section title="12. Contact">
         <Text style={styles.text}>Pour toute question sur ces conditions :</Text>
-        <BulletPoint>Email : <Text style={styles.link}>legal@corail.app</Text></BulletPoint>
+        <BulletPoint>Email : <Text style={styles.link}>contact@getcorail.com</Text></BulletPoint>
         <BulletPoint>Support : Dans l'app, onglet Profil → Aide & Support</BulletPoint>
-        <BulletPoint>Adresse : Corail, [Adresse complète à compléter]</BulletPoint>
       </Section>
 
       <View style={styles.footer}>

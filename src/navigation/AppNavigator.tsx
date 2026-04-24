@@ -40,7 +40,7 @@ export const AppNavigator = () => {
         name="Marketplace"
         component={MarketplaceScreen}
         options={{
-          tabBarLabel: 'Marketplace',
+          tabBarLabel: 'Réseau public',
           tabBarIcon: ({ focused }) => (
             <TabBarIcon icon="🔍" focused={focused} />
           ),

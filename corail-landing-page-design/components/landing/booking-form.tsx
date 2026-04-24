@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Calendar as CalendarIcon, Clock, Euro, Baby, Wifi, Briefcase, PawPrint, Users, ArrowRight, Sparkles } from "lucide-react";
+import { Calendar as CalendarIcon, Clock, Euro, Baby, Wifi, Briefcase, PawPrint, Users, ArrowRight, Sparkles, Lock, CreditCard } from "lucide-react";
 import { AddressAutocomplete, type AddressSuggestion } from "./AddressAutocomplete";
 import { calculateDistanceKm } from "@/lib/distance";
 import { computeIndicativeRange, formatEUR, roundToFiftyCents } from "@/lib/pricing";
@@ -183,14 +183,24 @@ export function BookingForm() {
             <br />
             Un chauffeur disponible du réseau confirme votre réservation.
             <br />
-            Vous êtes ensuite mis en relation directement.
+            Vous êtes ensuite mis en relation directement. Vous recevez une confirmation par email.
             <br />
             <span className="text-foreground/80 font-medium">Paiement effectué auprès du chauffeur.</span>
           </p>
+          <div className="flex flex-wrap justify-center gap-4 mt-6">
+            <span className="inline-flex items-center gap-2 text-sm text-foreground/50">
+              <Lock className="w-4 h-4 text-primary/70" />
+              Données sécurisées
+            </span>
+            <span className="inline-flex items-center gap-2 text-sm text-foreground/50">
+              <CreditCard className="w-4 h-4 text-primary/70" />
+              Paiement direct avec le chauffeur
+            </span>
+          </div>
         </div>
 
         <div className="max-w-3xl mx-auto min-w-0 px-2 sm:px-0">
-          <form className="bg-card/80 backdrop-blur-sm border border-border/80 rounded-3xl p-6 sm:p-8 lg:p-10 shadow-xl shadow-black/5 overflow-hidden min-w-0 max-w-full" onSubmit={handleSubmit}>
+          <form className="form-focus-ring bg-card/80 backdrop-blur-sm border border-border/80 rounded-3xl p-6 sm:p-8 lg:p-10 shadow-xl shadow-black/5 overflow-hidden min-w-0 max-w-full" onSubmit={handleSubmit}>
             {indicativeRange && budgetChoice != null && (
               <input type="hidden" name="budget" value={effectiveBudget} />
             )}
@@ -217,8 +227,8 @@ export function BookingForm() {
                 onChangeText={setArrivalLabel}
               />
 
-              {/* Mobile : date et heure côte à côte, rectangles de même taille */}
-              <div className="grid grid-cols-[1fr_1fr] gap-3 md:hidden min-w-0 col-span-full">
+              {/* Mobile / tablet : champs natifs (éviter troncature Android, bug Select iOS) */}
+              <div className="grid grid-cols-[1fr_1fr] gap-3 lg:hidden min-w-0 col-span-full">
                 <div className="space-y-2 min-w-0 w-full">
                   <Label htmlFor="date-native" className="text-foreground font-medium">Date</Label>
                   <div className="relative min-w-0 w-full overflow-hidden rounded-xl border border-border bg-background focus-within:ring-2 focus-within:ring-ring focus-within:ring-offset-0 h-12">
@@ -233,23 +243,23 @@ export function BookingForm() {
                     />
                   </div>
                 </div>
-                <div className="space-y-2 min-w-0 w-full">
+                <div className="space-y-2 w-full min-w-[7rem]">
                   <Label htmlFor="time-native" className="text-foreground font-medium">Heure</Label>
-                  <div className="relative min-w-0 w-full overflow-hidden rounded-xl border border-border bg-background focus-within:ring-2 focus-within:ring-ring focus-within:ring-offset-0 h-12">
+                  <div className="relative w-full min-w-[7rem] overflow-visible rounded-xl border border-border bg-background focus-within:ring-2 focus-within:ring-ring focus-within:ring-offset-0 h-12">
                     <Clock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground pointer-events-none shrink-0 z-10" />
                     <input
                       id="time-native"
                       type="time"
                       value={time}
                       onChange={(e) => setTime(e.target.value)}
-                      className="w-full min-w-0 h-full pl-11 pr-1 rounded-xl bg-transparent border-0 text-foreground text-sm focus:outline-none focus:ring-0 [color-scheme:dark] box-border"
+                      className="w-full min-w-[6rem] h-full pl-11 pr-2 rounded-xl bg-transparent border-0 text-foreground text-sm focus:outline-none focus:ring-0 [color-scheme:dark] box-border"
                     />
                   </div>
                 </div>
               </div>
 
-              {/* Desktop : calendrier et liste d'heures */}
-              <div className="space-y-2 hidden md:block">
+              {/* Desktop (lg+) : calendrier et liste d'heures */}
+              <div className="space-y-2 hidden lg:block">
                 <Label className="text-foreground font-medium">Date</Label>
                 <Popover open={datePickerOpen} onOpenChange={setDatePickerOpen}>
                   <PopoverTrigger asChild>
@@ -282,7 +292,7 @@ export function BookingForm() {
                 </Popover>
               </div>
 
-              <div className="space-y-2 hidden md:block">
+              <div className="space-y-2 hidden lg:block">
                 <Label htmlFor="time" className="text-foreground font-medium">
                   Heure
                 </Label>
@@ -490,7 +500,7 @@ export function BookingForm() {
               type="submit"
               size="lg"
               disabled={submitStatus === "loading"}
-              className="w-full h-14 text-base font-medium bg-primary text-primary-foreground hover:bg-primary/90 rounded-2xl shadow-lg shadow-primary/20 transition-shadow disabled:opacity-70"
+              className="btn-press w-full h-14 text-base font-medium bg-primary text-primary-foreground hover:bg-primary/90 rounded-2xl shadow-lg shadow-primary/20 transition-shadow disabled:opacity-70"
             >
               {submitStatus === "loading" ? "Envoi en cours…" : budgetChoice === "median" && indicativeRange ? `Réserver à ${formatEUR(medianEur)} (confirmation rapide)` : "Réserver ma course"}
               <ArrowRight className="w-5 h-5 ml-2" />

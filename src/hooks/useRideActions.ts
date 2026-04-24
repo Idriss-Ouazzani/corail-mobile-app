@@ -10,9 +10,11 @@ import { haptic } from '../services/haptic';
 import { toast } from '../services/toast';
 import { logger } from '../services/logger';
 import analytics from '../services/analytics';
+import { isSameCorailUser } from '../utils/isSameCorailUser';
 
 interface UseRideActionsProps {
   currentUserId: string;
+  publicUsersRowId?: string | null;
   userName: string;
   userCredits: number;
   verificationStatus: string | null;
@@ -21,11 +23,14 @@ interface UseRideActionsProps {
   loadRides: () => Promise<void>;
   loadPersonalRides: () => Promise<void>;
   loadCredits: () => Promise<void>;
+  /** Après publication marketplace (public / groupe) : ex. rafraîchir pastille cloche */
+  onAfterNetworkRideCreated?: () => void | Promise<void>;
 }
 
 export function useRideActions(props: UseRideActionsProps) {
   const {
     currentUserId,
+    publicUsersRowId = null,
     userName,
     userCredits,
     verificationStatus,
@@ -33,6 +38,7 @@ export function useRideActions(props: UseRideActionsProps) {
     loadRides,
     loadPersonalRides,
     loadCredits,
+    onAfterNetworkRideCreated,
   } = props;
 
   // ============================================================================
@@ -157,7 +163,7 @@ export function useRideActions(props: UseRideActionsProps) {
         haptic.warning();
         toast.warning(
           'Profil vérifié requis',
-          'Pour accéder aux opportunités réseau, votre profil doit être vérifié.'
+          'Sans profil vérifié, vous ne pouvez pas prendre de course publiée par un autre chauffeur.'
         );
         return null;
       }
@@ -200,7 +206,7 @@ export function useRideActions(props: UseRideActionsProps) {
       }
       
       // 🔔 Notifier le créateur que sa course a été prise (PUSH)
-      if (claimedRide.creator_id && claimedRide.creator_id !== currentUserId) {
+      if (claimedRide.creator_id && !isSameCorailUser(claimedRide.creator_id, currentUserId, publicUsersRowId)) {
         await NotificationService.notifyRideClaimed(
           claimedRide.creator_id,
           ride.pickup_address,
@@ -256,7 +262,16 @@ export function useRideActions(props: UseRideActionsProps) {
       toast.error('Erreur', error.message || 'Impossible de réclamer la course');
       throw error;
     }
-  }, [userCredits, isDriverVerified, loadCredits, loadRides, loadPersonalRides]);
+  }, [
+    userCredits,
+    isDriverVerified,
+    currentUserId,
+    publicUsersRowId,
+    userName,
+    loadCredits,
+    loadRides,
+    loadPersonalRides,
+  ]);
 
   /**
    * Créer une course (marketplace ou personnelle)
@@ -323,10 +338,13 @@ export function useRideActions(props: UseRideActionsProps) {
         
         toast.rideCreated();
       } else {
-        // Publication sur le réseau : profil vérifié requis
+        // Réseau (public ou groupe) : même règle que la prise de course — profil chauffeur validé obligatoire.
         if (!isDriverVerified) {
           haptic.warning();
-          toast.warning('Profil vérifié requis', 'Pour publier sur le réseau, votre profil doit être vérifié.');
+          toast.warning(
+            'Profil vérifié requis',
+            'Sans profil vérifié, vous ne pouvez publier que des courses personnelles (saisies par vous).'
+          );
           return;
         }
         const response = await apiClient.createRide({
@@ -346,8 +364,10 @@ export function useRideActions(props: UseRideActionsProps) {
         });
         
         console.log('✅ Course marketplace créée avec succès:', response);
+
+        const isPublicRide = ride.visibility === 'PUBLIC';
         
-        // 📊 Analytics: Track ride published (non-blocking)
+        // 📊 Analytics: Track ride published (non-blocking) — +1 crédit côté serveur uniquement pour PUBLIC
         try {
           await analytics.trackRidePublished({
             rideId: response.id,
@@ -355,14 +375,16 @@ export function useRideActions(props: UseRideActionsProps) {
             vehicleType: ride.vehicle_type,
             priceCents: ride.price_cents,
             distanceKm: ride.distance_km,
-            creditsEarned: 1,
+            creditsEarned: isPublicRide ? 1 : 0,
           });
           
-          await analytics.trackCreditEarned({
-            amount: 1,
-            reason: 'ride_published',
-            newBalance: userCredits + 1,
-          });
+          if (isPublicRide) {
+            await analytics.trackCreditEarned({
+              amount: 1,
+              reason: 'ride_published',
+              newBalance: userCredits + 1,
+            });
+          }
         } catch (analyticsError) {
           console.warn('⚠️ Analytics error (non-blocking):', analyticsError);
         }
@@ -371,6 +393,10 @@ export function useRideActions(props: UseRideActionsProps) {
         await loadRides();
         await loadCredits();
         console.log('✅ Données rechargées - course et crédits mis à jour');
+
+        try {
+          await Promise.resolve(onAfterNetworkRideCreated?.());
+        } catch (_) {}
         
         // 🔔 Planifier notification de rappel 1h avant (pour le créateur aussi) + ajout dans la cloche
         await NotificationService.scheduleRideReminder(
@@ -387,7 +413,9 @@ export function useRideActions(props: UseRideActionsProps) {
         });
         
         toast.rideCreated();
-        toast.creditEarned();
+        if (isPublicRide) {
+          toast.creditEarned();
+        }
       }
     } catch (error: any) {
       haptic.error();
@@ -397,7 +425,7 @@ export function useRideActions(props: UseRideActionsProps) {
       toast.error('Erreur', error.message || 'Impossible de créer la course');
       throw error;
     }
-  }, [userCredits, loadRides, loadPersonalRides, loadCredits]);
+  }, [userCredits, isDriverVerified, loadRides, loadPersonalRides, loadCredits, onAfterNetworkRideCreated]);
 
   return {
     handleDeleteRide,

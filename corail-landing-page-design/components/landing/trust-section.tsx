@@ -10,7 +10,7 @@ export function TrustSection() {
         <h2 className="font-serif text-2xl lg:text-3xl font-medium text-foreground mb-8 tracking-tight">
           Transparence
         </h2>
-        <div className="space-y-6 text-foreground/70 text-lg leading-relaxed text-left max-w-2xl mx-auto">
+        <div className="space-y-6 text-foreground/70 text-lg leading-relaxed text-center max-w-2xl mx-auto">
           <p>
             Corail met en relation clients et chauffeurs indépendants.
             Chaque prestation est réalisée sous la responsabilité du chauffeur.

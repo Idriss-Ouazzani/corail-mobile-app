@@ -177,7 +177,7 @@ export default function PersonalRidesScreen({ onClose }: { onClose: () => void }
       case 'UBER': return 'Externe';
       case 'BOLT': return 'Externe';
       case 'DIRECT_CLIENT': return 'Client Direct';
-      case 'MARKETPLACE': return 'Marketplace';
+      case 'MARKETPLACE': return 'Réseau public';
       case 'OTHER': return 'Autre';
       default: return src;
     }

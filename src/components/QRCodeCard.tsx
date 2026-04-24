@@ -3,42 +3,31 @@ import { View, Text, StyleSheet } from 'react-native';
 import QRCode from 'react-native-qrcode-svg';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
-import CoralLogo from './CoralLogo';
 
 interface QRCodeCardProps {
-  userData: {
+  /** Conservé pour compat API ; plus affiché (carte = QR seul + invite). */
+  userData?: {
     name: string;
     phone?: string;
     email: string;
     company?: string;
     professionalCardNumber?: string;
   };
-  /** Contenu encodé dans le QR : URL du profil public OU vCard (coordonnées) */
+  /** Contenu encodé : URL de la page pro ou vCard. */
   qrValue: string;
-  /** Texte sous le QR (ex: "Scannez pour voir mon profil" ou "Scannez pour mes coordonnées") */
+  /** Ligne sous le QR (défaut : prochaines courses). */
   footerLabel?: string;
   size?: number;
 }
 
 export const QRCodeCard: React.FC<QRCodeCardProps> = ({
-  userData,
   qrValue,
-  footerLabel = 'Scannez pour voir mon profil',
+  footerLabel = 'Scannez pour vos prochaines courses',
   size = 250,
 }) => {
   return (
     <View style={styles.container}>
-      <LinearGradient
-        colors={['#1e293b', '#0f172a']}
-        style={styles.card}
-      >
-        {/* Header avec logo */}
-        <View style={styles.header}>
-          <CoralLogo size={40} />
-          <Text style={styles.headerTitle}>Carte Professionnelle</Text>
-        </View>
-
-        {/* QR Code avec fond blanc */}
+      <LinearGradient colors={['#1e293b', '#0f172a']} style={styles.card}>
         <View style={styles.qrContainer}>
           <View style={styles.qrBackground}>
             <QRCode
@@ -54,28 +43,6 @@ export const QRCodeCard: React.FC<QRCodeCardProps> = ({
           </View>
         </View>
 
-        {/* Infos utilisateur */}
-        <View style={styles.userInfo}>
-          <Text style={styles.userName}>{userData.name}</Text>
-          {userData.phone && (
-            <View style={styles.infoRow}>
-              <Ionicons name="call" size={16} color="#94a3b8" />
-              <Text style={styles.infoText}>{userData.phone}</Text>
-            </View>
-          )}
-          <View style={styles.infoRow}>
-            <Ionicons name="mail" size={16} color="#94a3b8" />
-            <Text style={styles.infoText}>{userData.email}</Text>
-          </View>
-          {userData.professionalCardNumber && (
-            <View style={styles.infoRow}>
-              <Ionicons name="card" size={16} color="#94a3b8" />
-              <Text style={styles.infoText}>VTC: {userData.professionalCardNumber}</Text>
-            </View>
-          )}
-        </View>
-
-        {/* Footer instruction */}
         <View style={styles.footer}>
           <Ionicons name="scan" size={20} color="#0ea5e9" />
           <Text style={styles.footerText}>{footerLabel}</Text>
@@ -96,23 +63,11 @@ const styles = StyleSheet.create({
     elevation: 6,
   },
   card: {
-    padding: 24,
+    padding: 20,
     alignItems: 'center',
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 24,
-  },
-  headerTitle: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: '#f1f5f9',
-    marginLeft: 12,
-    letterSpacing: 0.5,
   },
   qrContainer: {
-    marginBottom: 24,
+    marginBottom: 16,
   },
   qrBackground: {
     backgroundColor: 'white',
@@ -123,28 +78,6 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.1,
     shadowRadius: 8,
     elevation: 4,
-  },
-  userInfo: {
-    width: '100%',
-    alignItems: 'center',
-    marginBottom: 20,
-  },
-  userName: {
-    fontSize: 24,
-    fontWeight: '700',
-    color: '#f1f5f9',
-    marginBottom: 16,
-    textAlign: 'center',
-  },
-  infoRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 8,
-  },
-  infoText: {
-    fontSize: 14,
-    color: '#cbd5e1',
-    marginLeft: 8,
   },
   footer: {
     flexDirection: 'row',
@@ -165,4 +98,3 @@ const styles = StyleSheet.create({
 });
 
 export default QRCodeCard;
-

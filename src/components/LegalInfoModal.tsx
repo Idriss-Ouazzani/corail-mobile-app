@@ -23,6 +23,7 @@ import {
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
+import * as ImagePicker from 'expo-image-picker';
 import { theme } from '../theme';
 import { apiClient } from '../services/api';
 
@@ -62,16 +63,76 @@ export function LegalInfoModal({
   const [vatOption, setVatOption] = useState<VatOption>('NON_APPLICABLE');
   const [vatNumber, setVatNumber] = useState('');
   const [saving, setSaving] = useState(false);
+  const [legalKbisUrl, setLegalKbisUrl] = useState<string | null>(null);
+  const [kbisUploading, setKbisUploading] = useState(false);
 
   useEffect(() => {
-    if (visible) {
-      setLegalBusinessName(initialBusinessName.trim());
-    }
+    if (!visible) return;
+    setLegalBusinessName(initialBusinessName.trim());
+    (async () => {
+      try {
+        const p = await apiClient.getMyVTCProfile();
+        if (p) {
+          setLegalBusinessName((p.legal_business_name || initialBusinessName || '').trim());
+          setLegalAddressLine1((p.legal_address_line1 as string) || '');
+          setLegalPostalCode((p.legal_postal_code as string) || '');
+          setLegalCity((p.legal_city as string) || '');
+          setSiret(String((p.siret as string) || '').replace(/\D/g, '').slice(0, 14));
+          const vo = p.vat_option as VatOption | undefined;
+          setVatOption(vo === 'VAT_10' || vo === 'NON_APPLICABLE' ? vo : 'NON_APPLICABLE');
+          setVatNumber((p.vat_number as string) || '');
+          const kb = (p as { legal_kbis_url?: string | null }).legal_kbis_url;
+          setLegalKbisUrl(typeof kb === 'string' && kb.trim() ? kb.trim() : null);
+        } else {
+          setLegalAddressLine1('');
+          setLegalPostalCode('');
+          setLegalCity('');
+          setSiret('');
+          setVatOption('NON_APPLICABLE');
+          setVatNumber('');
+          setLegalKbisUrl(null);
+        }
+      } catch {
+        setLegalBusinessName(initialBusinessName.trim());
+      }
+    })();
   }, [visible, initialBusinessName]);
 
   const handleLater = () => {
     onLater();
     onClose();
+  };
+
+  const pickKbis = async () => {
+    try {
+      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert('Permission', 'Autorisez l’accès aux photos pour joindre le KBIS.');
+        return;
+      }
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        quality: 0.88,
+        base64: true,
+      });
+      if (result.canceled || !result.assets[0]) return;
+      const a = result.assets[0];
+      setKbisUploading(true);
+      const res = await apiClient.uploadLegalKbisDocument({
+        uri: a.uri,
+        type: a.mimeType || 'image/jpeg',
+        name: a.fileName || 'kbis.jpg',
+        base64: (a as { base64?: string }).base64,
+      });
+      const url = (res as { profile?: { legal_kbis_url?: string } })?.profile?.legal_kbis_url;
+      if (url) setLegalKbisUrl(url);
+      else setLegalKbisUrl(legalKbisUrl);
+    } catch (e: any) {
+      Alert.alert('Erreur', e?.message || 'Téléversement impossible');
+    } finally {
+      setKbisUploading(false);
+    }
   };
 
   const validate = (): boolean => {
@@ -232,6 +293,31 @@ export function LegalInfoModal({
               />
               <Text style={styles.hint}>Exactement 14 chiffres. Utilisé sur vos factures et devis.</Text>
 
+              <Text style={styles.label}>KBIS ou extrait Kbis (recommandé)</Text>
+              <Text style={styles.hint}>
+                Optionnel mais utile : conservé dans votre dossier et visible lors des demandes de changement de SIRET côté administration.
+              </Text>
+              {legalKbisUrl ? (
+                <View style={styles.kbisPreviewWrap}>
+                  <Image source={{ uri: legalKbisUrl }} style={styles.kbisThumb} resizeMode="cover" />
+                </View>
+              ) : null}
+              <TouchableOpacity
+                style={styles.kbisBtn}
+                onPress={pickKbis}
+                disabled={kbisUploading}
+                activeOpacity={0.85}
+              >
+                {kbisUploading ? (
+                  <ActivityIndicator color={theme.colors.info} />
+                ) : (
+                  <>
+                    <Ionicons name="cloud-upload-outline" size={20} color={theme.colors.info} />
+                    <Text style={styles.kbisBtnText}>{legalKbisUrl ? 'Remplacer le document' : 'Joindre une photo'}</Text>
+                  </>
+                )}
+              </TouchableOpacity>
+
               <Text style={styles.label}>TVA</Text>
               <View style={styles.radioGroup}>
                 <TouchableOpacity
@@ -268,7 +354,7 @@ export function LegalInfoModal({
                     autoCapitalize="characters"
                     autoCorrect={false}
                   />
-                  <Text style={styles.hint}>Obligatoire si vous êtes assujetti à la TVA. Format : FR + 2 chiffres clé + 9 chiffres SIREN.</Text>
+                  <Text style={styles.hint}>Obligatoire si vous êtes assujetti à la TVA. Format : FR + 2 chiffres clé + 9 chiffres.</Text>
                 </>
               )}
             </View>
@@ -417,6 +503,29 @@ const styles = StyleSheet.create({
   },
   half: { flex: 1 },
   halfLeft: { marginRight: 0 },
+  kbisPreviewWrap: {
+    marginTop: 8,
+    marginBottom: 8,
+    borderRadius: 12,
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    alignSelf: 'flex-start',
+  },
+  kbisThumb: { width: 160, height: 100, backgroundColor: theme.colors.surface },
+  kbisBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    borderWidth: 1,
+    borderColor: 'rgba(14, 165, 233, 0.35)',
+    borderRadius: 12,
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+    backgroundColor: 'rgba(14, 165, 233, 0.06)',
+    marginBottom: 8,
+  },
+  kbisBtnText: { fontSize: 14, fontWeight: '600', color: theme.colors.textSecondary },
   hint: {
     fontSize: 12,
     color: theme.colors.textMuted,

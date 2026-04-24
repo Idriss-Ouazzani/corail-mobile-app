@@ -221,6 +221,21 @@ export const MyInvoicesScreen: React.FC<MyInvoicesScreenProps> = ({ onBack }) =>
     );
   };
 
+  const openLegalInfoEditor = async () => {
+    try {
+      const profile = await apiClient.getMyVTCProfile();
+      setLegalModalBusinessName(
+        (profile?.legal_business_name as string)?.trim() ||
+          (profile?.display_name as string)?.trim() ||
+          ''
+      );
+    } catch {
+      setLegalModalBusinessName('');
+    }
+    setPendingInvoiceRide(null);
+    setShowLegalModal(true);
+  };
+
   const handleGenerateInvoice = async (ride: RideWithInvoice) => {
     try {
       let profile: any = null;
@@ -323,6 +338,12 @@ export const MyInvoicesScreen: React.FC<MyInvoicesScreenProps> = ({ onBack }) =>
         </View>
       </View>
 
+      <TouchableOpacity style={styles.legalLinkRow} onPress={openLegalInfoEditor} activeOpacity={0.85}>
+        <Ionicons name="business-outline" size={18} color="#94a3b8" />
+        <Text style={styles.legalLinkText}>Modifier mes infos légales (SIRET, TVA, KBIS…)</Text>
+        <Ionicons name="chevron-forward" size={18} color="#64748b" />
+      </TouchableOpacity>
+
       {/* Tabs */}
       <View style={styles.tabsContainer}>
         <TouchableOpacity
@@ -378,7 +399,7 @@ export const MyInvoicesScreen: React.FC<MyInvoicesScreenProps> = ({ onBack }) =>
                       color="#0ea5e9"
                     />
                     <Text style={styles.rideTypeText}>
-                      {ride.source_type === 'RIDE' ? 'Marketplace' : 'Personnelle'}
+                      {ride.source_type === 'RIDE' ? 'Réseau public' : 'Personnelle'}
                     </Text>
                   </View>
                   <Text style={styles.ridePrice}>{formatPrice(ride.price_cents)}</Text>
@@ -515,6 +536,7 @@ export const MyInvoicesScreen: React.FC<MyInvoicesScreenProps> = ({ onBack }) =>
             setPendingInvoiceRide(null);
           }
           setShowLegalModal(false);
+          loadData();
         }}
         onLater={() => {
           Alert.alert(
@@ -560,6 +582,25 @@ const styles = StyleSheet.create({
   },
   headerRight: {
     width: 40,
+  },
+  legalLinkRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    marginHorizontal: 20,
+    marginBottom: 12,
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+    borderRadius: 14,
+    backgroundColor: '#1e293b',
+    borderWidth: 1,
+    borderColor: '#334155',
+  },
+  legalLinkText: {
+    flex: 1,
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#e2e8f0',
   },
   heroWrap: {
     height: 100,

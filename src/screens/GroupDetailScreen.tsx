@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   View,
   Text,
@@ -14,11 +14,17 @@ import {
   Platform,
   Image,
   Linking,
+  Pressable,
 } from 'react-native';
+import { BlurView } from 'expo-blur';
+import * as Haptics from 'expo-haptics';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Ionicons } from '@expo/vector-icons';
+import { Ionicons, FontAwesome5 } from '@expo/vector-icons';
 import { apiClient } from '../services/api';
 import { useAuth } from '../contexts/AuthContext';
+import { formatPhoneInput, formatPhoneDisplay, toFrenchNational10 } from '../utils/phoneFormat';
+import { WEB_APP_BASE_URL, CORAIL_IOS_APP_STORE_URL } from '../constants/urls';
+import type { GroupInvitePreviewResult } from '../services/supabaseApi';
 
 const GROUP_HERO_IMAGE = 'https://images.unsplash.com/photo-1522071820081-009f0129c71c?w=800&q=80';
 
@@ -29,6 +35,24 @@ function phoneForWhatsApp(phone: string): string {
   if (digits.startsWith('0') && digits.length === 10) return '33' + digits.slice(1);
   if (digits.length >= 9) return '33' + digits.replace(/^0/, '');
   return digits;
+}
+
+function looksLikeValidEmail(s: string): boolean {
+  const t = s.trim();
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(t);
+}
+
+function national10ToSmsAddress(digits10: string): string {
+  const d = digits10.replace(/\D/g, '');
+  if (d.length === 10 && d.startsWith('0')) return `+33${d.slice(1)}`;
+  return `+${d}`;
+}
+
+/** 06… / 6… / +33… saisis dans le champ → 10 chiffres nationaux 0XXXXXXXXX, ou null si incomplet. */
+function frenchMobileNational10FromField(display: string): string | null {
+  const digits = display.replace(/\D/g, '');
+  if (!digits) return null;
+  return toFrenchNational10(digits);
 }
 
 interface Member {
@@ -48,6 +72,8 @@ interface PendingInvitation {
   invitee_phone: string | null;
   inviter_name: string;
   created_at: string;
+  /** Prénom / nom Corail si compte trouvé (invitee_id ou résolution email / téléphone). */
+  invitee_display_name: string | null;
 }
 
 interface GroupDetailScreenProps {
@@ -68,9 +94,21 @@ export const GroupDetailScreen: React.FC<GroupDetailScreenProps> = ({ group, onB
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [showInviteModal, setShowInviteModal] = useState(false);
+  /** Inviter soit par e-mail soit par téléphone (un seul champ affiché). */
+  const [inviteContactMode, setInviteContactMode] = useState<'email' | 'phone'>('email');
   const [inviteEmail, setInviteEmail] = useState('');
   const [invitePhone, setInvitePhone] = useState('');
   const [inviting, setInviting] = useState(false);
+  const [invitePreview, setInvitePreview] = useState<GroupInvitePreviewResult | null>(null);
+  const [invitePreviewLoading, setInvitePreviewLoading] = useState(false);
+  const [invitePreviewError, setInvitePreviewError] = useState(false);
+  const [invitingExternal, setInvitingExternal] = useState(false);
+  /** Carte iOS / Android en cours d’enregistrement (spinner ciblé). */
+  const [externalInviteSavingFor, setExternalInviteSavingFor] = useState<'ios' | 'android' | null>(null);
+  /** Feuille de partage (WhatsApp / SMS / Mail) après choix iOS ou Android. */
+  const [externalShareTarget, setExternalShareTarget] = useState<'ios' | 'android' | null>(null);
+  /** Après un premier enregistrement réussi (hors Corail), on ne refait pas insert — seulement le partage. */
+  const externalInviteSavedRef = useRef(false);
 
   const currentUserId = user?.id;
   const currentUserMember = members.find(m => m.isCurrentUser);
@@ -81,6 +119,107 @@ export const GroupDetailScreen: React.FC<GroupDetailScreenProps> = ({ group, onB
   useEffect(() => {
     loadMembers();
     loadPendingInvitations();
+  }, []);
+
+  useEffect(() => {
+    externalInviteSavedRef.current = false;
+    setExternalShareTarget(null);
+    setExternalInviteSavingFor(null);
+  }, [inviteEmail, invitePhone, inviteContactMode]);
+
+  useEffect(() => {
+    if (!showInviteModal) {
+      setInvitePreview(null);
+      setInvitePreviewLoading(false);
+      setInvitePreviewError(false);
+      externalInviteSavedRef.current = false;
+      setExternalShareTarget(null);
+      setExternalInviteSavingFor(null);
+      return;
+    }
+    const email = inviteEmail.trim();
+    const phoneNational = frenchMobileNational10FromField(invitePhone);
+    const gateOk =
+      inviteContactMode === 'email'
+        ? looksLikeValidEmail(email)
+        : phoneNational != null;
+    if (!gateOk) {
+      setInvitePreview(null);
+      setInvitePreviewLoading(false);
+      setInvitePreviewError(false);
+      return;
+    }
+
+    let cancelled = false;
+    setInvitePreviewLoading(true);
+    setInvitePreviewError(false);
+
+    const t = setTimeout(() => {
+      (async () => {
+        try {
+          const p = await apiClient.previewGroupInvite(
+            group.id,
+            inviteContactMode === 'email'
+              ? { email }
+              : { phone: phoneNational! }
+          );
+          if (!cancelled) {
+            setInvitePreview(p);
+            setInvitePreviewError(false);
+          }
+        } catch {
+          if (!cancelled) {
+            setInvitePreview(null);
+            setInvitePreviewError(true);
+          }
+        } finally {
+          if (!cancelled) setInvitePreviewLoading(false);
+        }
+      })();
+    }, 400);
+
+    return () => {
+      cancelled = true;
+      clearTimeout(t);
+      setInvitePreviewLoading(false);
+    };
+  }, [showInviteModal, inviteContactMode, inviteEmail, invitePhone, group.id]);
+
+  const resetInviteModal = useCallback(() => {
+    setShowInviteModal(false);
+    setInviteContactMode('email');
+    setInviteEmail('');
+    setInvitePhone('');
+    setInvitePreview(null);
+    setInvitePreviewLoading(false);
+    setInvitePreviewError(false);
+    setExternalShareTarget(null);
+    setExternalInviteSavingFor(null);
+    externalInviteSavedRef.current = false;
+  }, []);
+
+  const openInviteModalFresh = useCallback(() => {
+    setInviteContactMode('email');
+    setInviteEmail('');
+    setInvitePhone('');
+    setInvitePreview(null);
+    setInvitePreviewLoading(false);
+    setInvitePreviewError(false);
+    setExternalShareTarget(null);
+    setExternalInviteSavingFor(null);
+    externalInviteSavedRef.current = false;
+    setShowInviteModal(true);
+  }, []);
+
+  const switchInviteContactMode = useCallback((mode: 'email' | 'phone') => {
+    setInviteContactMode(mode);
+    setInvitePreview(null);
+    setInvitePreviewError(false);
+    setExternalShareTarget(null);
+    setExternalInviteSavingFor(null);
+    externalInviteSavedRef.current = false;
+    if (mode === 'email') setInvitePhone('');
+    else setInviteEmail('');
   }, []);
 
   const loadMembers = async () => {
@@ -116,9 +255,142 @@ export const GroupDetailScreen: React.FC<GroupDetailScreenProps> = ({ group, onB
     setRefreshing(false);
   };
 
+  const buildInviteShareBodyForTarget = (target: 'ios' | 'android') => {
+    const intro = `Tu es invité(e) au groupe « ${group.name} » sur Corail.\n\n`;
+    if (target === 'ios') {
+      return `${intro}Télécharge l’app Corail sur l’App Store :\n${CORAIL_IOS_APP_STORE_URL}\n\n${WEB_APP_BASE_URL}`;
+    }
+    return `${intro}Sur Android (Google Play), l’app sera bientôt disponible.\n\nApp Store (iPhone / iPad) :\n${CORAIL_IOS_APP_STORE_URL}\n\n${WEB_APP_BASE_URL}`;
+  };
+
+  const executeInviteShareChannel = (
+    channel: 'whatsapp' | 'sms' | 'mail',
+    target: 'ios' | 'android'
+  ) => {
+    const body = buildInviteShareBodyForTarget(target);
+    const phoneNational = frenchMobileNational10FromField(invitePhone);
+    const emailTo = inviteEmail.trim();
+    const subject = `Invitation groupe ${group.name} — Corail`;
+    const hasPhone = phoneNational != null;
+    const hasEmail = looksLikeValidEmail(emailTo);
+
+    if (channel === 'whatsapp') {
+      const url = hasPhone
+        ? `https://wa.me/${phoneForWhatsApp(phoneNational)}?text=${encodeURIComponent(body)}`
+        : `https://wa.me/?text=${encodeURIComponent(body)}`;
+      Linking.openURL(url).catch(() => Alert.alert('Erreur', "Impossible d'ouvrir WhatsApp"));
+    } else if (channel === 'sms') {
+      if (hasPhone) {
+        const addr = national10ToSmsAddress(phoneNational);
+        Linking.openURL(`sms:${addr}?body=${encodeURIComponent(body)}`).catch(() =>
+          Alert.alert('Erreur', "Impossible d'ouvrir les messages")
+        );
+      } else {
+        Linking.openURL(`sms:?body=${encodeURIComponent(body)}`).catch(() =>
+          Alert.alert('Erreur', "Impossible d'ouvrir les messages")
+        );
+      }
+    } else {
+      const mailQuery = `subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+      const mailUrl = hasEmail ? `mailto:${encodeURIComponent(emailTo)}?${mailQuery}` : `mailto:?${mailQuery}`;
+      Linking.openURL(mailUrl).catch(() => Alert.alert('Erreur', "Impossible d'ouvrir l'application mail"));
+    }
+  };
+
+  const persistExternalInviteIfNeeded = async (): Promise<boolean> => {
+    if (externalInviteSavedRef.current) return true;
+    const emailTrim = inviteEmail.trim();
+    const phoneNational = frenchMobileNational10FromField(invitePhone);
+    if (inviteContactMode === 'email') {
+      if (!looksLikeValidEmail(emailTrim)) return false;
+    } else if (!phoneNational) {
+      return false;
+    }
+    try {
+      setInvitingExternal(true);
+      await apiClient.inviteToGroup({
+        groupId: group.id,
+        ...(inviteContactMode === 'email' ? { email: emailTrim } : { phone: phoneNational! }),
+      });
+      externalInviteSavedRef.current = true;
+      await loadPendingInvitations();
+      return true;
+    } catch (e: any) {
+      Alert.alert('Erreur', e?.message || 'Impossible d’enregistrer l’invitation');
+      return false;
+    } finally {
+      setInvitingExternal(false);
+    }
+  };
+
+  const handleExternalPlatformPress = async (target: 'ios' | 'android') => {
+    try {
+      await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    } catch {
+      /* ignore */
+    }
+    setExternalInviteSavingFor(target);
+    const ok = await persistExternalInviteIfNeeded();
+    setExternalInviteSavingFor(null);
+    if (!ok) return;
+    try {
+      await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    } catch {
+      /* ignore */
+    }
+    setExternalShareTarget(target);
+  };
+
+  const closeExternalShareSheet = () => {
+    try {
+      void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    } catch {
+      /* ignore */
+    }
+    setExternalShareTarget(null);
+  };
+
+  const onPickShareChannel = (channel: 'whatsapp' | 'sms' | 'mail') => {
+    const target = externalShareTarget;
+    if (!target) return;
+    try {
+      void Haptics.selectionAsync();
+    } catch {
+      /* ignore */
+    }
+    executeInviteShareChannel(channel, target);
+    setExternalShareTarget(null);
+  };
+
   const handleInvite = async () => {
-    if (!inviteEmail && !invitePhone) {
-      Alert.alert('Erreur', 'Veuillez entrer un email ou un numéro de téléphone');
+    const emailTrim = inviteEmail.trim();
+    const phoneNational = frenchMobileNational10FromField(invitePhone);
+    if (inviteContactMode === 'email') {
+      if (!looksLikeValidEmail(emailTrim)) {
+        Alert.alert('Champs requis', 'Renseignez une adresse e-mail valide.');
+        return;
+      }
+    } else if (!phoneNational) {
+      Alert.alert('Champs requis', 'Renseignez un numéro de mobile complet.');
+      return;
+    }
+    if (!invitePreview?.inviteeId) {
+      Alert.alert(
+        'Aucun compte',
+        'Aucun profil Corail ne correspond à ces coordonnées. Utilisez la carte iPhone ci-dessous pour envoyer le lien App Store.'
+      );
+      return;
+    }
+    if (invitePreview?.isSelf) {
+      Alert.alert('Invitation impossible', 'Vous ne pouvez pas vous inviter vous-même.');
+      return;
+    }
+    if (invitePreview?.alreadyMember) {
+      Alert.alert('Déjà membre', 'Cette personne fait déjà partie du groupe.');
+      return;
+    }
+    if (invitePreview?.pendingInvitation) {
+      Alert.alert('Invitation en cours', 'Une invitation est déjà en attente pour ce contact.');
       return;
     }
 
@@ -126,8 +398,9 @@ export const GroupDetailScreen: React.FC<GroupDetailScreenProps> = ({ group, onB
       setInviting(true);
       const invitation = await apiClient.inviteToGroup({
         groupId: group.id,
-        email: inviteEmail || undefined,
-        phone: invitePhone || undefined,
+        ...(inviteContactMode === 'email'
+          ? { email: emailTrim }
+          : { phone: phoneNational! }),
       });
       
       // 🔔 Envoyer notification push si l'invité est déjà inscrit
@@ -136,14 +409,14 @@ export const GroupDetailScreen: React.FC<GroupDetailScreenProps> = ({ group, onB
         await NotificationService.notifyGroupInvitation(
           invitation.invitee_id,
           invitation.group_name,
-          invitation.inviter_name
+          invitation.inviter_name,
+          { inviterUserId: currentUserId ?? null }
         );
       }
       
       Alert.alert('Succès', 'Invitation envoyée !');
-      setShowInviteModal(false);
-      setInviteEmail('');
-      setInvitePhone('');
+      resetInviteModal();
+      await loadPendingInvitations();
     } catch (error: any) {
       console.error('❌ Erreur invitation:', error);
       Alert.alert('Erreur', error.message || 'Impossible d\'envoyer l\'invitation');
@@ -296,6 +569,29 @@ export const GroupDetailScreen: React.FC<GroupDetailScreenProps> = ({ group, onB
     </View>
   );
 
+  const inviteEmailTrim = inviteEmail.trim();
+  const invitePhoneNational10 = frenchMobileNational10FromField(invitePhone);
+  const inviteModalGateOk =
+    inviteContactMode === 'email'
+      ? looksLikeValidEmail(inviteEmailTrim)
+      : invitePhoneNational10 != null;
+  const invitePreviewContactLabel =
+    inviteContactMode === 'email'
+      ? inviteEmailTrim
+      : invitePhoneNational10
+        ? formatPhoneDisplay(invitePhoneNational10)
+        : invitePhone.trim();
+
+  const showCorailUserReadyToInvite =
+    inviteModalGateOk &&
+    !invitePreviewLoading &&
+    !invitePreviewError &&
+    invitePreview != null &&
+    !!invitePreview.inviteeId &&
+    !invitePreview.isSelf &&
+    !invitePreview.alreadyMember &&
+    !invitePreview.pendingInvitation;
+
   return (
     <View style={styles.container}>
       <View style={styles.header}>
@@ -304,7 +600,7 @@ export const GroupDetailScreen: React.FC<GroupDetailScreenProps> = ({ group, onB
         </TouchableOpacity>
         <Text style={styles.headerTitle} numberOfLines={1}>{group.name}</Text>
         {currentUserIsAdmin ? (
-          <TouchableOpacity style={styles.inviteHeaderButton} onPress={() => setShowInviteModal(true)}>
+          <TouchableOpacity style={styles.inviteHeaderButton} onPress={openInviteModalFresh}>
             <Ionicons name="person-add" size={22} color="#0ea5e9" />
           </TouchableOpacity>
         ) : (
@@ -356,9 +652,23 @@ export const GroupDetailScreen: React.FC<GroupDetailScreenProps> = ({ group, onB
                   <Ionicons name="mail" size={20} color="#f59e0b" />
                 </View>
                 <View style={styles.invitationInfo}>
-                  <Text style={styles.invitationContact}>
-                    {invitation.invitee_email || invitation.invitee_phone || 'Contact inconnu'}
+                  <Text style={styles.invitationContact} numberOfLines={1}>
+                    {invitation.invitee_display_name?.trim() ||
+                      invitation.invitee_email ||
+                      (invitation.invitee_phone
+                        ? formatPhoneDisplay(String(invitation.invitee_phone))
+                        : '') ||
+                      'Contact inconnu'}
                   </Text>
+                  {(invitation.invitee_display_name?.trim() &&
+                    (invitation.invitee_email || invitation.invitee_phone)) ? (
+                    <Text style={styles.invitationContactSub} numberOfLines={1}>
+                      {invitation.invitee_email ||
+                        (invitation.invitee_phone
+                          ? formatPhoneDisplay(String(invitation.invitee_phone))
+                          : '')}
+                    </Text>
+                  ) : null}
                   <Text style={styles.invitationMeta}>
                     Invité par {invitation.inviter_name}
                   </Text>
@@ -388,7 +698,7 @@ export const GroupDetailScreen: React.FC<GroupDetailScreenProps> = ({ group, onB
         visible={showInviteModal}
         transparent
         animationType="slide"
-        onRequestClose={() => setShowInviteModal(false)}
+        onRequestClose={resetInviteModal}
       >
         <KeyboardAvoidingView
           behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
@@ -398,12 +708,12 @@ export const GroupDetailScreen: React.FC<GroupDetailScreenProps> = ({ group, onB
           <TouchableOpacity
             style={styles.modalOverlayTouchable}
             activeOpacity={1}
-            onPress={() => setShowInviteModal(false)}
+            onPress={resetInviteModal}
           />
           <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>Inviter un membre</Text>
-              <TouchableOpacity onPress={() => setShowInviteModal(false)}>
+              <TouchableOpacity onPress={resetInviteModal}>
                 <Ionicons name="close" size={24} color="#f1f5f9" />
               </TouchableOpacity>
             </View>
@@ -414,44 +724,211 @@ export const GroupDetailScreen: React.FC<GroupDetailScreenProps> = ({ group, onB
               showsVerticalScrollIndicator={false}
               contentContainerStyle={styles.inviteModalScrollContent}
             >
-              <Text style={styles.modalLabel}>Email</Text>
-              <TextInput
-                style={styles.modalInput}
-                placeholder="email@exemple.com"
-                placeholderTextColor="#64748b"
-                value={inviteEmail}
-                onChangeText={setInviteEmail}
-                keyboardType="email-address"
-                autoCapitalize="none"
-              />
+              <View style={styles.inviteModeRow}>
+                <TouchableOpacity
+                  style={[styles.inviteModeChip, inviteContactMode === 'email' && styles.inviteModeChipActive]}
+                  onPress={() => switchInviteContactMode('email')}
+                  activeOpacity={0.85}
+                >
+                  <Ionicons
+                    name="mail-outline"
+                    size={22}
+                    color={inviteContactMode === 'email' ? '#0ea5e9' : '#94a3b8'}
+                  />
+                  <Text
+                    style={[styles.inviteModeChipText, inviteContactMode === 'email' && styles.inviteModeChipTextActive]}
+                  >
+                    E-mail
+                  </Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.inviteModeChip, inviteContactMode === 'phone' && styles.inviteModeChipActive]}
+                  onPress={() => switchInviteContactMode('phone')}
+                  activeOpacity={0.85}
+                >
+                  <Ionicons
+                    name="call-outline"
+                    size={22}
+                    color={inviteContactMode === 'phone' ? '#0ea5e9' : '#94a3b8'}
+                  />
+                  <Text
+                    style={[styles.inviteModeChipText, inviteContactMode === 'phone' && styles.inviteModeChipTextActive]}
+                  >
+                    Téléphone
+                  </Text>
+                </TouchableOpacity>
+              </View>
 
-              <Text style={styles.modalLabel}>Ou téléphone</Text>
-              <TextInput
-                style={styles.modalInput}
-                placeholder="+33 6 12 34 56 78"
-                placeholderTextColor="#64748b"
-                value={invitePhone}
-                onChangeText={setInvitePhone}
-                keyboardType="phone-pad"
-              />
+              {inviteContactMode === 'email' ? (
+                <TextInput
+                  style={styles.modalInput}
+                  placeholder="exemple@domaine.fr"
+                  placeholderTextColor="#64748b"
+                  value={inviteEmail}
+                  onChangeText={setInviteEmail}
+                  keyboardType="email-address"
+                  autoCapitalize="none"
+                />
+              ) : (
+                <TextInput
+                  style={styles.modalInput}
+                  placeholder="06 12 34 56 78"
+                  placeholderTextColor="#64748b"
+                  value={invitePhone}
+                  onChangeText={(t) => {
+                    const nat = toFrenchNational10(t.replace(/\D/g, ''));
+                    if (nat) setInvitePhone(formatPhoneDisplay(nat));
+                    else setInvitePhone(formatPhoneInput(t));
+                  }}
+                  keyboardType="phone-pad"
+                />
+              )}
 
-              <TouchableOpacity
-                style={styles.modalButton}
-                onPress={handleInvite}
-                disabled={inviting}
-              >
-                <LinearGradient colors={['#0ea5e9', '#06b6d4']} style={styles.modalButtonGradient}>
-                  {inviting ? (
-                    <ActivityIndicator color="#fff" />
+              {!inviteModalGateOk ? (
+                <Text style={styles.previewHint}>
+                  {inviteContactMode === 'email'
+                    ? 'Saisissez une adresse e-mail.'
+                    : 'Saisissez un numéro de mobile.'}
+                </Text>
+              ) : invitePreviewLoading ? (
+                <Text style={styles.previewHint}>Vérification…</Text>
+              ) : invitePreviewError ? (
+                <Text style={styles.previewError}>
+                  Impossible de vérifier pour le moment. Vérifiez la connexion et réessayez.
+                </Text>
+              ) : invitePreview ? (
+                <View style={styles.previewBox}>
+                  {invitePreview.isSelf ? (
+                    <Text style={styles.previewError}>Vous ne pouvez pas vous inviter vous-même.</Text>
+                  ) : invitePreview.alreadyMember ? (
+                    <Text style={styles.previewError}>Cette personne est déjà dans le groupe.</Text>
+                  ) : invitePreview.pendingInvitation ? (
+                    <Text style={styles.previewWarn}>Une invitation est déjà en attente pour ce contact.</Text>
+                  ) : invitePreview.inviteeId ? (
+                    <Text style={styles.previewOk}>
+                      Utilisateur Corail :{' '}
+                      <Text style={styles.previewName}>
+                        {invitePreview.profileName?.trim() || invitePreviewContactLabel}
+                      </Text>
+                    </Text>
                   ) : (
-                    <>
-                      <Ionicons name="send" size={20} color="#fff" />
-                      <Text style={styles.modalButtonText}>Envoyer l'invitation</Text>
-                    </>
+                    <View style={styles.externalPremiumBlock}>
+                      <Text style={styles.externalTitle}>Votre contact n’a pas encore Corail ?</Text>
+                      <Text style={styles.externalSubtitle}>Partager le lien de l’app en 1 clic</Text>
+                      <View style={styles.platformLuxRow}>
+                        <TouchableOpacity
+                          style={styles.platformLuxWrap}
+                          activeOpacity={0.9}
+                          onPress={() => void handleExternalPlatformPress('ios')}
+                          disabled={invitingExternal}
+                        >
+                          <LinearGradient
+                            colors={['#38bdf8', '#6366f1', '#a78bfa']}
+                            start={{ x: 0, y: 0 }}
+                            end={{ x: 1, y: 1 }}
+                            style={styles.platformLuxRing}
+                          >
+                            <View style={styles.platformLuxInner}>
+                              {externalInviteSavingFor === 'ios' ? (
+                                <ActivityIndicator color="#94a3b8" />
+                              ) : (
+                                <>
+                                  <FontAwesome5 name="apple" size={32} color="#f8fafc" brand />
+                                  <Text style={styles.platformLuxTitle}>iPhone</Text>
+                                  <Text style={styles.platformLuxHint}>App Store</Text>
+                                </>
+                              )}
+                            </View>
+                          </LinearGradient>
+                        </TouchableOpacity>
+                        <View style={[styles.platformLuxWrap, styles.platformLuxDisabled]}>
+                          <LinearGradient
+                            colors={['#334155', '#1e293b']}
+                            start={{ x: 0, y: 0 }}
+                            end={{ x: 1, y: 1 }}
+                            style={styles.platformLuxRing}
+                          >
+                            <View style={[styles.platformLuxInner, styles.platformLuxInnerMuted]}>
+                              <FontAwesome5 name="google-play" size={24} color="#64748b" brand />
+                              <Text style={styles.platformLuxTitleMuted}>Android</Text>
+                              <Text style={styles.platformLuxSoon}>Bientôt disponible</Text>
+                            </View>
+                          </LinearGradient>
+                        </View>
+                      </View>
+                    </View>
                   )}
-                </LinearGradient>
-              </TouchableOpacity>
+                </View>
+              ) : null}
             </ScrollView>
+
+            {showCorailUserReadyToInvite ? (
+              <View style={styles.inviteModalFooter}>
+                <TouchableOpacity style={styles.modalButton} onPress={handleInvite} disabled={inviting}>
+                  <LinearGradient colors={['#0ea5e9', '#06b6d4']} style={styles.modalButtonGradient}>
+                    {inviting ? (
+                      <ActivityIndicator color="#fff" />
+                    ) : (
+                      <>
+                        <Ionicons name="send" size={20} color="#fff" />
+                        <Text style={styles.modalButtonText}>Envoyer l'invitation</Text>
+                      </>
+                    )}
+                  </LinearGradient>
+                </TouchableOpacity>
+              </View>
+            ) : null}
+
+            {externalShareTarget != null ? (
+              <View style={styles.shareLuxOverlayRoot}>
+                <BlurView intensity={52} tint="dark" style={StyleSheet.absoluteFillObject} />
+                <View style={[StyleSheet.absoluteFillObject, styles.shareLuxColumn]}>
+                  <Pressable style={styles.shareLuxBackdrop} onPress={closeExternalShareSheet} />
+                  <View style={styles.shareLuxSheet}>
+                    <View style={styles.shareLuxHandle} />
+                    <Text style={styles.shareLuxTitle}>Envoyer le lien</Text>
+                    <Text style={styles.shareLuxSubtitle}>
+                      Le message inclut le lien officiel de l’App Store.
+                    </Text>
+                    <View style={styles.shareLuxChannels}>
+                      <TouchableOpacity
+                        style={styles.shareLuxChannel}
+                        onPress={() => onPickShareChannel('whatsapp')}
+                        activeOpacity={0.88}
+                      >
+                        <LinearGradient colors={['#22c55e', '#16a34a']} style={styles.shareLuxChannelIcon}>
+                          <Ionicons name="logo-whatsapp" size={28} color="#fff" />
+                        </LinearGradient>
+                        <Text style={styles.shareLuxChannelLabel}>WhatsApp</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        style={styles.shareLuxChannel}
+                        onPress={() => onPickShareChannel('sms')}
+                        activeOpacity={0.88}
+                      >
+                        <LinearGradient colors={['#0ea5e9', '#0284c7']} style={styles.shareLuxChannelIcon}>
+                          <Ionicons name="chatbubble-ellipses-outline" size={26} color="#fff" />
+                        </LinearGradient>
+                        <Text style={styles.shareLuxChannelLabel}>SMS</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        style={styles.shareLuxChannel}
+                        onPress={() => onPickShareChannel('mail')}
+                        activeOpacity={0.88}
+                      >
+                        <LinearGradient colors={['#a855f7', '#7c3aed']} style={styles.shareLuxChannelIcon}>
+                          <Ionicons name="mail-outline" size={26} color="#fff" />
+                        </LinearGradient>
+                        <Text style={styles.shareLuxChannelLabel}>E-mail</Text>
+                      </TouchableOpacity>
+                    </View>
+                    <Pressable style={styles.shareLuxClose} onPress={closeExternalShareSheet}>
+                      <Text style={styles.shareLuxCloseText}>Fermer</Text>
+                    </Pressable>
+                  </View>
+                </View>
+              </View>
+            ) : null}
           </View>
         </KeyboardAvoidingView>
       </Modal>
@@ -687,6 +1164,11 @@ const styles = StyleSheet.create({
     color: '#f1f5f9',
     marginBottom: 2,
   },
+  invitationContactSub: {
+    fontSize: 12,
+    color: '#94a3b8',
+    marginBottom: 4,
+  },
   invitationMeta: {
     fontSize: 12,
     color: '#94a3b8',
@@ -721,18 +1203,25 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   modalContent: {
+    position: 'relative',
     backgroundColor: '#1e293b',
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
     padding: 24,
-    paddingBottom: 32,
-    maxHeight: '85%',
+    paddingBottom: 20,
+    maxHeight: '88%',
   },
   inviteModalScroll: {
-    maxHeight: 340,
+    maxHeight: 520,
   },
   inviteModalScrollContent: {
-    paddingBottom: 24,
+    paddingBottom: 12,
+  },
+  inviteModalFooter: {
+    paddingTop: 12,
+    marginTop: 4,
+    borderTopWidth: 1,
+    borderTopColor: '#334155',
   },
   modalHeader: {
     flexDirection: 'row',
@@ -745,11 +1234,35 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#f1f5f9',
   },
-  modalLabel: {
-    fontSize: 14,
+  inviteModeRow: {
+    flexDirection: 'row',
+    gap: 10,
+    marginBottom: 16,
+  },
+  inviteModeChip: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    paddingVertical: 14,
+    paddingHorizontal: 12,
+    borderRadius: 12,
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    borderWidth: 1,
+    borderColor: '#334155',
+  },
+  inviteModeChipActive: {
+    borderColor: '#0ea5e9',
+    backgroundColor: 'rgba(14, 165, 233, 0.12)',
+  },
+  inviteModeChipText: {
+    fontSize: 15,
     fontWeight: '600',
-    color: '#cbd5e1',
-    marginBottom: 8,
+    color: '#94a3b8',
+  },
+  inviteModeChipTextActive: {
+    color: '#e2e8f0',
   },
   modalInput: {
     backgroundColor: 'rgba(255, 255, 255, 0.05)',
@@ -775,6 +1288,197 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#fff',
     marginLeft: 8,
+  },
+  previewHint: {
+    fontSize: 13,
+    color: '#94a3b8',
+    marginBottom: 12,
+  },
+  previewBox: {
+    marginBottom: 14,
+    padding: 12,
+    borderRadius: 12,
+    backgroundColor: 'rgba(15, 23, 42, 0.6)',
+    borderWidth: 1,
+    borderColor: '#334155',
+  },
+  previewError: {
+    fontSize: 14,
+    color: '#f87171',
+  },
+  previewWarn: {
+    fontSize: 14,
+    color: '#fbbf24',
+  },
+  previewOk: {
+    fontSize: 14,
+    color: '#94a3b8',
+  },
+  previewName: {
+    color: '#e2e8f0',
+    fontWeight: '600',
+  },
+  previewNeutral: {
+    fontSize: 13,
+    color: '#94a3b8',
+    lineHeight: 20,
+  },
+  modalButtonDisabled: {
+    opacity: 0.45,
+  },
+  externalPremiumBlock: {
+    paddingTop: 2,
+  },
+  externalTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#f8fafc',
+    letterSpacing: -0.3,
+    marginBottom: 6,
+  },
+  externalSubtitle: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: '#94a3b8',
+    lineHeight: 20,
+    marginBottom: 14,
+  },
+  platformLuxRow: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  platformLuxWrap: {
+    flex: 1,
+  },
+  platformLuxRing: {
+    borderRadius: 18,
+    padding: 2,
+  },
+  platformLuxInner: {
+    backgroundColor: '#0f172a',
+    borderRadius: 16,
+    paddingVertical: 18,
+    paddingHorizontal: 10,
+    alignItems: 'center',
+    gap: 6,
+    minHeight: 118,
+    justifyContent: 'center',
+  },
+  platformLuxTitle: {
+    fontSize: 17,
+    fontWeight: '700',
+    color: '#f1f5f9',
+  },
+  platformLuxHint: {
+    fontSize: 12,
+    color: '#64748b',
+    fontWeight: '500',
+  },
+  platformLuxDisabled: {
+    opacity: 0.92,
+  },
+  platformLuxInnerMuted: {
+    opacity: 0.95,
+  },
+  platformLuxTitleMuted: {
+    fontSize: 17,
+    fontWeight: '700',
+    color: '#64748b',
+  },
+  platformLuxSoon: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#475569',
+    letterSpacing: 0.2,
+  },
+  shareLuxOverlayRoot: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    top: 0,
+    bottom: 0,
+    zIndex: 80,
+    elevation: 80,
+    overflow: 'hidden',
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+  },
+  shareLuxColumn: {
+    flexDirection: 'column',
+  },
+  shareLuxBackdrop: {
+    flex: 1,
+  },
+  shareLuxSheet: {
+    backgroundColor: 'rgba(15, 23, 42, 0.92)',
+    borderTopLeftRadius: 22,
+    borderTopRightRadius: 22,
+    paddingHorizontal: 22,
+    paddingTop: 10,
+    paddingBottom: Platform.OS === 'ios' ? 32 : 22,
+    borderTopWidth: 1,
+    borderColor: 'rgba(148, 163, 184, 0.25)',
+  },
+  shareLuxHandle: {
+    alignSelf: 'center',
+    width: 40,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: 'rgba(148, 163, 184, 0.45)',
+    marginBottom: 16,
+  },
+  shareLuxTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: '#f8fafc',
+    textAlign: 'center',
+    marginBottom: 6,
+    letterSpacing: -0.3,
+  },
+  shareLuxSubtitle: {
+    fontSize: 14,
+    color: '#94a3b8',
+    textAlign: 'center',
+    lineHeight: 20,
+    marginBottom: 22,
+  },
+  shareLuxChannels: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    gap: 12,
+    marginBottom: 8,
+  },
+  shareLuxChannel: {
+    flex: 1,
+    alignItems: 'center',
+    gap: 10,
+  },
+  shareLuxChannelIcon: {
+    width: 64,
+    height: 64,
+    borderRadius: 22,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.35,
+    shadowRadius: 12,
+    elevation: 8,
+  },
+  shareLuxChannelLabel: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#e2e8f0',
+  },
+  shareLuxClose: {
+    alignItems: 'center',
+    paddingVertical: 14,
+    marginTop: 4,
+  },
+  shareLuxCloseText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#64748b',
   },
 });
 

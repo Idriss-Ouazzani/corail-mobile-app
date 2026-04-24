@@ -3,11 +3,16 @@
  */
 
 import React, { createContext, useContext, useState, useEffect, useRef, ReactNode } from 'react';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabaseAuth, type SupabaseUser } from '../services/supabaseAuth';
 import { apiClient } from '../services/api';
 import { logger } from '../services/logger';
 import analytics from '../services/analytics';
 import * as NotificationService from '../services/notifications';
+
+function verificationSnapKey(userId: string) {
+  return `@corail_verif_profile_snap_${userId}`;
+}
 
 // ============================================================================
 // TYPES
@@ -33,7 +38,9 @@ interface AuthContextType {
   verificationSubmittedAt: string | undefined;
   isAdmin: boolean;
   hasAcceptedTerms: boolean;
-  
+  /** `public.users.id` (clé primaire) — peut différer de `user.id` (auth) pour comptes migrés */
+  publicUsersRowId: string | null;
+
   // Fonctions
   loadVerificationStatus: () => Promise<void>;
   signOut: () => Promise<void>;
@@ -68,10 +75,12 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [verificationSubmittedAt, setVerificationSubmittedAt] = useState<string | undefined>();
   const [isAdmin, setIsAdmin] = useState<boolean>(false);
   const [hasAcceptedTerms, setHasAcceptedTerms] = useState<boolean>(false);
+  const [publicUsersRowId, setPublicUsersRowId] = useState<string | null>(null);
   const [verificationLoading, setVerificationLoading] = useState<boolean>(true);
   const [driverVerificationStatus, setDriverVerificationStatus] = useState<string | null>(null);
   const previousVerificationStatusRef = useRef<string | null>(null);
   const previousDriverVerificationStatusRef = useRef<string | null>(null);
+  const hadUserRef = useRef<boolean>(false);
 
   // ============================================================================
   // FONCTIONS
@@ -97,10 +106,10 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       
       const finalStatus = response.verification_status || 'UNVERIFIED';
       const previousStatus = previousVerificationStatusRef.current;
-      
+
       console.log('🔍 [AuthContext] verificationStatus:', finalStatus);
       console.log('🔍 [AuthContext] has_accepted_terms:', response.has_accepted_terms);
-      
+
       setVerificationStatus(finalStatus);
       previousVerificationStatusRef.current = finalStatus;
 
@@ -109,32 +118,58 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       const prevDriver = previousDriverVerificationStatusRef.current;
       previousDriverVerificationStatusRef.current = driverStatus;
 
-      // Notification "Profil vérifié" (compte user)
-      if (finalStatus === 'VERIFIED' && previousStatus != null && previousStatus !== 'VERIFIED') {
+      /**
+       * Notif locale « Profil vérifié » : uniquement sur transition réelle (pas à chaque login / resume).
+       * On persiste le dernier couple (users.verification_status | driver_verification) par compte.
+       */
+      const uid = user?.id;
+      if (uid) {
+        const snapKey = verificationSnapKey(uid);
+        let prevSnap: string | null = null;
         try {
-          await NotificationService.notifyVerificationAccepted();
-        } catch (notifErr) {
-          console.warn('⚠️ Notification vérification non envoyée:', notifErr);
+          prevSnap = await AsyncStorage.getItem(snapKey);
+        } catch {
+          /* ignore */
         }
-      }
-      // Notification "Profil vérifié" chauffeur (documents approuvés)
-      if (driverStatus === 'approved' && prevDriver != null && prevDriver !== 'approved') {
+        const parts = prevSnap?.split('|') ?? [];
+        const prevUserFromSnap = parts[0] ?? null;
+        const prevDriverFromSnap = parts.length > 1 ? parts[1] : null;
+        const drvSeg = driverStatus ?? '';
+        const newSnap = `${finalStatus}|${drvSeg}`;
+
+        const userJustVerified =
+          finalStatus === 'VERIFIED' && prevUserFromSnap != null && prevUserFromSnap !== 'VERIFIED';
+        const driverJustApproved =
+          driverStatus === 'approved' &&
+          prevDriverFromSnap != null &&
+          prevDriverFromSnap !== '' &&
+          prevDriverFromSnap !== 'approved';
+
+        if (userJustVerified || driverJustApproved) {
+          try {
+            await NotificationService.notifyVerificationAccepted();
+          } catch (notifErr) {
+            console.warn('⚠️ Notification vérification non envoyée:', notifErr);
+          }
+        }
+
         try {
-          await NotificationService.notifyVerificationAccepted();
-        } catch (notifErr) {
-          console.warn('⚠️ Notification vérification chauffeur non envoyée:', notifErr);
+          await AsyncStorage.setItem(snapKey, newSnap);
+        } catch {
+          /* ignore */
         }
       }
 
       setUserFullName(response.full_name || '');
       setUserPhone(response.phone || '');
-      setUserSiren(response.siren || '');
+      setUserSiren(''); // SIRET géré sur vtc_profiles, plus de siren sur users
       setUserProfessionalCard(response.professional_card_number || response.vtc_card_number || '');
       setUserPhotoUrl(response.photo_url || '');
       setVerificationSubmittedAt(response.verification_submitted_at);
       setIsAdmin(response.is_admin === true || response.is_admin === 'true');
       setHasAcceptedTerms(response.has_accepted_terms === true || response.has_accepted_terms === 'true');
-      
+      setPublicUsersRowId(response.id != null && String(response.id) !== '' ? String(response.id) : null);
+
       // 📊 Analytics: Set user properties (wrapped in try/catch to prevent breaking the auth flow)
       if (user) {
         try {
@@ -154,6 +189,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       setVerificationStatus('UNVERIFIED');
       setDriverVerificationStatus(null);
       setIsAdmin(false);
+      setPublicUsersRowId(null);
     } finally {
       setVerificationLoading(false);
     }
@@ -164,6 +200,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
    */
   const signOut = async () => {
     try {
+      previousVerificationStatusRef.current = null;
+      previousDriverVerificationStatusRef.current = null;
       await supabaseAuth.signOut();
       console.log('✅ Déconnexion réussie');
       await analytics.clearUserProperties();
@@ -182,23 +220,23 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
    */
   useEffect(() => {
     const unsubscribe = supabaseAuth.onAuthStateChanged((supabaseUser) => {
+      const hadUser = hadUserRef.current;
+      hadUserRef.current = !!supabaseUser;
+
       setUser(supabaseUser);
-      
+
       if (supabaseUser) {
-        // Configurer l'API client avec le user ID
         apiClient.setUserId(supabaseUser.id);
-        
-        // 🎯 Configurer Sentry avec l'utilisateur
         logger.setUser(
           supabaseUser.id,
           supabaseUser.email || undefined,
           supabaseUser.displayName || undefined
         );
-        
         console.log('✅ Utilisateur Supabase connecté:', supabaseUser.email);
       } else {
-        // 🧹 Nettoyer toutes les données de la session précédente
         apiClient.clearAuth();
+        previousVerificationStatusRef.current = null;
+        previousDriverVerificationStatusRef.current = null;
         setVerificationStatus(null);
         setDriverVerificationStatus(null);
         setUserFullName('');
@@ -210,13 +248,13 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         setIsAdmin(false);
         setHasAcceptedTerms(false);
         setVerificationLoading(true);
-        
-        // 🧹 Nettoyer l'utilisateur dans Sentry
+        setPublicUsersRowId(null);
         logger.clearUser();
-        
-        console.log('❌ Utilisateur Supabase déconnecté - Cache nettoyé');
+        if (hadUser) {
+          console.log('❌ Session expirée ou invalide - déconnexion. Reconnectez-vous.');
+        }
       }
-      
+
       setAuthLoading(false);
     });
 
@@ -252,6 +290,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     verificationSubmittedAt,
     isAdmin,
     hasAcceptedTerms,
+    publicUsersRowId,
     loadVerificationStatus,
     signOut,
   };

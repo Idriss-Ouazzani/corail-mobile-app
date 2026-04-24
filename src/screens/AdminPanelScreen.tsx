@@ -20,15 +20,27 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { apiClient } from '../services/api';
 
+type AdminDriverDocKey =
+  | 'vtc_card'
+  | 'vtc_card_verso'
+  | 'id_card'
+  | 'id_card_verso'
+  | 'insurance';
+
 interface PendingDriverVerification {
   id: string;
   user_id: string;
   driver_verification_submitted_at: string | null;
+  verification_id_document_type?: string | null;
   verification_vtc_card_status: string;
+  verification_vtc_card_status_verso?: string | null;
   verification_id_card_status: string;
+  verification_id_card_status_verso?: string | null;
   verification_insurance_status: string;
   verification_vtc_card_url: string | null;
+  verification_vtc_card_url_verso?: string | null;
   verification_id_card_url: string | null;
+  verification_id_card_url_verso?: string | null;
   verification_insurance_url: string | null;
   user?: { id: string; full_name: string | null; email: string | null };
 }
@@ -43,7 +55,13 @@ export const AdminPanelScreen: React.FC<AdminPanelScreenProps> = ({ onBack }) =>
   const [refreshing, setRefreshing] = useState(false);
   const [processingId, setProcessingId] = useState<string | null>(null);
   const [selectedDriver, setSelectedDriver] = useState<PendingDriverVerification | null>(null);
-  const [signedUrls, setSignedUrls] = useState<{ vtc_card?: string; id_card?: string; insurance?: string }>({});
+  const [signedUrls, setSignedUrls] = useState<{
+    vtc_card?: string;
+    vtc_card_verso?: string;
+    id_card?: string;
+    id_card_verso?: string;
+    insurance?: string;
+  }>({});
   const [processingDoc, setProcessingDoc] = useState<string | null>(null);
   const [loadingUrls, setLoadingUrls] = useState(false);
   const [expandedDocUrl, setExpandedDocUrl] = useState<string | null>(null);
@@ -102,40 +120,36 @@ export const AdminPanelScreen: React.FC<AdminPanelScreenProps> = ({ onBack }) =>
 
   const isStoredAsUrl = (v: string | null | undefined) => typeof v === 'string' && v.startsWith('http');
 
+  const resolveStoredToViewUrl = async (stored: string | null | undefined): Promise<string | undefined> => {
+    if (!stored) return undefined;
+    if (isStoredAsUrl(stored)) return stored;
+    let u = await apiClient.getDriverVerificationDocumentSignedUrlAdmin(stored).catch(() => null);
+    if (!u) u = await apiClient.getDriverVerificationDocumentSignedUrl(stored, 86400).catch(() => null);
+    return u || undefined;
+  };
+
   const openDriverDetail = async (driver: PendingDriverVerification) => {
     setSelectedDriver(driver);
     setSignedUrls({});
     setLoadingUrls(true);
-    const urls: { vtc_card?: string; id_card?: string; insurance?: string } = {};
+    const urls: {
+      vtc_card?: string;
+      vtc_card_verso?: string;
+      id_card?: string;
+      id_card_verso?: string;
+      insurance?: string;
+    } = {};
     try {
-      // RLS strict : bucket privé → URLs signées via Edge Function (admin) ou URL déjà stockée
-      if (driver.verification_vtc_card_url) {
-        if (isStoredAsUrl(driver.verification_vtc_card_url)) {
-          urls.vtc_card = driver.verification_vtc_card_url;
-        } else {
-          let u = await apiClient.getDriverVerificationDocumentSignedUrlAdmin(driver.verification_vtc_card_url).catch(() => null);
-          if (!u) u = await apiClient.getDriverVerificationDocumentSignedUrl(driver.verification_vtc_card_url, 86400).catch(() => null);
-          if (u) urls.vtc_card = u;
-        }
-      }
-      if (driver.verification_id_card_url) {
-        if (isStoredAsUrl(driver.verification_id_card_url)) {
-          urls.id_card = driver.verification_id_card_url;
-        } else {
-          let u = await apiClient.getDriverVerificationDocumentSignedUrlAdmin(driver.verification_id_card_url).catch(() => null);
-          if (!u) u = await apiClient.getDriverVerificationDocumentSignedUrl(driver.verification_id_card_url, 86400).catch(() => null);
-          if (u) urls.id_card = u;
-        }
-      }
-      if (driver.verification_insurance_url) {
-        if (isStoredAsUrl(driver.verification_insurance_url)) {
-          urls.insurance = driver.verification_insurance_url;
-        } else {
-          let u = await apiClient.getDriverVerificationDocumentSignedUrlAdmin(driver.verification_insurance_url).catch(() => null);
-          if (!u) u = await apiClient.getDriverVerificationDocumentSignedUrl(driver.verification_insurance_url, 86400).catch(() => null);
-          if (u) urls.insurance = u;
-        }
-      }
+      const vtc = await resolveStoredToViewUrl(driver.verification_vtc_card_url);
+      if (vtc) urls.vtc_card = vtc;
+      const vtcV = await resolveStoredToViewUrl(driver.verification_vtc_card_url_verso);
+      if (vtcV) urls.vtc_card_verso = vtcV;
+      const id = await resolveStoredToViewUrl(driver.verification_id_card_url);
+      if (id) urls.id_card = id;
+      const idV = await resolveStoredToViewUrl(driver.verification_id_card_url_verso);
+      if (idV) urls.id_card_verso = idV;
+      const ins = await resolveStoredToViewUrl(driver.verification_insurance_url);
+      if (ins) urls.insurance = ins;
       setSignedUrls({ ...urls });
     } catch (e) {
       console.warn('URLs documents:', e);
@@ -220,7 +234,7 @@ export const AdminPanelScreen: React.FC<AdminPanelScreenProps> = ({ onBack }) =>
 
   const handleReviewDoc = async (
     vtcProfileId: string,
-    docType: 'vtc_card' | 'id_card' | 'insurance',
+    docType: AdminDriverDocKey,
     status: 'approved' | 'rejected',
     adminNotes?: string
   ) => {
@@ -232,14 +246,16 @@ export const AdminPanelScreen: React.FC<AdminPanelScreenProps> = ({ onBack }) =>
         status,
         adminNotes || null
       );
+      const list = await apiClient.listPendingDriverVerifications();
+      setPendingDriverVerifications(list);
       if (allApproved) {
-        Alert.alert('Profil approuvé', 'Tous les documents sont validés. Le chauffeur a accès au réseau.');
+        Alert.alert('Profil approuvé', 'Tous les documents requis sont validés. Le chauffeur a accès au réseau.');
         closeDriverModal();
-        loadPendingVerifications();
-      } else {
-        setSelectedDriver(prev => prev ? { ...prev, [`verification_${docType}_status`]: status } as PendingDriverVerification : null);
-        loadPendingVerifications();
+        return;
       }
+      const found = list.find((d) => d.id === vtcProfileId);
+      if (found) await openDriverDetail(found);
+      else closeDriverModal();
     } catch (err: any) {
       Alert.alert('Erreur', err.message || 'Action impossible');
     } finally {
@@ -285,9 +301,9 @@ export const AdminPanelScreen: React.FC<AdminPanelScreenProps> = ({ onBack }) =>
   return (
     <View style={styles.container}>
       {/* Header */}
-      <LinearGradient colors={['#1e293b', '#0f172a']} style={styles.header}>
+      <LinearGradient colors={['#ffffff', '#f1f5f9']} style={styles.header}>
         <TouchableOpacity onPress={onBack} style={styles.backButton}>
-          <Ionicons name="arrow-back" size={24} color="#f1f5f9" />
+          <Ionicons name="arrow-back" size={24} color="#334155" />
         </TouchableOpacity>
         <View style={{ flex: 1 }}>
           <Text style={styles.headerTitle}>Panel Admin</Text>
@@ -309,24 +325,24 @@ export const AdminPanelScreen: React.FC<AdminPanelScreenProps> = ({ onBack }) =>
               setRefreshing(true);
               loadPendingVerifications();
             }}
-            tintColor="#ff6b47"
+            tintColor="#ea580c"
           />
         }
       >
         {/* Info Banner */}
         <View style={styles.infoBanner}>
-          <Ionicons name="shield-checkmark" size={24} color="#0ea5e9" />
+          <Ionicons name="shield-checkmark" size={24} color="#0284c7" />
           <View style={{ flex: 1, marginLeft: 12 }}>
             <Text style={styles.infoBannerTitle}>Vérification par documents</Text>
             <Text style={styles.infoBannerText}>
-              Consulte les documents (carte pro, pièce d'identité, assurance) puis valide ou rejette chaque demande.
+              Consulte les documents (carte pro recto/verso, identité, assurance) puis valide ou rejette chaque pièce.
             </Text>
           </View>
         </View>
 
         {loading ? (
           <View style={styles.loadingContainer}>
-            <ActivityIndicator size="large" color="#ff6b47" />
+            <ActivityIndicator size="large" color="#ea580c" />
             <Text style={styles.loadingText}>Chargement...</Text>
           </View>
         ) : pendingDriverVerifications.length === 0 ? (
@@ -337,7 +353,7 @@ export const AdminPanelScreen: React.FC<AdminPanelScreenProps> = ({ onBack }) =>
               Aucune vérification en attente.
             </Text>
             <Text style={styles.emptyStateHint}>
-              Les demandes n’apparaissent que si un chauffeur a uploadé les 3 documents (carte pro, pièce d’identité, assurance) puis a cliqué sur « Soumettre pour vérification » (Ma Page Pro → Vérifier mon profil).
+              Les demandes n’apparaissent que si un chauffeur a complété tous les documents requis (carte pro recto/verso, identité selon CNI ou passeport, assurance) puis a cliqué sur « Soumettre pour vérification » (Ma Page Pro → Vérifier mon profil).
             </Text>
             <Text style={styles.emptyStateHint}>
               Pour vérifier en base : Supabase → SQL Editor → exécutez :{'\n'}
@@ -380,10 +396,14 @@ export const AdminPanelScreen: React.FC<AdminPanelScreenProps> = ({ onBack }) =>
               </View>
               <View style={styles.cardBody}>
                 <Text style={styles.infoLabel}>
-                  Documents : Carte {driver.verification_vtc_card_status} · ID {driver.verification_id_card_status} · Assurance {driver.verification_insurance_status}
+                  VTC {driver.verification_vtc_card_status}/{driver.verification_vtc_card_status_verso ?? '—'} · ID{' '}
+                  {(driver.verification_id_document_type || 'cni') === 'passport'
+                    ? driver.verification_id_card_status
+                    : `${driver.verification_id_card_status}/${driver.verification_id_card_status_verso ?? '—'}`}{' '}
+                  · Ass. {driver.verification_insurance_status}
                 </Text>
                 <View style={styles.tapToViewHint}>
-                  <Ionicons name="document-text-outline" size={14} color="#94a3b8" />
+                  <Ionicons name="document-text-outline" size={14} color="#64748b" />
                   <Text style={styles.tapToViewHintText}>Appuyer pour voir les documents</Text>
                 </View>
               </View>
@@ -409,7 +429,7 @@ export const AdminPanelScreen: React.FC<AdminPanelScreenProps> = ({ onBack }) =>
                 {selectedDriver?.user?.full_name || selectedDriver?.user_id}
               </Text>
               <TouchableOpacity onPress={closeDriverModal} style={styles.modalClose}>
-                <Ionicons name="close" size={24} color="#f1f5f9" />
+                <Ionicons name="close" size={24} color="#334155" />
               </TouchableOpacity>
             </View>
             {expandedDocUrl ? (
@@ -417,7 +437,7 @@ export const AdminPanelScreen: React.FC<AdminPanelScreenProps> = ({ onBack }) =>
                 <ScrollView style={styles.inlineDocScroll} contentContainerStyle={styles.inlineDocScrollContent}>
                   {docImageLoading ? (
                     <View style={styles.inlineDocError}>
-                      <ActivityIndicator size="large" color="#ff6b47" />
+                      <ActivityIndicator size="large" color="#ea580c" />
                       <Text style={styles.inlineDocErrorText}>Chargement...</Text>
                     </View>
                   ) : docImageError ? (
@@ -435,8 +455,8 @@ export const AdminPanelScreen: React.FC<AdminPanelScreenProps> = ({ onBack }) =>
                   ) : null}
                 </ScrollView>
                 <TouchableOpacity style={styles.inlineDocCloseBtn} onPress={() => { setExpandedDocUrl(null); setExpandedDocDataUrl(null); }} activeOpacity={0.8}>
-                  <Ionicons name="close-circle" size={28} color="#fff" />
-                  <Text style={styles.inlineDocCloseText}>Fermer le document</Text>
+                  <Ionicons name="close-circle" size={28} color="#334155" />
+                  <Text style={styles.inlineDocCloseLabel}>Fermer le document</Text>
                 </TouchableOpacity>
                 {expandedDocUrl ? (
                   <TouchableOpacity style={styles.inlineDocBrowserBtn} onPress={() => Linking.openURL(expandedDocUrl)} activeOpacity={0.8}>
@@ -455,14 +475,58 @@ export const AdminPanelScreen: React.FC<AdminPanelScreenProps> = ({ onBack }) =>
                 <Text style={styles.modalIntro}>
                   Téléchargez ou ouvrez chaque document pour le consulter, puis validez ou rejetez.
                 </Text>
-                {[
-                  { key: 'vtc_card' as const, label: 'Carte pro chauffeur', path: selectedDriver.verification_vtc_card_url, status: selectedDriver.verification_vtc_card_status, url: signedUrls.vtc_card },
-                  { key: 'id_card' as const, label: 'Pièce d\'identité', path: selectedDriver.verification_id_card_url, status: selectedDriver.verification_id_card_status, url: signedUrls.id_card },
-                  { key: 'insurance' as const, label: 'Assurance RC Pro', path: selectedDriver.verification_insurance_url, status: selectedDriver.verification_insurance_status, url: signedUrls.insurance },
-                ].map(({ key, label, path, status, url }) => (
+                {(() => {
+                  const passport = (selectedDriver.verification_id_document_type || 'cni') === 'passport';
+                  const base: {
+                    key: AdminDriverDocKey;
+                    label: string;
+                    path: string | null | undefined;
+                    status: string | null | undefined;
+                    url?: string;
+                  }[] = [
+                    {
+                      key: 'vtc_card',
+                      label: 'Carte pro — recto',
+                      path: selectedDriver.verification_vtc_card_url,
+                      status: selectedDriver.verification_vtc_card_status,
+                      url: signedUrls.vtc_card,
+                    },
+                    {
+                      key: 'vtc_card_verso',
+                      label: 'Carte pro — verso',
+                      path: selectedDriver.verification_vtc_card_url_verso,
+                      status: selectedDriver.verification_vtc_card_status_verso,
+                      url: signedUrls.vtc_card_verso,
+                    },
+                    {
+                      key: 'id_card',
+                      label: passport ? 'Passeport' : 'Pièce d’identité — recto',
+                      path: selectedDriver.verification_id_card_url,
+                      status: selectedDriver.verification_id_card_status,
+                      url: signedUrls.id_card,
+                    },
+                  ];
+                  if (!passport) {
+                    base.push({
+                      key: 'id_card_verso',
+                      label: 'Pièce d’identité — verso',
+                      path: selectedDriver.verification_id_card_url_verso,
+                      status: selectedDriver.verification_id_card_status_verso,
+                      url: signedUrls.id_card_verso,
+                    });
+                  }
+                  base.push({
+                    key: 'insurance',
+                    label: 'Assurance RC Pro',
+                    path: selectedDriver.verification_insurance_url,
+                    status: selectedDriver.verification_insurance_status,
+                    url: signedUrls.insurance,
+                  });
+                  return base;
+                })().map(({ key, label, path, status, url }) => (
                   <View key={key} style={styles.docRow}>
                     <Text style={styles.docRowLabel}>{label}</Text>
-                    <Text style={styles.docRowStatus}>{status}</Text>
+                    <Text style={styles.docRowStatus}>{status ?? 'missing'}</Text>
                     {loadingUrls && path ? (
                       <View style={styles.docThumbPlaceholder}>
                         <ActivityIndicator color="#94a3b8" />
@@ -506,7 +570,11 @@ export const AdminPanelScreen: React.FC<AdminPanelScreenProps> = ({ onBack }) =>
                           onPress={() => {
                             Alert.prompt('Note (optionnel)', 'Raison du rejet', [
                               { text: 'Annuler', style: 'cancel' },
-                              { text: 'Rejeter', style: 'destructive', onPress: (v) => handleReviewDoc(selectedDriver.id, key, 'rejected', v || undefined) },
+                              {
+                                text: 'Rejeter',
+                                style: 'destructive',
+                                onPress: (v?: string) => handleReviewDoc(selectedDriver.id, key, 'rejected', v || undefined),
+                              },
                             ], 'plain-text');
                           }}
                           disabled={!!processingDoc}
@@ -543,7 +611,7 @@ export const AdminPanelScreen: React.FC<AdminPanelScreenProps> = ({ onBack }) =>
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#0f172a',
+    backgroundColor: '#f1f5f9',
   },
   header: {
     paddingTop: 50,
@@ -551,12 +619,14 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     flexDirection: 'row',
     alignItems: 'center',
+    borderBottomWidth: 1,
+    borderBottomColor: '#e2e8f0',
   },
   backButton: {
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    backgroundColor: '#e2e8f0',
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 12,
@@ -564,11 +634,11 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontSize: 22,
     fontWeight: '700',
-    color: '#f1f5f9',
+    color: '#0f172a',
   },
   headerSubtitle: {
     fontSize: 13,
-    color: '#94a3b8',
+    color: '#64748b',
     marginTop: 2,
   },
   badge: {
@@ -590,23 +660,28 @@ const styles = StyleSheet.create({
   infoBanner: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    backgroundColor: 'rgba(14, 165, 233, 0.1)',
+    backgroundColor: '#ffffff',
     borderRadius: 14,
     padding: 14,
     marginBottom: 24,
     borderWidth: 1,
-    borderColor: 'rgba(14, 165, 233, 0.2)',
+    borderColor: '#e2e8f0',
+    shadowColor: '#0f172a',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.06,
+    shadowRadius: 4,
+    elevation: 2,
   },
   infoBannerTitle: {
     fontSize: 14,
     fontWeight: '700',
-    color: '#f1f5f9',
+    color: '#0f172a',
     marginBottom: 4,
   },
   infoBannerText: {
-    fontSize: 12,
-    color: '#94a3b8',
-    lineHeight: 18,
+    fontSize: 13,
+    color: '#475569',
+    lineHeight: 19,
   },
   loadingContainer: {
     paddingVertical: 60,
@@ -614,7 +689,7 @@ const styles = StyleSheet.create({
   },
   loadingText: {
     fontSize: 14,
-    color: '#94a3b8',
+    color: '#64748b',
     marginTop: 12,
   },
   emptyState: {
@@ -624,38 +699,43 @@ const styles = StyleSheet.create({
   emptyStateTitle: {
     fontSize: 20,
     fontWeight: '700',
-    color: '#f1f5f9',
+    color: '#0f172a',
     marginTop: 16,
     marginBottom: 8,
   },
   emptyStateText: {
     fontSize: 14,
-    color: '#64748b',
+    color: '#475569',
     textAlign: 'center',
     lineHeight: 22,
   },
   emptyStateHint: {
     fontSize: 12,
-    color: '#94a3b8',
+    color: '#64748b',
     textAlign: 'center',
     lineHeight: 18,
     marginTop: 12,
     paddingHorizontal: 16,
   },
   verificationCard: {
-    backgroundColor: 'rgba(255, 255, 255, 0.03)',
+    backgroundColor: '#ffffff',
     borderRadius: 16,
     marginBottom: 16,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.08)',
+    borderColor: '#e2e8f0',
     overflow: 'hidden',
+    shadowColor: '#0f172a',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 8,
+    elevation: 3,
   },
   cardHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     padding: 16,
     borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255, 255, 255, 0.05)',
+    borderBottomColor: '#f1f5f9',
   },
   userAvatar: {
     width: 48,
@@ -674,7 +754,7 @@ const styles = StyleSheet.create({
   userName: {
     fontSize: 16,
     fontWeight: '700',
-    color: '#f1f5f9',
+    color: '#0f172a',
     marginBottom: 2,
   },
   userEmail: {
@@ -682,15 +762,17 @@ const styles = StyleSheet.create({
     color: '#64748b',
   },
   timeTag: {
-    backgroundColor: 'rgba(251, 191, 36, 0.15)',
+    backgroundColor: '#fffbeb',
     borderRadius: 8,
     paddingHorizontal: 10,
     paddingVertical: 4,
+    borderWidth: 1,
+    borderColor: '#fde68a',
   },
   timeText: {
     fontSize: 11,
     fontWeight: '600',
-    color: '#fbbf24',
+    color: '#b45309',
   },
   cardBody: {
     padding: 16,
@@ -702,14 +784,14 @@ const styles = StyleSheet.create({
   },
   infoLabel: {
     fontSize: 13,
-    color: '#94a3b8',
+    color: '#64748b',
     marginLeft: 8,
     marginRight: 8,
   },
   infoValue: {
     fontSize: 13,
     fontWeight: '600',
-    color: '#f1f5f9',
+    color: '#0f172a',
     flex: 1,
   },
   cardFooter: {
@@ -743,7 +825,7 @@ const styles = StyleSheet.create({
   sectionTitleText: {
     fontSize: 14,
     fontWeight: '700',
-    color: '#94a3b8',
+    color: '#64748b',
     textTransform: 'uppercase',
     letterSpacing: 0.5,
   },
@@ -754,7 +836,7 @@ const styles = StyleSheet.create({
   },
   sectionHintEmpty: {
     fontSize: 12,
-    color: '#64748b',
+    color: '#94a3b8',
     marginTop: 4,
     fontStyle: 'italic',
   },
@@ -766,16 +848,16 @@ const styles = StyleSheet.create({
   },
   tapToViewHintText: {
     fontSize: 12,
-    color: '#94a3b8',
+    color: '#64748b',
   },
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.7)',
+    backgroundColor: 'rgba(15, 23, 42, 0.45)',
     justifyContent: 'flex-end',
   },
   modalContent: {
     flex: 1,
-    backgroundColor: '#1e293b',
+    backgroundColor: '#ffffff',
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
     maxHeight: '85%',
@@ -786,12 +868,12 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     padding: 16,
     borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255,255,255,0.08)',
+    borderBottomColor: '#e2e8f0',
   },
   modalTitle: {
     fontSize: 18,
     fontWeight: '700',
-    color: '#f1f5f9',
+    color: '#0f172a',
   },
   modalClose: {
     padding: 8,
@@ -802,7 +884,7 @@ const styles = StyleSheet.create({
   },
   modalIntro: {
     fontSize: 13,
-    color: '#94a3b8',
+    color: '#475569',
     marginBottom: 16,
     lineHeight: 20,
   },
@@ -810,17 +892,17 @@ const styles = StyleSheet.create({
     marginBottom: 20,
     paddingBottom: 16,
     borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255,255,255,0.06)',
+    borderBottomColor: '#e2e8f0',
   },
   docRowLabel: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#f1f5f9',
+    color: '#0f172a',
     marginBottom: 4,
   },
   docRowStatus: {
     fontSize: 12,
-    color: '#94a3b8',
+    color: '#64748b',
     marginBottom: 8,
   },
   docOpenButton: {
@@ -843,6 +925,7 @@ const styles = StyleSheet.create({
     flex: 1,
     padding: 16,
     minHeight: 300,
+    backgroundColor: '#f8fafc',
   },
   inlineDocScroll: {
     flex: 1,
@@ -862,8 +945,13 @@ const styles = StyleSheet.create({
     gap: 8,
     paddingVertical: 12,
     marginTop: 12,
-    backgroundColor: 'rgba(255,255,255,0.15)',
+    backgroundColor: '#e2e8f0',
     borderRadius: 10,
+  },
+  inlineDocCloseLabel: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#334155',
   },
   inlineDocBrowserBtn: {
     flexDirection: 'row',
@@ -887,7 +975,7 @@ const styles = StyleSheet.create({
   },
   inlineDocErrorText: {
     fontSize: 14,
-    color: '#94a3b8',
+    color: '#475569',
     textAlign: 'center',
   },
   inlineDocErrorUrl: {
@@ -908,7 +996,9 @@ const styles = StyleSheet.create({
     marginBottom: 8,
     borderRadius: 8,
     overflow: 'hidden',
-    backgroundColor: '#334155',
+    backgroundColor: '#e2e8f0',
+    borderWidth: 1,
+    borderColor: '#cbd5e1',
   },
   docThumb: {
     width: '100%',
@@ -918,7 +1008,7 @@ const styles = StyleSheet.create({
     width: '100%',
     height: 120,
     borderRadius: 8,
-    backgroundColor: '#334155',
+    backgroundColor: '#e2e8f0',
   },
   docViewDocWrap: {
     flexDirection: 'row',
@@ -939,19 +1029,21 @@ const styles = StyleSheet.create({
     width: '100%',
     height: 120,
     borderRadius: 8,
-    backgroundColor: '#334155',
+    backgroundColor: '#f1f5f9',
     marginBottom: 10,
     justifyContent: 'center',
     alignItems: 'center',
     gap: 8,
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
   },
   docThumbPlaceholderText: {
     fontSize: 12,
-    color: '#94a3b8',
+    color: '#64748b',
   },
   docUnavailable: {
     fontSize: 13,
-    color: '#94a3b8',
+    color: '#64748b',
     fontStyle: 'italic',
     marginBottom: 8,
   },

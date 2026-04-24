@@ -11,7 +11,7 @@ export function CTA() {
             <span className="text-primary">réseau</span>
           </h2>
 
-          <div className="space-y-6 mb-12 text-left max-w-lg mx-auto">
+          <div className="space-y-6 mb-12 text-center max-w-lg mx-auto">
             <p className="text-foreground/60 text-lg leading-relaxed">
               <strong className="text-foreground/90">Vous êtes client ?</strong>
               <br />
@@ -27,7 +27,7 @@ export function CTA() {
           <div className="flex flex-col sm:flex-row justify-center gap-4">
             <Link
               href="#reserver"
-              className="inline-flex items-center justify-center gap-3 px-8 py-4 bg-primary text-primary-foreground font-medium rounded-full hover:bg-primary/90 transition-all shadow-2xl shadow-primary/25"
+              className="btn-primary-glow btn-press inline-flex items-center justify-center gap-3 px-8 py-4 bg-primary text-primary-foreground font-medium rounded-full hover:bg-primary/90 transition-all shadow-2xl shadow-primary/25"
             >
               Réserver un trajet
               <ArrowRight className="w-5 h-5" />

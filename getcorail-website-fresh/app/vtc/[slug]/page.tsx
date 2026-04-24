@@ -3,12 +3,16 @@ import Link from "next/link";
 import { getSupabaseServer } from "@/lib/supabase-server";
 import { VtcProfileActions } from "./vtc-profile-actions";
 
+const DEFAULT_PAGE_COVER =
+  "https://images.unsplash.com/photo-1555215695-3004980ad54e?w=1200&q=85";
+
 type VtcProfile = {
   user_id: string;
   slug: string;
   display_name: string;
   bio: string | null;
   photo_url: string | null;
+  page_cover_url: string | null;
   phone: string | null;
   whatsapp: string | null;
   email: string | null;
@@ -20,6 +24,7 @@ type VtcProfile = {
   vehicle_year: number | null;
   vehicle_seats: number | null;
   driver_verification_status: string | null;
+  siret: string | null;
 };
 
 type DriverInfo = {
@@ -27,7 +32,6 @@ type DriverInfo = {
   company_name: string | null;
   professional_card_number: string | null;
   vtc_card_number: string | null;
-  siren: string | null;
 };
 
 export const dynamic = "force-dynamic";
@@ -43,7 +47,7 @@ export default async function VtcProfilePage({
 
   const { data: profile, error } = await supabase
     .from("vtc_profiles")
-    .select("user_id, slug, display_name, bio, photo_url, phone, whatsapp, email, services, zone_city, zone_radius_km, vehicle_brand, vehicle_model, vehicle_year, vehicle_seats, driver_verification_status")
+    .select("user_id, slug, display_name, bio, photo_url, page_cover_url, phone, whatsapp, email, services, zone_city, zone_radius_km, vehicle_brand, vehicle_model, vehicle_year, vehicle_seats, driver_verification_status, siret")
     .eq("slug", normalizedSlug)
     .eq("is_public", true)
     .single();
@@ -59,7 +63,7 @@ export default async function VtcProfilePage({
   if (p.user_id) {
     const { data: user } = await supabase
       .from("users")
-      .select("full_name, company_name, professional_card_number, vtc_card_number, siren")
+      .select("full_name, company_name, professional_card_number, vtc_card_number")
       .eq("id", p.user_id)
       .single();
     driverInfo = user as DriverInfo | null;
@@ -98,7 +102,7 @@ export default async function VtcProfilePage({
             <div
               className="absolute inset-0 overflow-hidden rounded-t-2xl bg-[var(--muted)]"
               style={{
-                backgroundImage: "url(https://images.unsplash.com/photo-1555215695-3004980ad54e?w=1200&q=85)",
+                backgroundImage: `url(${p.page_cover_url && p.page_cover_url.trim() ? p.page_cover_url : DEFAULT_PAGE_COVER})`,
                 backgroundSize: "cover",
                 backgroundPosition: "center",
               }}
@@ -197,7 +201,7 @@ export default async function VtcProfilePage({
             </div>
 
             {/* Informations professionnelles */}
-            {(driverInfo?.company_name || cardNumber || driverInfo?.siren) && (
+            {(driverInfo?.company_name || cardNumber || p.siret) && (
               <div className="pt-4 border-t border-[var(--border)]">
                 <p className="text-xs font-medium text-[var(--muted-foreground)] uppercase tracking-wider mb-3">
                   Activité
@@ -215,10 +219,10 @@ export default async function VtcProfilePage({
                       <dd className="font-medium tabular-nums">{cardNumber}</dd>
                     </div>
                   )}
-                  {driverInfo?.siren && (
+                  {p.siret && (
                     <div>
-                      <dt className="text-[var(--muted-foreground)]">SIREN</dt>
-                      <dd className="font-medium tabular-nums">{driverInfo.siren}</dd>
+                      <dt className="text-[var(--muted-foreground)]">SIRET</dt>
+                      <dd className="font-medium tabular-nums">{p.siret}</dd>
                     </div>
                   )}
                 </dl>

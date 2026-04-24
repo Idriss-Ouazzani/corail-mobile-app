@@ -9,6 +9,33 @@ import { Platform } from 'react-native';
 import Constants from 'expo-constants';
 import { supabase } from '../lib/supabase';
 
+/** `push_tokens.user_id` référence `public.users(id)` — pas toujours égal à `auth.uid()`. */
+async function resolveUsersPrimaryKeyForPush(authOrRowUserId: string): Promise<string | null> {
+  const { data, error } = await supabase
+    .from('users')
+    .select('id')
+    .or(`id.eq.${authOrRowUserId},supabase_auth_id.eq.${authOrRowUserId}`)
+    .maybeSingle();
+  if (error || !data?.id) return null;
+  return String(data.id);
+}
+
+/** Après signup, la ligne `users` peut arriver quelques centaines de ms après la session. */
+async function resolveUsersPrimaryKeyForPushWithRetry(
+  authOrRowUserId: string,
+  attempts = 6,
+  delayMs = 400
+): Promise<string | null> {
+  for (let i = 0; i < attempts; i++) {
+    const id = await resolveUsersPrimaryKeyForPush(authOrRowUserId);
+    if (id) return id;
+    if (i < attempts - 1) {
+      await new Promise((r) => setTimeout(r, delayMs));
+    }
+  }
+  return null;
+}
+
 export interface PushToken {
   id: string;
   user_id: string;
@@ -73,6 +100,14 @@ export async function getExpoPushToken(): Promise<string | null> {
  */
 export async function registerPushToken(userId: string): Promise<boolean> {
   try {
+    const rowUserId = await resolveUsersPrimaryKeyForPushWithRetry(userId);
+    if (!rowUserId) {
+      console.warn(
+        '⚠️ Pas de ligne users pour ce compte — token push non enregistré (réessayez après chargement du profil).'
+      );
+      return false;
+    }
+
     // Obtenir le token Expo
     const pushToken = await getExpoPushToken();
     if (!pushToken) {
@@ -86,7 +121,8 @@ export async function registerPushToken(userId: string): Promise<boolean> {
     const appVersion = Constants.expoConfig?.version || 'unknown';
 
     console.log('📱 Enregistrement token push:', {
-      userId,
+      sessionUserId: userId,
+      pushTokensUserId: rowUserId,
       deviceType,
       deviceName,
       appVersion,
@@ -96,7 +132,7 @@ export async function registerPushToken(userId: string): Promise<boolean> {
     await supabase
       .from('push_tokens')
       .update({ is_active: false })
-      .eq('user_id', userId)
+      .eq('user_id', rowUserId)
       .eq('device_type', deviceType);
 
     // Insérer ou mettre à jour le token
@@ -104,7 +140,7 @@ export async function registerPushToken(userId: string): Promise<boolean> {
       .from('push_tokens')
       .upsert(
         {
-          user_id: userId,
+          user_id: rowUserId,
           push_token: pushToken,
           device_type: deviceType,
           device_name: deviceName,
@@ -123,6 +159,31 @@ export async function registerPushToken(userId: string): Promise<boolean> {
     }
 
     console.log('✅ Token push enregistré dans Supabase:', data.id);
+
+    // Même token sur users.expo_push_token (Edge send-ride-notification + anciens chemins)
+    const { error: mirrorErr } = await supabase
+      .from('users')
+      .update({ expo_push_token: pushToken })
+      .eq('id', rowUserId);
+    if (mirrorErr) {
+      console.warn('⚠️ Miroir expo_push_token users:', mirrorErr.message);
+    }
+
+    if (Platform.OS === 'android') {
+      await Notifications.setNotificationChannelAsync('default', {
+        name: 'Corail',
+        importance: Notifications.AndroidImportance.MAX,
+        vibrationPattern: [0, 250, 250, 250],
+        lightColor: '#FF6B47',
+      });
+      await Notifications.setNotificationChannelAsync('urgent', {
+        name: 'Courses & alertes',
+        importance: Notifications.AndroidImportance.HIGH,
+        vibrationPattern: [0, 250, 250, 250],
+        lightColor: '#FF6B47',
+      });
+    }
+
     return true;
   } catch (error) {
     console.error('❌ Erreur registerPushToken:', error);
@@ -138,10 +199,12 @@ export async function deactivatePushToken(userId: string): Promise<void> {
     const pushToken = await getExpoPushToken();
     if (!pushToken) return;
 
+    const rowUserId = (await resolveUsersPrimaryKeyForPush(userId)) ?? userId;
+
     await supabase
       .from('push_tokens')
       .update({ is_active: false })
-      .eq('user_id', userId)
+      .eq('user_id', rowUserId)
       .eq('push_token', pushToken);
 
     console.log('✅ Token push désactivé');
@@ -155,31 +218,46 @@ export async function deactivatePushToken(userId: string): Promise<void> {
  */
 export async function deleteAllUserTokens(userId: string): Promise<void> {
   try {
-    await supabase
-      .from('push_tokens')
-      .delete()
-      .eq('user_id', userId);
+    const rowUserId = await resolveUsersPrimaryKeyForPush(userId);
+    const ids = [userId, rowUserId].filter((x): x is string => Boolean(x));
+    const unique = [...new Set(ids)];
 
-    console.log('✅ Tous les tokens push supprimés pour user:', userId);
+    await supabase.from('push_tokens').delete().in('user_id', unique);
+
+    console.log('✅ Tous les tokens push supprimés pour user:', unique.join(', '));
   } catch (error) {
     console.error('❌ Erreur suppression tokens:', error);
   }
 }
 
 /**
- * Obtenir tous les tokens actifs d'un utilisateur
+ * Obtenir tous les tokens actifs d'un utilisateur.
+ * Accepte soit l'UUID Supabase Auth, soit le `users.id` métier (les tokens sont souvent enregistrés avec auth.uid()).
  */
 export async function getUserActiveTokens(userId: string): Promise<string[]> {
   try {
+    const ids = new Set<string>([userId]);
+    const { data: userRows } = await supabase
+      .from('users')
+      .select('id, supabase_auth_id')
+      .or(`id.eq.${userId},supabase_auth_id.eq.${userId}`);
+
+    if (userRows && userRows.length > 0) {
+      for (const u of userRows) {
+        if (u.id) ids.add(String(u.id));
+        if (u.supabase_auth_id) ids.add(String(u.supabase_auth_id));
+      }
+    }
+
     const { data, error } = await supabase
       .from('push_tokens')
       .select('push_token')
-      .eq('user_id', userId)
+      .in('user_id', [...ids])
       .eq('is_active', true);
 
     if (error) throw error;
 
-    return (data || []).map(t => t.push_token);
+    return (data || []).map((t) => t.push_token);
   } catch (error) {
     console.error('❌ Erreur récupération tokens:', error);
     return [];

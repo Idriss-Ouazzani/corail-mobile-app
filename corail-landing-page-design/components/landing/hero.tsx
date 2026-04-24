@@ -1,20 +1,11 @@
-import Image from "next/image";
 import Link from "next/link";
 import { ArrowRight } from "lucide-react";
+import { HeroParallax } from "./HeroParallax";
 
 export function Hero() {
   return (
     <section className="relative min-h-screen flex items-center overflow-hidden">
-      <div className="absolute inset-0 z-0">
-        <Image
-          src="/images/hero-bg.jpg"
-          alt=""
-          fill
-          className="object-cover"
-          priority
-        />
-        <div className="absolute inset-0 bg-gradient-to-r from-background via-background/92 to-background/50" />
-      </div>
+      <HeroParallax />
 
       <div className="relative z-10 max-w-7xl mx-auto px-6 lg:px-8 pt-32 pb-24">
         <div className="max-w-2xl">
@@ -43,14 +34,14 @@ export function Hero() {
           <div className="flex flex-col sm:flex-row gap-4">
             <Link
               href="#reserver"
-              className="inline-flex items-center justify-center gap-3 px-8 py-4 bg-primary text-primary-foreground font-medium rounded-full hover:bg-primary/90 transition-all shadow-2xl shadow-primary/25"
+              className="btn-primary-glow btn-press inline-flex items-center justify-center gap-3 px-8 py-4 bg-primary text-primary-foreground font-medium rounded-full hover:bg-primary/90 transition-all duration-300 shadow-2xl shadow-primary/25"
             >
               Réserver un trajet
               <ArrowRight className="w-5 h-5" />
             </Link>
             <Link
               href="#chauffeurs"
-              className="inline-flex items-center justify-center gap-3 px-8 py-4 border border-foreground/25 text-foreground font-medium rounded-full hover:bg-foreground/5 transition-all"
+              className="link-underline inline-flex items-center justify-center gap-3 px-8 py-4 border border-foreground/25 text-foreground font-medium rounded-full hover:bg-foreground/5 transition-all duration-300"
             >
               Rejoindre le réseau
             </Link>

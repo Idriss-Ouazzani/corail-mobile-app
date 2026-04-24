@@ -116,7 +116,7 @@ export const RideDetailScreen: React.FC<RideDetailScreenProps> = ({
   const highEur = isClientDemand
     ? (hasStoredRange ? ride.indicative_high_cents! / 100 : computedRange?.high ?? 100)
     : 100;
-  const budgetEur = ride.price_cents / 100;
+  const budgetEur = (ride.price_cents ?? 0) / 100;
   const indicativeRange =
     isClientDemand && (hasStoredRange || computedRange)
       ? `${lowEur.toFixed(0)}€ – ${highEur.toFixed(0)}€`
@@ -315,7 +315,7 @@ export const RideDetailScreen: React.FC<RideDetailScreenProps> = ({
     }
   };
   
-  const formatPrice = (cents: number) => `${(cents / 100).toFixed(2)}€`;
+  const formatPrice = (cents: number) => `${((cents ?? 0) / 100).toFixed(2)}€`;
 
   const getSourceLabel = (s?: RideSource) => ({ chauffeur: 'Chauffeur', hotel: 'Hôtel', client: 'Client' }[s || 'chauffeur']);
   const getSourceIcon = (s?: RideSource) => ({ chauffeur: 'car-sport-outline', hotel: 'business-outline', client: 'person-outline' }[s || 'chauffeur']);
@@ -386,8 +386,8 @@ export const RideDetailScreen: React.FC<RideDetailScreenProps> = ({
           activeOpacity={0.8}
           onPress={() => {
             Alert.alert(
-              'Publier sur la Marketplace',
-              'Vous n\'êtes pas disponible pour cette course ?\n\nPubliez-la sur la Marketplace et laissez d\'autres chauffeurs la récupérer ! Vous gagnerez 1 crédit.',
+              'Publier sur le réseau public',
+              'Vous n\'êtes pas disponible pour cette course ?\n\nPubliez-la sur le réseau public et laissez d\'autres chauffeurs la récupérer ! Vous gagnerez 1 crédit.',
               [
                 { text: 'Annuler', style: 'cancel' },
                 { text: 'Publier', onPress: onPublish },
@@ -400,7 +400,7 @@ export const RideDetailScreen: React.FC<RideDetailScreenProps> = ({
           </View>
           <View style={styles.publishBannerContent}>
             <Text style={styles.publishBannerTitle}>Vous n'êtes pas disponible ?</Text>
-            <Text style={styles.publishBannerText}>Publiez cette course sur la Marketplace</Text>
+            <Text style={styles.publishBannerText}>Publiez cette course sur le réseau public</Text>
           </View>
           <Ionicons name="chevron-forward" size={20} color="#0ea5e9" />
         </TouchableOpacity>
@@ -494,9 +494,12 @@ export const RideDetailScreen: React.FC<RideDetailScreenProps> = ({
                     budgetStatus === 'above' && styles.budgetStatusTextAbove,
                   ]}>
                     {budgetStatus === 'in_range' && 'Dans la fourchette — Le premier qui accepte confirme la course.'}
-                    {budgetStatus === 'below' && 'Budget inférieur au marché.'}
+                    {budgetStatus === 'below' && 'Sous fourchette'}
                     {budgetStatus === 'above' && 'Budget supérieur aux tarifs habituels.'}
                   </Text>
+                  {budgetStatus === 'below' && (
+                    <Text style={styles.budgetStatusCaption}>Décision libre</Text>
+                  )}
                 </View>
               )}
               <Text style={styles.clientDemandWarning}>
@@ -1040,9 +1043,7 @@ export const RideDetailScreen: React.FC<RideDetailScreenProps> = ({
             <View style={styles.actionButtonInner}>
               <Ionicons name="car" size={24} color="#fff" />
               <Text style={styles.actionButtonText}>
-                {isClientDemand || (ride.visibility || 'PUBLIC') === 'GROUP'
-                  ? 'Prendre cette course'
-                  : 'Prendre cette course (-1 crédit)'}
+                Prendre cette course
               </Text>
             </View>
           </TouchableOpacity>
@@ -1459,6 +1460,12 @@ const styles = StyleSheet.create({
   },
   budgetStatusTextAbove: {
     color: '#0ea5e9',
+  },
+  budgetStatusCaption: {
+    fontSize: 11,
+    color: '#64748b',
+    marginTop: 4,
+    fontWeight: '500',
   },
   section: {
     marginBottom: 20,
@@ -2064,20 +2071,25 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   actionButton: {
-    borderRadius: 18,
+    borderRadius: 14,
     overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 6,
+    elevation: 3,
   },
   actionButtonInner: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 18,
+    paddingVertical: 16,
     gap: 8,
-    backgroundColor: '#0ea5e9',
+    backgroundColor: '#0369a1',
   },
   actionButtonText: {
     fontSize: 16,
-    fontWeight: '700',
+    fontWeight: '600',
     color: '#fff',
   },
   creditIconInButton: {

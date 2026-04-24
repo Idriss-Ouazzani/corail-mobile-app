@@ -198,10 +198,10 @@ export const CreateRideScreen: React.FC<CreateRideScreenProps> = ({ onBack, onCr
       return;
     }
 
-    if (visibility === 'PUBLIC' && !isDriverVerified) {
+    if (visibility !== 'PERSONAL' && !isDriverVerified) {
       Alert.alert(
         'Profil vérifié requis',
-        'Pour accéder aux opportunités réseau, votre profil doit être vérifié.'
+        'Sans profil vérifié, vous ne pouvez pas publier vers le réseau ou un groupe — uniquement des courses personnelles que vous saisissez vous-même.'
       );
       return;
     }
@@ -422,7 +422,7 @@ export const CreateRideScreen: React.FC<CreateRideScreenProps> = ({ onBack, onCr
           </View>
         </View>
 
-        {/* 2. Personnelle ou Annonce (en dessous de Prix et horaire) */}
+        {/* 2. Privée ou Réseau public (en dessous de Prix et horaire) */}
         {mode === 'create' && (
           <View style={styles.typeCard}>
             <Text style={styles.typeCardLabel}>Type de course</Text>
@@ -433,7 +433,7 @@ export const CreateRideScreen: React.FC<CreateRideScreenProps> = ({ onBack, onCr
                 activeOpacity={0.85}
               >
                 <Ionicons name="person-outline" size={20} color={!publishToMarketplace ? '#fff' : '#94a3b8'} />
-                <Text style={[styles.typeOptionText, !publishToMarketplace && styles.typeOptionTextActive]}>Personnelle</Text>
+                <Text style={[styles.typeOptionText, !publishToMarketplace && styles.typeOptionTextActive]}>Privée</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 style={[styles.typeOption, publishToMarketplace && styles.typeOptionActive]}
@@ -441,7 +441,7 @@ export const CreateRideScreen: React.FC<CreateRideScreenProps> = ({ onBack, onCr
                 activeOpacity={0.85}
               >
                 <Ionicons name="megaphone-outline" size={20} color={publishToMarketplace ? '#fff' : '#94a3b8'} />
-                <Text style={[styles.typeOptionText, publishToMarketplace && styles.typeOptionTextActive]}>Annonce</Text>
+                <Text style={[styles.typeOptionText, publishToMarketplace && styles.typeOptionTextActive]}>Réseau public</Text>
               </TouchableOpacity>
             </View>
           </View>

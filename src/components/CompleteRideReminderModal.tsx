@@ -20,7 +20,7 @@ import type { Ride } from '../types';
 
 const REMINDER_TITLE = 'Terminer votre course';
 const REMINDER_MESSAGE =
-  'Vous avez une course en attente de finalisation. Pensez à la marquer comme terminée pour libérer les crédits et noter l\'auteur.';
+  'Vous avez une course en attente de finalisation. Pensez à la marquer comme terminée et à envoyer votre retour au chauffeur.';
 
 interface CompleteRideReminderModalProps {
   visible: boolean;

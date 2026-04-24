@@ -99,3 +99,13 @@ Les prochains emails (réservation acceptée, devis) partiront de cette adresse 
 - **Console app (Metro)** : quand un chauffeur accepte une demande avec un email client, tu dois voir soit `📧 Envoi email réservation acceptée vers: xxx`, soit `📧 Pas d'email client sur la demande`.
 
 Si les logs Supabase restent vides alors que tu vois le log « Envoi email… » dans l'app, l'appel vers Supabase échoue (réseau, URL du projet, etc.).
+
+---
+
+## Email de rappel 24h avant la course
+
+Une **Edge Function** `send-booking-reminder-email` envoie au client un email de rappel 24h avant la course (même style que la confirmation).
+
+**Côté Resend.io : rien à faire.** Même clé et même expéditeur que la confirmation.
+
+**Pour tout configurer (cron inclus) en 6 étapes :** → **[RAPPEL_24H_ETAPES.md](./RAPPEL_24H_ETAPES.md)**

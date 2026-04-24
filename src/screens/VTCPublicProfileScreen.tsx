@@ -81,6 +81,9 @@ const PREDEFINED_AMENITIES = [
   'Musique',
 ];
 
+const PLACEHOLDER_BIO = 'Aéroport, VIP, longue distance…';
+const PLACEHOLDER_CITY = 'Ville / zone, ex. Bordeaux';
+
 interface VTCProfile {
   id: string;
   user_id: string;
@@ -102,6 +105,8 @@ interface VTCProfile {
   amenities: string[];
   is_public: boolean;
   view_count: number;
+  /** Bannière page pro ; null = Unsplash par défaut */
+  page_cover_url?: string | null;
 }
 
 interface VTCPublicProfileScreenProps {
@@ -127,6 +132,9 @@ export const VTCPublicProfileScreen: React.FC<VTCPublicProfileScreenProps> = ({
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [uploadingCover, setUploadingCover] = useState(false);
+  const [pageCoverUrl, setPageCoverUrl] = useState('');
+  const [pageCoverKey, setPageCoverKey] = useState(Date.now());
   const [profile, setProfile] = useState<VTCProfile | null>(null);
 
   // Debug: Vérifier l'utilisateur au chargement
@@ -160,6 +168,7 @@ export const VTCPublicProfileScreen: React.FC<VTCPublicProfileScreenProps> = ({
   const [vehicleSeats, setVehicleSeats] = useState<number | null>(null);
   const [mode, setMode] = useState<'hub' | 'wizard'>('hub');
   const [showShareModal, setShowShareModal] = useState(false);
+  const [slugError, setSlugError] = useState(false);
   const currentStepRef = React.useRef<StepIndex>(0);
   currentStepRef.current = currentStep;
 
@@ -259,6 +268,8 @@ export const VTCPublicProfileScreen: React.FC<VTCPublicProfileScreenProps> = ({
           console.log('📸 Photo pré-remplie depuis le profil général');
         }
         setIsPublic(data.is_public);
+        setPageCoverUrl(data.page_cover_url?.trim() || '');
+        setPageCoverKey(Date.now());
       } else {
         console.log('ℹ️ Pas de profil VTC, pré-remplissage avec les données utilisateur');
         // Pré-remplir avec les données du user
@@ -271,6 +282,8 @@ export const VTCPublicProfileScreen: React.FC<VTCPublicProfileScreenProps> = ({
         // Générer un slug par défaut à partir du nom
         const defaultSlug = generateSlug(currentUserName || '');
         setSlug(defaultSlug);
+        setPageCoverUrl('');
+        setPageCoverKey(Date.now());
       }
     } catch (error) {
       console.error('❌ Erreur chargement profil:', error);
@@ -422,6 +435,115 @@ export const VTCPublicProfileScreen: React.FC<VTCPublicProfileScreenProps> = ({
     }
   };
 
+  const handlePickPageCover = async () => {
+    if (!currentUserId) {
+      Alert.alert(
+        'Non connecté',
+        'Vous devez être connecté pour personnaliser l’arrière-plan.',
+      );
+      return;
+    }
+    try {
+      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert(
+          'Permission requise',
+          'Nous avons besoin d’accéder à vos photos pour choisir une bannière.',
+        );
+        return;
+      }
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ['images'],
+        allowsEditing: true,
+        aspect: [3, 1],
+        quality: 0.85,
+      });
+      if (result.canceled) return;
+      const imageUri = result.assets[0].uri;
+      await uploadPageCover(imageUri);
+    } catch (error) {
+      console.error('Erreur sélection bannière:', error);
+      Alert.alert('Erreur', 'Impossible de sélectionner l’image.');
+    }
+  };
+
+  const uploadPageCover = async (uri: string) => {
+    try {
+      setUploadingCover(true);
+      if (!currentUserId) {
+        throw new Error('Vous devez être connecté');
+      }
+      const base64 = await FileSystem.readAsStringAsync(uri, {
+        encoding: 'base64',
+      });
+      const timestamp = Date.now();
+      const fileName = `${currentUserId}/page-cover-${timestamp}.jpg`;
+      const decode = (str: string): Uint8Array => {
+        const binaryString = atob(str);
+        const bytes = new Uint8Array(binaryString.length);
+        for (let i = 0; i < binaryString.length; i++) {
+          bytes[i] = binaryString.charCodeAt(i);
+        }
+        return bytes;
+      };
+      const fileData = decode(base64);
+      const { error: uploadError } = await supabase.storage
+        .from('vtc-profiles')
+        .upload(fileName, fileData, {
+          contentType: 'image/jpeg',
+          upsert: false,
+        });
+      if (uploadError) {
+        throw new Error(uploadError.message);
+      }
+      const { data: signedData, error: signError } = await supabase.storage
+        .from('vtc-profiles')
+        .createSignedUrl(fileName, 315360000);
+      if (signError || !signedData) {
+        throw new Error('Impossible de générer l’URL de la bannière');
+      }
+      const publicUrl = signedData.signedUrl;
+      await apiClient.updateVTCProfile({ page_cover_url: publicUrl });
+      setPageCoverUrl(publicUrl);
+      setPageCoverKey(Date.now());
+      await loadProfile(false);
+      Alert.alert('Bannière enregistrée', 'Votre arrière-plan sera visible sur votre page publique.');
+    } catch (error: any) {
+      console.error('uploadPageCover:', error);
+      Alert.alert('Erreur', error?.message || 'Impossible d’uploader la bannière.');
+    } finally {
+      setUploadingCover(false);
+    }
+  };
+
+  const handleResetPageCover = () => {
+    if (!currentUserId) return;
+    Alert.alert(
+      'Image par défaut',
+      'Rétablir l’arrière-plan d’origine (photo Unsplash) ?',
+      [
+        { text: 'Annuler', style: 'cancel' },
+        {
+          text: 'Rétablir',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              setUploadingCover(true);
+              setPageCoverUrl('');
+              setPageCoverKey(Date.now());
+              await apiClient.updateVTCProfile({ page_cover_url: null });
+              await loadProfile(false);
+            } catch (e: any) {
+              Alert.alert('Erreur', e?.message || 'Impossible de réinitialiser la bannière.');
+            } finally {
+              setUploadingCover(false);
+            }
+          },
+        },
+      ],
+    );
+  };
+
   const handleSave = async (opts?: { skipSuccessAlert?: boolean; skipRefresh?: boolean }) => {
     const skipSuccessAlert = opts?.skipSuccessAlert === true;
     const skipRefresh = opts?.skipRefresh === true;
@@ -465,6 +587,7 @@ export const VTCPublicProfileScreen: React.FC<VTCPublicProfileScreenProps> = ({
         amenities: amenities,
         services: services,
         photo_url: photoUrl || null,
+        page_cover_url: pageCoverUrl.trim() || null,
         is_public: isPublic,
       };
 
@@ -501,7 +624,12 @@ export const VTCPublicProfileScreen: React.FC<VTCPublicProfileScreenProps> = ({
     } catch (error: any) {
       console.error('❌ Erreur sauvegarde:', error);
       console.error('📍 Message:', error.message);
-      Alert.alert('Erreur', error.message || 'Impossible de sauvegarder le profil');
+      const msg = error?.message || 'Impossible de sauvegarder le profil';
+      if (msg.includes('déjà utilisé') || msg.includes('identifiant')) {
+        setSlugError(true);
+      }
+      Alert.alert('Erreur', msg);
+      throw error;
     } finally {
       setSaving(false);
     }
@@ -567,7 +695,8 @@ export const VTCPublicProfileScreen: React.FC<VTCPublicProfileScreenProps> = ({
           {/* Image stylée : aperçu type Page Pro / getcorail.com — remplacer PAGE_PRO_HERO_IMAGE_URL par votre capture d’écran */}
           <View style={styles.hubHeroWrap}>
             <ExpoImage
-              source={{ uri: PAGE_PRO_HERO_IMAGE_URL }}
+              key={pageCoverKey}
+              source={{ uri: (pageCoverUrl || '').trim() || PAGE_PRO_HERO_IMAGE_URL }}
               style={styles.hubHeroImage}
               contentFit="cover"
             />
@@ -577,8 +706,39 @@ export const VTCPublicProfileScreen: React.FC<VTCPublicProfileScreenProps> = ({
             </View>
           </View>
 
+          <View style={styles.hubCoverActions}>
+            <Text style={styles.hubCoverLabel}>Arrière-plan de la page</Text>
+            <View style={styles.hubCoverRow}>
+              <TouchableOpacity
+                style={[styles.hubCoverBtn, uploadingCover && styles.hubCoverBtnDisabled]}
+                onPress={handlePickPageCover}
+                disabled={uploadingCover}
+                activeOpacity={0.8}
+              >
+                <Ionicons name="images-outline" size={18} color="#0ea5e9" />
+                <Text style={styles.hubCoverBtnText}>
+                  {uploadingCover ? 'Chargement…' : 'Choisir une image'}
+                </Text>
+              </TouchableOpacity>
+              {(pageCoverUrl || '').trim() ? (
+                <TouchableOpacity
+                  style={styles.hubCoverBtnSecondary}
+                  onPress={handleResetPageCover}
+                  disabled={uploadingCover}
+                  activeOpacity={0.8}
+                >
+                  <Ionicons name="refresh-outline" size={18} color="#94a3b8" />
+                  <Text style={styles.hubCoverBtnTextSecondary}>Par défaut</Text>
+                </TouchableOpacity>
+              ) : null}
+            </View>
+            <Text style={styles.hubCoverHint}>
+              Format large type bannière. Sans image, l’illustration par défaut est affichée.
+            </Text>
+          </View>
+
           <Text style={styles.hubTagline}>
-            Votre page de réservation directe — recevez des réservations sans intermédiaire.
+            Votre vitrine professionnelle indépendante. Réservations directes. 0% commission.
           </Text>
 
           {/* Une seule carte : statut + complétion — premium, lisible sur fond sombre */}
@@ -682,9 +842,8 @@ export const VTCPublicProfileScreen: React.FC<VTCPublicProfileScreenProps> = ({
                   </View>
                   <View style={styles.shareModalQRWrap}>
                     <QRCodeCard
-                      userData={{ name: currentUserName || '', email: currentUserEmail || '' }}
                       qrValue={getVtcProfileUrl(slug)}
-                      footerLabel="Scannez pour voir ma Page Pro"
+                      footerLabel="Scannez pour vos prochaines courses"
                       size={160}
                     />
                   </View>
@@ -712,11 +871,11 @@ export const VTCPublicProfileScreen: React.FC<VTCPublicProfileScreenProps> = ({
     4: 'Aperçu & Activation',
   };
   const STEP_SUBTITLES: Record<StepIndex, string> = {
-    0: 'Ces informations apparaîtront sur votre page de réservation.',
-    1: 'Précisez les caractéristiques de votre véhicule pour rassurer vos clients.',
-    2: 'Indiquez les types de prestations que vous proposez.',
-    3: 'Les équipements améliorent l\'expérience client et aident au choix.',
-    4: 'Vérifiez puis activez votre page pour recevoir des réservations.',
+    0: 'Côté compte, côté page : deux blocs, deux rôles.',
+    1: 'La fiche client affiche le même détail sur la voiture.',
+    2: 'Langues, types de course : l’essentiel pour le passager.',
+    3: 'Confort embarqué, pour le choix en face.',
+    4: 'Relecture, puis activation.',
   };
 
   // ─── WIZARD : parcours guidé, une barre, titre + sous-titre, mini aperçu en haut
@@ -758,7 +917,13 @@ export const VTCPublicProfileScreen: React.FC<VTCPublicProfileScreenProps> = ({
             </View>
             <View style={styles.wizardPreviewText}>
               <Text style={styles.wizardPreviewName} numberOfLines={1}>{currentUserName || 'Votre nom'}</Text>
-              <Text style={styles.wizardPreviewMeta} numberOfLines={1}>{zoneCity || 'Ville'} · {[vehicleBrand, vehicleModel].filter(Boolean).join(' ') || 'Véhicule'}</Text>
+              <Text style={styles.wizardPreviewMeta} numberOfLines={1}>
+                {zoneCity.trim()
+                  ? zoneCity
+                  : 'Votre zone (à compléter)'}
+                {' · '}
+                {[vehicleBrand, vehicleModel].filter(Boolean).join(' ') || 'Votre voiture (à compléter)'}
+              </Text>
             </View>
           </View>
 
@@ -768,18 +933,28 @@ export const VTCPublicProfileScreen: React.FC<VTCPublicProfileScreenProps> = ({
           {/* Étape 0 : Informations — un seul niveau, pas de cartes imbriquées */}
           {currentStep === 0 && (
           <>
-          <View style={styles.wizardBlock}>
+          <View style={styles.wizardSleevePhoto}>
+            <View style={styles.wizardSleeveTopRow}>
+              <View style={styles.wizardSleeveTextCol}>
+                <Text style={styles.wizardSleeveKicker}>Photo</Text>
+                <Text style={styles.wizardSleeveTitleSm}>Votre visage, votre marque</Text>
+                <Text style={styles.wizardSleeveSub}>
+                  Première image côté client. Vous ajustez ici.
+                </Text>
+              </View>
+              <View style={styles.pillModifiable}>
+                <Ionicons name="camera-outline" size={12} color="#7dd3fc" />
+                <Text style={styles.pillModifiableText}>À vous</Text>
+              </View>
+            </View>
             <View style={styles.photoContainer}>
-              {/* Preview de la photo */}
               <View style={styles.photoWrapper}>
                 {uploading ? (
-                  // Pendant l'upload : spinner
                   <View style={styles.photoPlaceholder}>
                     <ActivityIndicator size="large" color="#0ea5e9" />
                     <Text style={styles.uploadingText}>Upload...</Text>
                   </View>
                 ) : photoUrl ? (
-                  // Après upload : preview avec expo-image
                   <ExpoImage
                     key={`photo-${photoKey}`}
                     source={{ uri: photoUrl }}
@@ -790,19 +965,15 @@ export const VTCPublicProfileScreen: React.FC<VTCPublicProfileScreenProps> = ({
                     onLoad={() => console.log('✅ Image chargée avec expo-image')}
                     onError={(error) => {
                       console.error('❌ Erreur expo-image:', error);
-                      // Fallback vers l'icône de succès
                       setPhotoUrl('');
                     }}
                   />
                 ) : (
-                  // Pas de photo : placeholder
                   <View style={styles.photoPlaceholder}>
                     <Ionicons name="person" size={48} color="#64748b" />
                   </View>
                 )}
               </View>
-
-              {/* Boutons d'action */}
               <View style={styles.photoActions}>
                 <TouchableOpacity
                   style={styles.uploadButton}
@@ -825,61 +996,107 @@ export const VTCPublicProfileScreen: React.FC<VTCPublicProfileScreenProps> = ({
                   )}
                 </TouchableOpacity>
                 {photoUrl && !uploading && (
-                  <Text style={styles.photoUploadedHint}>Visible sur votre page</Text>
+                  <Text style={styles.photoUploadedHint}>Côté page, comme ici</Text>
                 )}
               </View>
             </View>
           </View>
 
-          <View style={styles.wizardBlock}>
-            <Text style={[styles.wizardFieldLabel, styles.wizardFieldLabelFirst]}>Nom</Text>
-            <View style={[styles.wizardInput, styles.readonlyInput]}>
-              <Text style={styles.readonlyText}>{currentUserName || 'Non défini'}</Text>
+          <View style={styles.wizardSleeveReadonly}>
+            <View style={styles.wizardSleeveTopRow}>
+              <View style={styles.wizardSleeveTextCol}>
+                <Text style={styles.wizardSleeveKickerReadonly}>Votre fiche</Text>
+                <Text style={styles.wizardSleeveTitleSm}>C’est déjà chez Corail</Text>
+                <Text style={styles.wizardSleeveSub}>
+                  Copie du profil Corail. Changer le nom, tel ou mail → onglet Profil.
+                </Text>
+              </View>
+              <View style={styles.pillReadonly}>
+                <Ionicons name="person-circle-outline" size={12} color="#94a3b8" />
+                <Text style={styles.pillReadonlyText}>Profil</Text>
+              </View>
+            </View>
+            {(
+              [
+                { l: 'Nom', v: currentUserName || '—' },
+                { l: 'Téléphone', v: phone?.trim() || currentUserPhone || '—' },
+                { l: 'E-mail', v: currentUserEmail || '—' },
+              ] as const
+            ).map((row, i) => (
+              <View key={row.l} style={i === 0 ? styles.wizardRofieldFirst : styles.wizardRofieldNext}>
+                <Text style={styles.wizardRofieldLabelSimple}>{row.l}</Text>
+                <View style={[styles.wizardInput, styles.readonlyInput, styles.readonlyFieldPremium]}>
+                  <Text style={styles.readonlyText}>{row.v}</Text>
+                </View>
+              </View>
+            ))}
+          </View>
+
+          <View style={styles.wizardSleeveEditable}>
+            <View style={styles.wizardSleeveTopRow}>
+              <View style={styles.wizardSleeveTextCol}>
+                <Text style={styles.wizardSleeveKickerEditable}>Votre page en ligne</Text>
+                <Text style={styles.wizardSleeveTitleSm}>Ce que le client lira vraiment</Text>
+              </View>
+              <View style={styles.pillModifiable}>
+                <Ionicons name="create-outline" size={12} color="#7dd3fc" />
+                <Text style={styles.pillModifiableText}>Par vous</Text>
+              </View>
             </View>
 
-            <Text style={styles.wizardFieldLabel}>Lien de votre page</Text>
-            <View style={styles.slugContainer}>
+            <View style={styles.wizardRofieldFirst}>
+              <Text style={styles.wizardEdFieldLabelText}>Lien de votre page</Text>
+              <Text style={styles.wizardFieldSublong}>
+                Votre lien (lettres, chiffres, tirets) — s’il est libre, il est à vous.
+              </Text>
+            </View>
+            <View style={[styles.slugContainer, styles.slugContainerEditable, slugError && styles.slugContainerError]}>
               <Text style={styles.slugPrefix}>corail.app/vtc/</Text>
               <TextInput
                 style={styles.slugInput}
                 value={slug}
-                onChangeText={(text) => setSlug(text.toLowerCase())}
-                placeholder="jean-dupont"
-                placeholderTextColor="#94a3b8"
+                onChangeText={(text) => {
+                  setSlug(text.toLowerCase());
+                  setSlugError(false);
+                }}
+                placeholder="votre-identifiant-unique"
+                placeholderTextColor="#5c6b7f"
                 autoCapitalize="none"
               />
             </View>
+            {slugError && (
+              <Text style={styles.slugErrorText}>Cet identifiant est déjà utilisé. Choisissez-en un autre.</Text>
+            )}
 
-            <Text style={styles.wizardFieldLabel}>Bio / Présentation</Text>
-            <TextInput
-              style={[styles.wizardInput, styles.textArea]}
-              value={bio}
-              onChangeText={setBio}
-              placeholder="Chauffeur privé professionnel à Toulouse..."
-              placeholderTextColor="#94a3b8"
-              multiline
-              numberOfLines={4}
-            />
-
-            <Text style={styles.wizardFieldLabel}>Ville</Text>
-            <TextInput
-              style={styles.wizardInput}
-              value={zoneCity}
-              onChangeText={setZoneCity}
-              placeholder="Toulouse"
-              placeholderTextColor="#94a3b8"
-            />
-
-            <Text style={styles.wizardFieldLabel}>Téléphone</Text>
-            <View style={[styles.wizardInput, styles.readonlyInput]}>
-              <Text style={styles.readonlyText}>{phone?.trim() || currentUserPhone || 'Non défini'}</Text>
+            <View style={styles.wizardRofieldNext}>
+              <Text style={styles.wizardEdFieldLabelText}>Votre présentation</Text>
+              <Text style={styles.wizardFieldSublong}>
+                Aéroport, horaires, spécialités.
+              </Text>
+              <TextInput
+                style={[styles.wizardInput, styles.wizardInputPublic, styles.textArea]}
+                value={bio}
+                onChangeText={setBio}
+                placeholder={PLACEHOLDER_BIO}
+                placeholderTextColor="#5c6b7f"
+                multiline
+                numberOfLines={4}
+              />
             </View>
 
-            <Text style={styles.wizardFieldLabel}>Email</Text>
-            <View style={[styles.wizardInput, styles.readonlyInput]}>
-              <Text style={styles.readonlyText}>{currentUserEmail || 'Non défini'}</Text>
+            <View style={styles.wizardRofieldNext}>
+              <Text style={styles.wizardEdFieldLabelText}>Où vous roulez (ville ou zone)</Text>
+              <Text style={styles.wizardFieldSublongLocal}>
+                Vide = rien d’enregistré. Tant que vous ne tapez pas, le gris ne compte pas.
+              </Text>
+              <TextInput
+                style={[styles.wizardInput, styles.wizardInputPublic]}
+                value={zoneCity}
+                onChangeText={setZoneCity}
+                placeholder={PLACEHOLDER_CITY}
+                placeholderTextColor="#5c6b7f"
+              />
             </View>
-            <Text style={styles.wizardFieldHint}>Profil Corail</Text>
           </View>
           </>
           )}
@@ -887,29 +1104,35 @@ export const VTCPublicProfileScreen: React.FC<VTCPublicProfileScreenProps> = ({
           {/* Étape 1 : Véhicule — un bloc, pas de carte */}
           {currentStep === 1 && (
             <View style={styles.wizardBlock}>
+              <View style={styles.wizardEditableStepsBanner}>
+                <Ionicons name="car-sport-outline" size={15} color="#38bdf8" />
+                <Text style={styles.wizardEditableStepsBannerText}>
+                  Ici, même aperçu côté client.
+                </Text>
+              </View>
               <Text style={[styles.wizardFieldLabel, styles.wizardFieldLabelFirst]}>Marque</Text>
               <TextInput
                 style={styles.wizardInput}
                 value={vehicleBrand}
                 onChangeText={setVehicleBrand}
-                placeholder="Mercedes, BMW, Tesla..."
-                placeholderTextColor="#94a3b8"
+                placeholder="ex. : Mercedes, BMW, Tesla"
+                placeholderTextColor="#5c6b7f"
               />
               <Text style={styles.wizardFieldLabel}>Modèle</Text>
               <TextInput
                 style={styles.wizardInput}
                 value={vehicleModel}
                 onChangeText={setVehicleModel}
-                placeholder="Classe E, Série 5, Model 3..."
-                placeholderTextColor="#94a3b8"
+                placeholder="ex. : Classe E, Série 5, Model 3"
+                placeholderTextColor="#5c6b7f"
               />
               <Text style={styles.wizardFieldLabel}>Année</Text>
               <TextInput
                 style={styles.wizardInput}
                 value={vehicleYear}
                 onChangeText={setVehicleYear}
-                placeholder="2022"
-                placeholderTextColor="#94a3b8"
+                placeholder="ex. : 2022"
+                placeholderTextColor="#5c6b7f"
                 keyboardType="number-pad"
               />
               <Text style={styles.wizardFieldLabel}>Nombre de places</Text>
@@ -925,13 +1148,21 @@ export const VTCPublicProfileScreen: React.FC<VTCPublicProfileScreenProps> = ({
                   </TouchableOpacity>
                 ))}
               </View>
-              <Text style={styles.seatMicroText}>Filtre les demandes compatibles.</Text>
+              <Text style={styles.seatMicroText}>
+                Aide Corail à coller le véhicule aux demandes.
+              </Text>
             </View>
           )}
 
           {/* Étape 2 : Services — tags directement, pas de carte */}
           {currentStep === 2 && (
             <View style={styles.wizardBlock}>
+              <View style={styles.wizardEditableStepsBanner}>
+                <Ionicons name="chatbubble-ellipses-outline" size={15} color="#38bdf8" />
+                <Text style={styles.wizardEditableStepsBannerText}>
+                  Cochez ce que vous affichez.
+                </Text>
+              </View>
               <MultiSelectInput
                 label="Langues parlées"
                 selectedItems={languages}
@@ -954,6 +1185,12 @@ export const VTCPublicProfileScreen: React.FC<VTCPublicProfileScreenProps> = ({
           {/* Étape 3 : Équipements — un bloc */}
           {currentStep === 3 && (
             <View style={styles.wizardBlock}>
+              <View style={styles.wizardEditableStepsBanner}>
+                <Ionicons name="diamond-outline" size={15} color="#38bdf8" />
+                <Text style={styles.wizardEditableStepsBannerText}>
+                  Confort : annoncez ce que le passager lira.
+                </Text>
+              </View>
               <MultiSelectInput
                 label="Équipements à bord"
                 selectedItems={amenities}
@@ -1105,7 +1342,11 @@ export const VTCPublicProfileScreen: React.FC<VTCPublicProfileScreenProps> = ({
                   </TouchableOpacity>
                 </View>
                 <View style={styles.step5QRWrap}>
-                  <QRCodeCard userData={{ name: currentUserName || '', email: currentUserEmail || '' }} qrValue={getVtcProfileUrl(slug)} footerLabel="Scannez pour ma Page Pro" size={120} />
+                  <QRCodeCard
+                    qrValue={getVtcProfileUrl(slug)}
+                    footerLabel="Scannez pour vos prochaines courses"
+                    size={120}
+                  />
                 </View>
                 <TouchableOpacity onPress={() => { handleShare(); Analytics.trackPageProShared(); }} style={styles.step5ShareBtn}>
                   <Ionicons name="share-social" size={18} color="#fff" />
@@ -1153,18 +1394,19 @@ export const VTCPublicProfileScreen: React.FC<VTCPublicProfileScreenProps> = ({
             <TouchableOpacity
               onPress={async () => {
                 const stepAtTap = currentStepRef.current;
-                // 1) D’abord mettre à jour l’étape (synchrone) pour ne jamais revenir au Hub à cause de l’async
-                if (stepAtTap < 4) {
-                  setCurrentStep((stepAtTap + 1) as StepIndex);
-                }
                 try {
                   await handleSave({ skipSuccessAlert: true, skipRefresh: stepAtTap < 4 });
+                  if (stepAtTap < 4) {
+                    setCurrentStep((stepAtTap + 1) as StepIndex);
+                  }
                   if (stepAtTap === 4) {
                     await loadProfile(false);
                     onBack();
                   }
-                } catch (_e) {}
-                Analytics.trackPageProStepCompleted({ step: stepAtTap + 1, stepName: WIZARD_STEPS[stepAtTap] });
+                  Analytics.trackPageProStepCompleted({ step: stepAtTap + 1, stepName: WIZARD_STEPS[stepAtTap] });
+                } catch (_e) {
+                  // Erreur (ex. identifiant déjà utilisé) : on reste sur l’étape courante, champ souligné en rouge
+                }
               }}
               disabled={saving}
               activeOpacity={0.8}
@@ -1207,7 +1449,11 @@ export const VTCPublicProfileScreen: React.FC<VTCPublicProfileScreenProps> = ({
                   </TouchableOpacity>
                 </View>
                 <View style={styles.shareModalQRWrap}>
-                  <QRCodeCard userData={{ name: currentUserName || '', email: currentUserEmail || '' }} qrValue={getVtcProfileUrl(slug)} footerLabel="Scannez pour voir ma Page Pro" size={160} />
+                  <QRCodeCard
+                    qrValue={getVtcProfileUrl(slug)}
+                    footerLabel="Scannez pour vos prochaines courses"
+                    size={160}
+                  />
                 </View>
                 <Text style={styles.shareModalMicro}>Partagez ce lien à vos clients pour recevoir des réservations directement dans Corail.</Text>
                 <TouchableOpacity onPress={() => { handleShare(); setShowShareModal(false); }} style={styles.shareModalShareBtn}>
@@ -1317,6 +1563,58 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: 'rgba(255, 255, 255, 0.95)',
     letterSpacing: 0.3,
+  },
+  hubCoverActions: {
+    width: '100%',
+    marginBottom: 20,
+  },
+  hubCoverLabel: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#e2e8f0',
+    marginBottom: 10,
+  },
+  hubCoverRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 10,
+    alignItems: 'center',
+  },
+  hubCoverBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: 'rgba(14, 165, 233, 0.15)',
+    borderWidth: 1,
+    borderColor: 'rgba(14, 165, 233, 0.4)',
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+    borderRadius: 12,
+  },
+  hubCoverBtnDisabled: {
+    opacity: 0.5,
+  },
+  hubCoverBtnText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#38bdf8',
+  },
+  hubCoverBtnSecondary: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+  },
+  hubCoverBtnTextSecondary: {
+    fontSize: 14,
+    color: '#94a3b8',
+  },
+  hubCoverHint: {
+    fontSize: 12,
+    color: '#64748b',
+    marginTop: 10,
+    lineHeight: 17,
   },
   hubTagline: {
     fontSize: 15,
@@ -1587,6 +1885,178 @@ const styles = StyleSheet.create({
   },
   wizardBlock: {
     marginBottom: 32,
+  },
+  wizardSleevePhoto: {
+    marginBottom: 24,
+    padding: 18,
+    borderRadius: 18,
+    backgroundColor: 'rgba(15, 23, 42, 0.45)',
+    borderWidth: 1,
+    borderColor: 'rgba(56, 189, 248, 0.15)',
+  },
+  wizardSleeveReadonly: {
+    marginBottom: 24,
+    padding: 18,
+    borderRadius: 18,
+    backgroundColor: 'rgba(15, 23, 42, 0.55)',
+    borderWidth: 1,
+    borderColor: 'rgba(100, 116, 139, 0.4)',
+  },
+  wizardSleeveEditable: {
+    marginBottom: 32,
+    padding: 18,
+    borderRadius: 18,
+    backgroundColor: 'rgba(8, 47, 73, 0.28)',
+    borderWidth: 1,
+    borderColor: 'rgba(14, 165, 233, 0.28)',
+    borderLeftWidth: 3,
+    borderLeftColor: 'rgba(14, 165, 233, 0.55)',
+  },
+  wizardSleeveTopRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+    gap: 12,
+    marginBottom: 16,
+  },
+  wizardSleeveTextCol: {
+    flex: 1,
+  },
+  wizardSleeveKicker: {
+    fontSize: 10,
+    fontWeight: '700',
+    letterSpacing: 1.2,
+    color: '#38bdf8',
+    textTransform: 'uppercase' as const,
+    marginBottom: 4,
+  },
+  wizardSleeveKickerReadonly: {
+    fontSize: 10,
+    fontWeight: '700',
+    letterSpacing: 1.2,
+    color: '#94a3b8',
+    textTransform: 'uppercase' as const,
+    marginBottom: 4,
+  },
+  wizardSleeveKickerEditable: {
+    fontSize: 10,
+    fontWeight: '700',
+    letterSpacing: 1.2,
+    color: '#2dd4bf',
+    textTransform: 'uppercase' as const,
+    marginBottom: 4,
+  },
+  wizardSleeveTitleSm: {
+    fontSize: 17,
+    fontWeight: '700',
+    color: '#f8fafc',
+    marginBottom: 4,
+  },
+  wizardSleeveSub: {
+    fontSize: 13,
+    lineHeight: 20,
+    color: '#94a3b8',
+  },
+  pillModifiable: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingVertical: 5,
+    paddingHorizontal: 10,
+    borderRadius: 20,
+    backgroundColor: 'rgba(14, 165, 233, 0.12)',
+    borderWidth: 1,
+    borderColor: 'rgba(14, 165, 233, 0.35)',
+  },
+  pillModifiableText: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#7dd3fc',
+  },
+  pillReadonly: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingVertical: 5,
+    paddingHorizontal: 10,
+    borderRadius: 20,
+    backgroundColor: 'rgba(51, 65, 85, 0.4)',
+    borderWidth: 1,
+    borderColor: 'rgba(100, 116, 139, 0.45)',
+  },
+  pillReadonlyText: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#94a3b8',
+  },
+  wizardRofieldFirst: {
+    marginTop: 0,
+  },
+  wizardRofieldNext: {
+    marginTop: 16,
+  },
+  wizardRofieldLabelRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 6,
+  },
+  wizardRofieldLabelSimple: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#94a3b8',
+    marginBottom: 6,
+  },
+  wizardRofieldLabelText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#cbd5e1',
+  },
+  wizardEdFieldLabelText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#e2e8f0',
+    marginBottom: 6,
+  },
+  readonlyFieldPremium: {
+    backgroundColor: 'rgba(30, 41, 59, 0.55)',
+    borderStyle: 'dashed',
+    borderColor: 'rgba(71, 85, 105, 0.5)',
+  },
+  wizardFieldSublong: {
+    fontSize: 12,
+    lineHeight: 17,
+    color: '#64748b',
+    marginBottom: 8,
+  },
+  wizardFieldSublongLocal: {
+    fontSize: 12,
+    lineHeight: 17,
+    color: '#5d8a9a',
+    marginBottom: 8,
+  },
+  wizardInputPublic: {
+    borderColor: 'rgba(14, 165, 233, 0.2)',
+  },
+  slugContainerEditable: {
+    borderColor: 'rgba(14, 165, 233, 0.2)',
+  },
+  wizardEditableStepsBanner: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 10,
+    padding: 12,
+    marginBottom: 20,
+    borderRadius: 12,
+    backgroundColor: 'rgba(8, 47, 73, 0.22)',
+    borderWidth: 1,
+    borderColor: 'rgba(14, 165, 233, 0.2)',
+  },
+  wizardEditableStepsBannerText: {
+    flex: 1,
+    fontSize: 12,
+    lineHeight: 18,
+    color: '#a5d8f5',
   },
   wizardFieldLabel: {
     fontSize: 13,
@@ -2269,6 +2739,17 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     fontSize: 15,
     color: '#f8fafc',
+  },
+  slugContainerError: {
+    borderColor: '#ef4444',
+    borderWidth: 2,
+    backgroundColor: 'rgba(239, 68, 68, 0.08)',
+  },
+  slugErrorText: {
+    fontSize: 13,
+    color: '#ef4444',
+    marginTop: 6,
+    marginLeft: 2,
   },
   hint: {
     fontSize: 12,

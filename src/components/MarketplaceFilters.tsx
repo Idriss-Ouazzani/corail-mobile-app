@@ -11,12 +11,17 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import type { VehicleType } from '../types';
 
+/** Auteur de la publication : chauffeur (app) ou client (site / Page Pro) */
+export type AuthorSourceFilter = null | 'chauffeur' | 'client';
+
 export interface FilterOptions {
   vehicleTypes: VehicleType[];
   sortBy: 'price_asc' | 'price_desc' | 'date_asc' | 'date_desc' | 'distance_asc' | 'distance_desc' | 'duration_asc' | 'duration_desc' | 'price_per_km_desc' | null;
   minPrice?: number;
   maxPrice?: number;
   radiusKm: number | null; // Rayon de recherche en km (null = France entière)
+  /** Auteur de la publication : null = tous, chauffeur = app, client = site */
+  authorSource?: AuthorSourceFilter;
 }
 
 interface MarketplaceFiltersProps {
@@ -46,6 +51,12 @@ const RADIUS_OPTIONS = [
   { value: null, label: 'France entière', icon: 'earth' },
 ];
 
+const AUTHOR_SOURCE_OPTIONS: { value: AuthorSourceFilter; label: string; icon: string }[] = [
+  { value: null, label: 'Tous', icon: 'apps' },
+  { value: 'chauffeur', label: 'Chauffeur', icon: 'car' },
+  { value: 'client', label: 'Client', icon: 'person-add' },
+];
+
 export const MarketplaceFilters: React.FC<MarketplaceFiltersProps> = ({
   visible,
   onClose,
@@ -54,25 +65,34 @@ export const MarketplaceFilters: React.FC<MarketplaceFiltersProps> = ({
 }) => {
   const [sortBy, setSortBy] = useState(currentFilters.sortBy);
   const [radiusKm, setRadiusKm] = useState(currentFilters.radiusKm);
+  const [authorSource, setAuthorSource] = useState<AuthorSourceFilter>(currentFilters.authorSource ?? null);
 
   useEffect(() => {
     if (visible) {
       setSortBy(currentFilters.sortBy);
       setRadiusKm(currentFilters.radiusKm);
+      setAuthorSource(currentFilters.authorSource ?? null);
     }
-  }, [visible, currentFilters.sortBy, currentFilters.radiusKm]);
+  }, [visible, currentFilters.sortBy, currentFilters.radiusKm, currentFilters.authorSource]);
 
   const handleApply = () => {
-    onApply({ vehicleTypes: [], sortBy, radiusKm });
+    onApply({
+      vehicleTypes: currentFilters.vehicleTypes ?? [],
+      sortBy,
+      radiusKm,
+      authorSource,
+    });
     onClose();
   };
 
   const handleReset = () => {
     setSortBy(null);
-    setRadiusKm(100); // Rayon par défaut: 100km
+    setRadiusKm(100);
+    setAuthorSource(null);
   };
 
-  const activeFiltersCount = (sortBy ? 1 : 0) + (radiusKm !== 100 ? 1 : 0);
+  const activeFiltersCount =
+    (sortBy ? 1 : 0) + (radiusKm !== 100 ? 1 : 0) + (authorSource != null ? 1 : 0);
 
   return (
     <Modal
@@ -100,6 +120,37 @@ export const MarketplaceFilters: React.FC<MarketplaceFiltersProps> = ({
           </View>
 
           <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
+            {/* Auteur de la publication */}
+            <View style={styles.section}>
+              <Text style={styles.sectionTitle}>Auteur de la publication</Text>
+              <View style={styles.sortList}>
+                {AUTHOR_SOURCE_OPTIONS.map((option) => {
+                  const isSelected = authorSource === option.value;
+                  return (
+                    <TouchableOpacity
+                      key={option.value ?? 'all'}
+                      style={[styles.sortItem, isSelected && styles.itemActive]}
+                      onPress={() => setAuthorSource(option.value)}
+                      activeOpacity={0.7}
+                    >
+                      <Ionicons
+                        name={option.icon as any}
+                        size={18}
+                        color={isSelected ? '#0ea5e9' : '#64748b'}
+                        style={styles.sortItemIcon}
+                      />
+                      <Text style={[styles.sortItemText, isSelected && styles.sortItemTextActive]}>
+                        {option.label}
+                      </Text>
+                      {isSelected && (
+                        <Ionicons name="checkmark-circle" size={18} color="#0ea5e9" />
+                      )}
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+            </View>
+
             {/* Rayon */}
             <View style={styles.section}>
               <Text style={styles.sectionTitle}>Rayon</Text>

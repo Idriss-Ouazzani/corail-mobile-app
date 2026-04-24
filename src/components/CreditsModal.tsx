@@ -34,7 +34,7 @@ export const CreditsModal: React.FC<CreditsModalProps> = ({ visible, onClose }) 
             <View style={appStyles.creditsModalIconLarge}>
               <Text style={appStyles.creditsModalIconText}>C</Text>
             </View>
-            <Text style={appStyles.creditsModalTitle}>Comment fonctionnent les crédits ?</Text>
+            <Text style={appStyles.creditsModalTitle}>Équilibre</Text>
             <TouchableOpacity 
               style={appStyles.creditsModalClose}
               onPress={onClose}
@@ -48,7 +48,7 @@ export const CreditsModal: React.FC<CreditsModalProps> = ({ visible, onClose }) 
             <View style={appStyles.creditsModalSection}>
               <View style={appStyles.creditsModalSectionHeader}>
                 <Ionicons name="add-circle" size={20} color="#10b981" />
-                <Text style={appStyles.creditsModalSectionTitle}>Gagner des crédits</Text>
+                <Text style={appStyles.creditsModalSectionTitle}>Gagner</Text>
               </View>
               <View style={appStyles.creditsModalItem}>
                 <View style={appStyles.creditsModalDot} />
@@ -68,7 +68,7 @@ export const CreditsModal: React.FC<CreditsModalProps> = ({ visible, onClose }) 
             <View style={appStyles.creditsModalSection}>
               <View style={appStyles.creditsModalSectionHeader}>
                 <Ionicons name="remove-circle" size={20} color="#ff6b47" />
-                <Text style={appStyles.creditsModalSectionTitle}>Utiliser des crédits</Text>
+                <Text style={appStyles.creditsModalSectionTitle}>Utiliser</Text>
               </View>
               <View style={appStyles.creditsModalItem}>
                 <View style={appStyles.creditsModalDot} />
@@ -83,7 +83,7 @@ export const CreditsModal: React.FC<CreditsModalProps> = ({ visible, onClose }) 
               <Ionicons name="sparkles" size={24} color="#fbbf24" />
               <Text style={appStyles.creditsModalFreeTitle}>100% Gratuit</Text>
               <Text style={appStyles.creditsModalFreeText}>
-                Corail est entièrement gratuit. Les crédits permettent de réguler l'utilisation et d'encourager la participation active.
+                Corail est entièrement gratuit. L'équilibre du réseau régule l'utilisation et encourage la participation.
               </Text>
             </View>
           </ScrollView>

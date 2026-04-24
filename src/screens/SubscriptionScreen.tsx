@@ -23,9 +23,9 @@ const PLANS = [
     credits: 0,
     features: [
       { text: 'Publier des courses', included: true },
-      { text: 'Accès marketplace', included: false },
+      { text: 'Accès réseau public', included: false },
       { text: 'Créer des groupes', included: false },
-      { text: 'Crédits Corail', value: '0 C/mois' },
+      { text: 'Équilibre', value: '0/mois' },
     ],
   },
   {
@@ -38,10 +38,10 @@ const PLANS = [
     credits: 5,
     features: [
       { text: 'Publier des courses', included: true },
-      { text: 'Accès marketplace', included: true },
+      { text: 'Accès réseau public', included: true },
       { text: 'Créer des groupes', included: true },
       { text: 'Support prioritaire', included: true },
-      { text: 'Crédits Corail', value: '5 C/mois' },
+      { text: 'Équilibre', value: '5/mois' },
     ],
   },
   {
@@ -56,7 +56,7 @@ const PLANS = [
       { text: 'Priorité 15min sur courses', included: true },
       { text: 'Badge Platinum', included: true },
       { text: 'Analytics avancés', included: true },
-      { text: 'Crédits Corail', value: '10 C/mois' },
+      { text: 'Équilibre', value: '10/mois' },
     ],
   },
 ];
@@ -190,8 +190,8 @@ export const SubscriptionScreen: React.FC<SubscriptionScreenProps> = ({ onBack }
           </View>
         ))}
 
-        {/* Acheter des crédits */}
-        <Text style={styles.sectionTitle}>Acheter des crédits Corail</Text>
+        {/* Recharger l'équilibre du réseau */}
+        <Text style={styles.sectionTitle}>Équilibre</Text>
         <Text style={styles.sectionSubtitle}>
           Besoin de plus de crédits ? Achetez-les à l'unité ou par pack.
         </Text>
@@ -200,7 +200,7 @@ export const SubscriptionScreen: React.FC<SubscriptionScreenProps> = ({ onBack }
         <View style={styles.creditsInfoBox}>
           <Ionicons name="bulb" size={20} color="#fbbf24" />
           <View style={{ flex: 1, marginLeft: 12 }}>
-            <Text style={styles.creditsInfoTitle}>Gagnez des crédits gratuitement !</Text>
+            <Text style={styles.creditsInfoTitle}>Gagner de l'équilibre du réseau</Text>
             <Text style={styles.creditsInfoText}>
               • <Text style={{ fontWeight: '700' }}>+1 crédit</Text> à chaque course que vous publiez{'\n'}
               • <Text style={{ fontWeight: '700' }}>+1 crédit bonus</Text> quand votre course est prise et terminée{'\n'}

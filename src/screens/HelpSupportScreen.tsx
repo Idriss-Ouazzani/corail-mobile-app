@@ -9,14 +9,17 @@ import {
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
+import { useNavigation } from '../contexts/NavigationContext';
 
 interface HelpSupportScreenProps {
   onBack: () => void;
 }
 
 export const HelpSupportScreen: React.FC<HelpSupportScreenProps> = ({ onBack }) => {
+  const { setForceShowOnboarding, setShowHelpSupport } = useNavigation();
+
   const handleOpenEmail = () => {
-    Linking.openURL('mailto:corail.platform@gmail.com?subject=Support Corail');
+    Linking.openURL('mailto:contact@getcorail.com?subject=Support Corail');
   };
 
   const handleOpenTelegram = () => {
@@ -92,7 +95,7 @@ export const HelpSupportScreen: React.FC<HelpSupportScreenProps> = ({ onBack }) 
             </View>
             <View style={{ flex: 1 }}>
               <Text style={styles.menuTitle}>Email</Text>
-              <Text style={styles.menuSubtitle}>corail.platform@gmail.com</Text>
+              <Text style={styles.menuSubtitle}>contact@getcorail.com</Text>
             </View>
             <Ionicons name="chevron-forward" size={20} color="rgba(255, 255, 255, 0.3)" />
           </TouchableOpacity>
@@ -108,6 +111,28 @@ export const HelpSupportScreen: React.FC<HelpSupportScreenProps> = ({ onBack }) 
             <View style={{ flex: 1 }}>
               <Text style={styles.menuTitle}>Telegram</Text>
               <Text style={styles.menuSubtitle}>@corailapp</Text>
+            </View>
+            <Ionicons name="chevron-forward" size={20} color="rgba(255, 255, 255, 0.3)" />
+          </TouchableOpacity>
+        </View>
+
+        {/* Revoir l'onboarding (pour test / démo) */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>App</Text>
+          <TouchableOpacity
+            style={styles.menuItem}
+            onPress={() => {
+              setForceShowOnboarding(true);
+              setShowHelpSupport(false);
+            }}
+            activeOpacity={0.7}
+          >
+            <View style={styles.menuIconWrapper}>
+              <Ionicons name="play-circle-outline" size={20} color="#ff6b47" />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.menuTitle}>Revoir l'onboarding</Text>
+              <Text style={styles.menuSubtitle}>Réafficher les slides de présentation</Text>
             </View>
             <Ionicons name="chevron-forward" size={20} color="rgba(255, 255, 255, 0.3)" />
           </TouchableOpacity>

@@ -3,7 +3,7 @@
  * Wrapper pour compatibilité avec le code existant
  */
 
-import supabaseApi from './supabaseApi';
+import supabaseApi, { type CredentialChangeRequestType } from './supabaseApi';
 import type { Ride } from '../types';
 
 class ApiClient {
@@ -214,6 +214,10 @@ class ApiClient {
     return supabaseApi.getGroupPendingInvitations(groupId);
   }
 
+  async previewGroupInvite(groupId: string, params: { email?: string; phone?: string }) {
+    return supabaseApi.previewGroupInvite(groupId, params);
+  }
+
   async cancelGroupInvitation(invitationId: string) {
     return supabaseApi.cancelGroupInvitation(invitationId);
   }
@@ -305,8 +309,19 @@ class ApiClient {
     return supabaseApi.getDriverVerification();
   }
 
-  async uploadDriverVerificationDocument(docType: 'vtc_card' | 'id_card' | 'insurance', file: { uri: string; type?: string; name?: string; base64?: string }) {
+  async setVerificationIdDocumentType(docType: 'cni' | 'passport') {
+    return supabaseApi.setVerificationIdDocumentType(docType);
+  }
+
+  async uploadDriverVerificationDocument(
+    docType: 'vtc_card' | 'vtc_card_verso' | 'id_card' | 'id_card_verso' | 'insurance',
+    file: { uri: string; type?: string; name?: string; base64?: string }
+  ) {
     return supabaseApi.uploadDriverVerificationDocument(docType, file);
+  }
+
+  async uploadLegalKbisDocument(file: { uri: string; type?: string; name?: string; base64?: string }) {
+    return supabaseApi.uploadLegalKbisDocument(file);
   }
 
   async submitDriverVerification() {
@@ -317,8 +332,21 @@ class ApiClient {
     return supabaseApi.updateUserPhoto(photoUrl);
   }
 
-  async updateUserProfile(updates: { siren?: string; phone?: string; professional_card_number?: string }) {
+  async updateUserProfile(updates: { phone?: string; professional_card_number?: string }) {
     return supabaseApi.updateUserProfile(updates);
+  }
+
+  async getMyCredentialChangeRequests() {
+    return supabaseApi.getMyCredentialChangeRequests();
+  }
+
+  async createCredentialChangeRequest(params: {
+    requestType: CredentialChangeRequestType;
+    requestedValue: string;
+    document?: { uri: string; type?: string; name?: string; base64?: string } | null;
+    documentVerso?: { uri: string; type?: string; name?: string; base64?: string } | null;
+  }) {
+    return supabaseApi.createCredentialChangeRequest(params);
   }
 
   async convertPublishedToPersonal(rideId: string) {
@@ -360,7 +388,7 @@ class ApiClient {
 
   async reviewDriverVerificationDocument(
     vtcProfileId: string,
-    docType: 'vtc_card' | 'id_card' | 'insurance',
+    docType: 'vtc_card' | 'vtc_card_verso' | 'id_card' | 'id_card_verso' | 'insurance',
     status: 'approved' | 'rejected',
     adminNotes?: string | null
   ) {
@@ -385,8 +413,8 @@ class ApiClient {
   }
 
   // IN-APP NOTIFICATIONS (centre de notifications)
-  async listInAppNotifications(limit?: number) {
-    return supabaseApi.listInAppNotifications(limit ?? 50);
+  async listInAppNotifications(limit?: number, offset?: number) {
+    return supabaseApi.listInAppNotifications(limit ?? 50, offset ?? 0);
   }
 
   async getUnreadNotificationsCount(): Promise<number> {

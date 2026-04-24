@@ -11,6 +11,7 @@ import MarketplaceFiltersBar from './MarketplaceFiltersBar';
 import MarketplaceRidesList from './MarketplaceRidesList';
 import { useUserLocation } from '../hooks/useUserLocation';
 import { calculateDistance, extractRideCoordinates, formatDistance } from '../utils/distance';
+import { isSameCorailUser } from '../utils/isSameCorailUser';
 
 interface Ride {
   id: string;
@@ -39,6 +40,8 @@ interface MarketplaceTabProps {
   onRefreshVerification: () => Promise<void>;
   rides: Ride[];
   currentUserId: string | null;
+  /** `public.users.id` si différent de l’UUID auth */
+  publicUsersRowId?: string | null;
   loadingRides: boolean;
   loadRides?: () => Promise<void>; // Pour pull-to-refresh (optionnel)
   selectedCity: string;
@@ -56,6 +59,7 @@ export default function MarketplaceTab({
   onRefreshVerification,
   rides,
   currentUserId,
+  publicUsersRowId = null,
   loadingRides,
   loadRides,
   selectedCity,
@@ -85,7 +89,8 @@ export default function MarketplaceTab({
   const { location, loading: loadingLocation, hasPermission, requestLocation } = useUserLocation();
 
   // Filter rides based on active filter and filters
-  const isMyRide = (ride: Ride) => !!(currentUserId && ride.creator_id && String(ride.creator_id) === String(currentUserId));
+  const isMyRide = (ride: Ride) =>
+    !!(currentUserId && ride.creator_id && isSameCorailUser(ride.creator_id, currentUserId, publicUsersRowId));
 
   let filteredRides = (rides || []).filter((ride) => {
     // Exclure uniquement les expirées
@@ -95,21 +100,25 @@ export default function MarketplaceTab({
     // Uniquement les courses publiées
     if (status !== 'PUBLISHED') return false;
 
-    // Exclure les dates passées (si scheduled_at valide)
+    // Auteur de la publication (filtre avancé) — appliqué à toutes les courses, y compris les miennes
+    const authorSource = filters.authorSource ?? null;
+    const rawSource = (ride as Ride).source?.toLowerCase?.() ?? '';
+    const isClientRide = rawSource === 'client' || rawSource === 'direct_client';
+    if (authorSource === 'client' && !isClientRide) return false;
+    if (authorSource === 'chauffeur' && isClientRide) return false;
+
+    // Annonces = opportunités à venir (y compris mes pubs). Les annonces passées → Mes courses > Publiées (historique).
     const scheduledTime = ride.scheduled_at ? new Date(ride.scheduled_at).getTime() : NaN;
     if (!Number.isNaN(scheduledTime) && scheduledTime < Date.now()) return false;
 
-    // Mes courses : toujours les afficher (ignorer filtre visibilité et rayon)
-    if (isMyRide(ride)) return true;
-
-    // Visibility filter (pour les autres courses)
+    // Visibilité (Public / Groupes)
     const vis = (ride.visibility || 'PUBLIC').toUpperCase();
     if (activeFilter === 'public' && vis !== 'PUBLIC') return false;
     if (activeFilter === 'groups' && vis !== 'GROUP') return false;
 
-    // Distance filter (sauf pour mes courses)
+    // Rayon : uniquement pour les annonces des autres (ma pub reste visible même hors rayon)
     const radiusKm = filters.radiusKm ?? null;
-    if (location && radiusKm !== null) {
+    if (!isMyRide(ride) && location && radiusKm !== null) {
       const rideCoords = extractRideCoordinates(ride);
       if (rideCoords) {
         const distance = calculateDistance(location, rideCoords);
@@ -155,7 +164,8 @@ export default function MarketplaceTab({
     });
   }
 
-  const activeFiltersCount = (filters.sortBy ? 1 : 0);
+  const activeFiltersCount =
+    (filters.sortBy ? 1 : 0) + (filters.radiusKm !== 100 ? 1 : 0) + (filters.authorSource != null ? 1 : 0);
 
   return (
     <ScrollView 
@@ -211,6 +221,7 @@ export default function MarketplaceTab({
         rides={filteredRides}
         loading={loadingRides}
         currentUserId={currentUserId}
+        publicUsersRowId={publicUsersRowId}
         onRidePress={onRidePress}
       />
     </ScrollView>

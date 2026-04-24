@@ -7,6 +7,7 @@ import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import type { RideSource } from '../types';
+import { isSameCorailUser } from '../utils/isSameCorailUser';
 
 const MAX_ADDRESS = 28;
 
@@ -65,13 +66,17 @@ interface MarketplaceRideCardProps {
     [key: string]: any;
   };
   currentUserId: string | null;
+  /** Aligné sur MarketplaceTab (auth vs public.users.id) */
+  publicUsersRowId?: string | null;
   onPress: () => void;
 }
 
-export function MarketplaceRideCard({ ride, currentUserId, onPress }: MarketplaceRideCardProps) {
-  const isMine = !!(currentUserId && ride.creator_id && ride.creator_id === currentUserId);
-  const isGroup = ride.visibility === 'GROUP';
-  const visibilityLabel = isGroup ? (ride.group_name || 'Groupe') : 'Public';
+export function MarketplaceRideCard({ ride, currentUserId, publicUsersRowId = null, onPress }: MarketplaceRideCardProps) {
+  const isMine = !!(currentUserId && ride.creator_id && isSameCorailUser(ride.creator_id, currentUserId, publicUsersRowId));
+  const vis = String(ride.visibility || '').toUpperCase();
+  /** Badge « groupe » uniquement si visibilité groupe ET course liée à un groupe (évite un libellé trompeur). */
+  const isGroup = vis === 'GROUP' && !!ride.group_id;
+  const visibilityLabel = isGroup ? (ride.group_name?.trim() || 'Annonce groupe') : 'Public';
   const source: RideSource = ride.source || 'chauffeur';
   const sourceLabel = SOURCE_LABELS[source];
   const sourceIcon = SOURCE_ICONS[source];
@@ -134,7 +139,7 @@ export function MarketplaceRideCard({ ride, currentUserId, onPress }: Marketplac
             )}
             <TouchableOpacity style={styles.btn} onPress={onPress} activeOpacity={0.8}>
               <Text style={styles.btnText}>
-                {isClientDemand || isGroup ? 'Prendre' : 'Prendre (-1 crédit)'}
+                Prendre
               </Text>
               <Ionicons name="chevron-forward" size={14} color="#fff" />
             </TouchableOpacity>
@@ -290,15 +295,15 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#0ea5e9',
+    backgroundColor: '#0369a1',
     paddingVertical: 10,
     paddingHorizontal: 16,
     borderRadius: 12,
     gap: 6,
     minWidth: 92,
-    shadowColor: '#0ea5e9',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.12,
     shadowRadius: 4,
     elevation: 2,
   },

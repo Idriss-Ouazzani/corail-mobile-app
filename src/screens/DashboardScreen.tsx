@@ -3,7 +3,7 @@
  * Hero, CTA principal, opportunités, Page Pro, planning, activité (sans affichage des crédits).
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   View,
   Text,
@@ -16,6 +16,7 @@ import {
   Platform,
   Share,
 } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { apiClient } from '../services/api';
@@ -23,11 +24,13 @@ import { theme } from '../theme';
 import * as NotificationService from '../services/notifications';
 import { DashboardSkeleton } from '../components/skeletons';
 import { GroupInvitationsBanner } from '../components/GroupInvitationsBanner';
+import { GroupNewRidesBanner } from '../components/GroupNewRidesBanner';
 import { RideCard } from '../components/RideCard';
 import { CustomAlert } from '../components/CustomAlert';
 import { LegalInfoModal } from '../components/LegalInfoModal';
 import { getInvoiceUrl, getVtcProfileUrl } from '../constants/urls';
 import { getCompletionScore, getPageProStatus } from '../utils/pageProCompletion';
+import { isOthersGroupPublishedFuture } from '../utils/marketplaceRideEligibility';
 
 interface DashboardProps {
   verificationStatus: string | null;
@@ -36,6 +39,10 @@ interface DashboardProps {
   isDriverVerified?: boolean;
   onRefreshVerification: () => Promise<void>;
   userFullName: string;
+  /** ID de l'utilisateur connecté (pour filtrer courses réclamées par moi) */
+  currentUserId?: string | null;
+  /** `public.users.id` si différent de l’UUID auth (comptes migrés) */
+  publicUsersRowId?: string | null;
   userRides: any[]; // All marketplace rides for the user
   pendingInvitationsCount?: number; // Nombre d'invitations en attente
   onNavigateToCourses: () => void;
@@ -53,6 +60,14 @@ interface DashboardProps {
   onShowNotifications?: () => void; // Ouvrir le centre de notifications (cloche)
   unreadNotificationsCount?: number; // Compteur pour la pastille (géré par App)
   onRefreshUnreadCount?: () => void; // Rafraîchir le compteur (appelé après loadDashboardData)
+  /** Groupes du chauffeur (noms pour le bandeau annonces groupe) */
+  userGroups?: { id: string; name: string }[];
+  /** Ouvrir Annonces > filtre Groupes */
+  onNavigateToGroupRides?: () => void;
+  /** Rafraîchir les rides marketplace (pull accueil → pastilles à jour) */
+  onRefreshRides?: () => Promise<void>;
+  /** Incrémenté après accept/refus demandes site → rechargement compteur accueil */
+  driverRequestsRefreshNonce?: number;
 }
 
 export default function DashboardScreen({
@@ -61,6 +76,8 @@ export default function DashboardScreen({
   isDriverVerified = false,
   onRefreshVerification,
   userFullName,
+  currentUserId = null,
+  publicUsersRowId = null,
   userRides,
   pendingInvitationsCount = 0,
   onNavigateToCourses,
@@ -78,6 +95,10 @@ export default function DashboardScreen({
   onShowNotifications,
   unreadNotificationsCount = 0,
   onRefreshUnreadCount,
+  userGroups = [],
+  onNavigateToGroupRides,
+  onRefreshRides,
+  driverRequestsRefreshNonce = 0,
 }: DashboardProps) {
   // userCredits non affiché sur la home (affichage contextuel uniquement dans Marketplace)
   const [loading, setLoading] = useState(true);
@@ -100,7 +121,36 @@ export default function DashboardScreen({
 
   useEffect(() => {
     loadDashboardData();
-  }, []);
+  }, [currentUserId, (userRides || []).length, driverRequestsRefreshNonce]);
+
+  const groupNewRideRows = useMemo(() => {
+    const uid = currentUserId != null ? String(currentUserId) : '';
+    if (!uid) return [];
+
+    /** Sans adhésion chargée, aucun bandeau « vos groupes » (évite faux positifs / nom générique « Groupe »). */
+    const memberGroupIds = new Set((userGroups || []).map((x) => String(x.id)));
+    if (memberGroupIds.size === 0) return [];
+
+    const counts = new Map<string, number>();
+    for (const ride of userRides || []) {
+      if (!isOthersGroupPublishedFuture(ride, uid, publicUsersRowId ?? null)) continue;
+      const gid = String(ride.group_id);
+      if (!memberGroupIds.has(gid)) continue;
+      counts.set(gid, (counts.get(gid) || 0) + 1);
+    }
+    const rows: { groupId: string; groupName: string; count: number }[] = [];
+    for (const [groupId, count] of counts.entries()) {
+      const g = userGroups.find((x) => String(x.id) === groupId);
+      const name = g?.name?.trim();
+      rows.push({
+        groupId,
+        groupName: name && name.length > 0 ? name : 'Groupe sans nom',
+        count,
+      });
+    }
+    rows.sort((a, b) => b.count - a.count || a.groupName.localeCompare(b.groupName));
+    return rows;
+  }, [userRides, currentUserId, publicUsersRowId, userGroups]);
 
   useEffect(() => {
     if (!showVerifiedLabel) return;
@@ -146,6 +196,26 @@ export default function DashboardScreen({
       } catch (_e) {}
       setPendingDriverRequestsCount(pendingRequestsCount);
 
+      if (pendingRequestsCount > 0) {
+        try {
+          const requests = await apiClient.getDriverRideRequests();
+          const pending = (requests || []).filter((r: any) => String(r.status) === 'PENDING');
+          for (const req of pending) {
+            const key = `@corail_ride_from_site_notif_${req.id}`;
+            const already = await AsyncStorage.getItem(key);
+            if (already === 'true') continue;
+            await apiClient.insertInAppNotification({
+              type: 'ride_from_site',
+              title: 'Réservation directe',
+              body: 'Un client vous a adressé une demande de course depuis le site.',
+              target_screen: 'driver_requests',
+            });
+            await AsyncStorage.setItem(key, 'true');
+          }
+          if (pending.length > 0) onRefreshUnreadCount?.();
+        } catch (_) {}
+      }
+
       try {
         onRefreshUnreadCount?.();
       } catch (_e) {}
@@ -181,67 +251,106 @@ export default function DashboardScreen({
 
       const now = Date.now();
       const oneHourInMs = 60 * 60 * 1000;
-      
+      const today = new Date().toDateString();
+
+      // Courses marketplace réclamées par moi (à inclure dans rappels + notifs)
+      const claimedByMe = (userRides || []).filter(
+        (r: any) =>
+          r.scheduled_at &&
+          String(r.status).toUpperCase() === 'CLAIMED' &&
+          r.picker_id != null &&
+          String(r.picker_id) === String(currentUserId)
+      );
+      const allMyScheduledRides = [...allScheduledRides, ...claimedByMe].filter(
+        (r: any) => r.scheduled_at
+      );
+
       // Séparer EN_COURS (scheduled_at passé, mais < 1h) et À_VENIR (scheduled_at futur)
-      const inProgress = allScheduledRides.filter((ride: any) => {
-        if (!ride.scheduled_at) return false;
+      const inProgress = allMyScheduledRides.filter((ride: any) => {
         const scheduledTime = new Date(ride.scheduled_at).getTime();
         const isStarted = scheduledTime <= now;
         const isLessThanOneHour = now - scheduledTime < oneHourInMs;
         return isStarted && isLessThanOneHour;
-      }).sort((a: any, b: any) => 
+      }).sort((a: any, b: any) =>
         new Date(a.scheduled_at).getTime() - new Date(b.scheduled_at).getTime()
       );
 
-      const upcoming = allScheduledRides.filter((ride: any) => 
-        ride.scheduled_at && new Date(ride.scheduled_at).getTime() > now
-      ).sort((a: any, b: any) => 
-        new Date(a.scheduled_at).getTime() - new Date(b.scheduled_at).getTime()
-      ).slice(0, 2); // Limiter aux 2 prochaines
+      const upcoming = allMyScheduledRides
+        .filter((ride: any) => new Date(ride.scheduled_at).getTime() > now)
+        .sort((a: any, b: any) =>
+          new Date(a.scheduled_at).getTime() - new Date(b.scheduled_at).getTime()
+        )
+        .slice(0, 5);
 
       setInProgressRides(inProgress);
-      setUpcomingRides(upcoming);
+      setUpcomingRides(upcoming.slice(0, 2));
 
-      // Planifier les notifications "1 minute avant" pour les courses à venir + ajout dans la cloche
+      // Clés pour éviter d'insérer les mêmes notifs in-app à chaque chargement (1 fois par jour max)
+      const NOTIF_IMMINENT_KEY = '@corail_notif_inserted_imminent';
+      const NOTIF_DAILY_KEY = '@corail_notif_inserted_daily_summary';
+
+      // Planifier les notifications "1 minute avant" pour les courses à venir + ajout dans la cloche (1 fois par course par jour)
+      let imminentStored: Record<string, string[]> = {};
+      try {
+        const raw = await AsyncStorage.getItem(NOTIF_IMMINENT_KEY);
+        if (raw) imminentStored = JSON.parse(raw);
+      } catch (_) {}
+      const todayImminent = imminentStored[today] || [];
       for (const ride of upcoming) {
-        if (ride.pickup_address && ride.dropoff_address) {
+        const pickup = ride.pickup_address || ride.pickup || '';
+        const dropoff = ride.dropoff_address || ride.dropoff || '';
+        if (pickup && dropoff) {
           await NotificationService.scheduleRideImminentReminder(
             ride.id,
             ride.scheduled_at,
-            ride.pickup_address,
-            ride.dropoff_address
+            pickup,
+            dropoff
           );
+          if (!todayImminent.includes(ride.id)) {
+            await apiClient.insertInAppNotification({
+              type: 'ride_imminent',
+              title: 'Démarrage imminent de votre course',
+              body: `${pickup} → ${dropoff}`,
+              target_ride_id: ride.id,
+            });
+            todayImminent.push(ride.id);
+          }
+        }
+      }
+      if (todayImminent.length > 0) {
+        imminentStored[today] = todayImminent;
+        await AsyncStorage.setItem(NOTIF_IMMINENT_KEY, JSON.stringify(imminentStored));
+      }
+
+      // Courses du jour (personnelles + marketplace réclamées)
+      const allTodayRides = [...inProgress, ...upcoming].filter((ride: any) =>
+        new Date(ride.scheduled_at).toDateString() === today
+      );
+
+      // 🔔 Notif in-app "Vous avez X courses aujourd'hui" (1 fois par jour max)
+      if (allTodayRides.length > 0) {
+        const lastDaily = await AsyncStorage.getItem(NOTIF_DAILY_KEY);
+        if (lastDaily !== today) {
           await apiClient.insertInAppNotification({
-            type: 'ride_imminent',
-            title: 'Démarrage imminent de votre course',
-            body: `${ride.pickup_address} → ${ride.dropoff_address}`,
-            target_ride_id: ride.id,
+            type: 'daily_summary',
+            title: 'Planning du jour',
+            body: `Vous avez ${allTodayRides.length} course${allTodayRides.length > 1 ? 's' : ''} prévue${allTodayRides.length > 1 ? 's' : ''} aujourd'hui.`,
           });
+          await AsyncStorage.setItem(NOTIF_DAILY_KEY, today);
         }
       }
 
-      // 🔔 Résumé quotidien à 9h : uniquement si des courses ce jour-là + ajout dans la cloche
-      const today = new Date().toDateString();
-      const allTodayRides = [...inProgress, ...upcoming].filter((ride: any) => {
-        if (!ride.scheduled_at) return false;
-        return new Date(ride.scheduled_at).toDateString() === today;
-      });
+      // Push à 9h pour le lendemain (si des courses ce jour-là)
       const nowDate = new Date();
       const today9am = new Date(nowDate);
       today9am.setHours(9, 0, 0, 0);
       const next9am = nowDate < today9am ? today9am : (() => { const t = new Date(today9am); t.setDate(t.getDate() + 1); return t; })();
       const next9amDateStr = next9am.toDateString();
-      const ridesOnNext9amDay = allScheduledRides.filter((ride: any) => {
-        if (!ride.scheduled_at) return false;
-        return new Date(ride.scheduled_at).toDateString() === next9amDateStr;
-      });
+      const ridesOnNext9amDay = allMyScheduledRides.filter((ride: any) =>
+        new Date(ride.scheduled_at).toDateString() === next9amDateStr
+      );
       if (ridesOnNext9amDay.length > 0) {
         await NotificationService.scheduleDailySummary(ridesOnNext9amDay.length, next9am);
-        await apiClient.insertInAppNotification({
-          type: 'daily_summary',
-          title: 'Planning du jour',
-          body: `Vous avez ${ridesOnNext9amDay.length} course${ridesOnNext9amDay.length > 1 ? 's' : ''} prévue${ridesOnNext9amDay.length > 1 ? 's' : ''} aujourd'hui.`,
-        });
       }
 
       // Calculer revenus du jour et de la semaine
@@ -260,8 +369,11 @@ export default function DashboardScreen({
 
   const handleRefresh = async () => {
     setRefreshing(true);
-    await loadDashboardData();
-    setRefreshing(false);
+    try {
+      await Promise.all([loadDashboardData(), onRefreshRides?.() ?? Promise.resolve()]);
+    } finally {
+      setRefreshing(false);
+    }
   };
 
   const handleCompleteRide = async (ride: any, generateInvoice: boolean = false) => {
@@ -452,7 +564,8 @@ export default function DashboardScreen({
               </>
             )}
           </View>
-          <Text style={styles.heroTagline}>Vos outils pour exercer en chauffeur privé</Text>
+          <Text style={styles.heroNetworkSubline}>Réseau national · 0% commission</Text>
+          <Text style={styles.heroTagline}>Indépendant. Membre du réseau Corail.</Text>
         </View>
 
         {/* Carte Profil vérifié (accès réseau / réservations site) — remplace l’ancienne bannière orange */}
@@ -495,6 +608,10 @@ export default function DashboardScreen({
         )}
 
         <GroupInvitationsBanner count={pendingInvitationsCount} onPress={() => onOpenGroupInvitations?.()} />
+
+        {onNavigateToGroupRides && (
+          <GroupNewRidesBanner rows={groupNewRideRows} onPress={onNavigateToGroupRides} />
+        )}
 
         {/* Course(s) en cours — bien visible en haut */}
         {inProgressRides.length > 0 && (
@@ -539,37 +656,46 @@ export default function DashboardScreen({
           </TouchableOpacity>
         )}
 
-        {/* Module Ma Page Pro — compacte à 100 %, Partager en avant */}
+        {/* Module Ma Page Pro — pièce maîtresse : fond premium, partager = icône seule */}
         {pageProStatus !== null && onNavigateToPagePro && (() => {
           const pct = pageProCompletion;
           const isComplete = pct >= 100 || pageProStatus === 'active';
           const canShare = pageProStatus === 'active' && pageProSlug;
+          const shareAction = async () => {
+            try {
+              const url = getVtcProfileUrl(pageProSlug!);
+              const msg = `Réservez directement avec moi — mon profil chauffeur privé sur Corail : ${url}`;
+              await Share.share({ message: msg });
+            } catch (_e) {}
+          };
 
           if (isComplete && canShare) {
             return (
               <TouchableOpacity
-                activeOpacity={0.9}
+                activeOpacity={0.92}
                 onPress={onNavigateToPagePro}
                 style={styles.pageProCardCompact}
               >
-                <View style={styles.pageProCompactLeft}>
-                  <Text style={styles.pageProCardTitle}>Ma Page Pro</Text>
-                  <Text style={styles.pageProCardTagline}>Recevez des réservations sans intermédiaire.</Text>
-                </View>
-                <View style={styles.pageProCompactActions}>
+                <LinearGradient
+                  colors={['rgba(14, 165, 233, 0.16)', 'rgba(6, 182, 212, 0.06)', 'rgba(14, 165, 233, 0.04)']}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 1 }}
+                  style={StyleSheet.absoluteFill}
+                />
+                <View style={styles.pageProCompactInner}>
+                  <View style={styles.pageProCompactLeft}>
+                    <Text style={styles.pageProCardTitle}>Ma Page Pro</Text>
+                    <Text style={styles.pageProCardTagline} numberOfLines={3}>
+                      Votre marque. Vos clients.{'\n'}0% commission.
+                    </Text>
+                  </View>
                   <TouchableOpacity
-                    activeOpacity={0.88}
-                    onPress={async () => {
-                      try {
-                        const url = getVtcProfileUrl(pageProSlug!);
-                        const message = `Réservez directement avec moi — mon profil chauffeur privé sur Corail : ${url}`;
-                        await Share.share({ message });
-                      } catch (_e) {}
-                    }}
-                    style={styles.pageProSharePrimary}
+                    activeOpacity={0.8}
+                    onPress={(e) => { e?.stopPropagation?.(); shareAction(); }}
+                    style={styles.pageProShareIconBtn}
+                    accessibilityLabel="Partager ma Page Pro"
                   >
-                    <Ionicons name="share-social" size={18} color="#fff" />
-                    <Text style={styles.pageProSharePrimaryText}>Partager</Text>
+                    <Ionicons name="share-social" size={22} color="#0ea5e9" />
                   </TouchableOpacity>
                 </View>
               </TouchableOpacity>
@@ -582,41 +708,42 @@ export default function DashboardScreen({
           const message = messagePartage || messageAmelioration || messageConstruction;
           return (
             <View style={styles.pageProCard}>
-              <Text style={styles.pageProCardTitle}>Ma Page Pro</Text>
-              <Text style={styles.pageProCardTagline}>
-                Recevez des réservations sans intermédiaire.
-              </Text>
-              <Text style={styles.pageProCardPct}>{pct} % complété</Text>
-              <View style={styles.pageProProgressTrack}>
-                <View style={[styles.pageProProgressFill, { width: `${Math.min(100, pct)}%` }]} />
-              </View>
-              <Text style={styles.pageProCardMessage}>{message}</Text>
-              {canShare ? (
-                <View style={styles.pageProCardShareRow}>
+              <LinearGradient
+                colors={['rgba(14, 165, 233, 0.14)', 'rgba(6, 182, 212, 0.05)', 'rgba(14, 165, 233, 0.03)']}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={StyleSheet.absoluteFill}
+              />
+              <View style={styles.pageProCardInner}>
+                <Text style={styles.pageProCardTitle}>Ma Page Pro</Text>
+                <Text style={styles.pageProCardTagline} numberOfLines={3}>
+                  Votre marque. Vos clients.{'\n'}0% commission.
+                </Text>
+                <Text style={styles.pageProCardPct}>{pct} % complété</Text>
+                <View style={styles.pageProProgressTrack}>
+                  <View style={[styles.pageProProgressFill, { width: `${Math.min(100, pct)}%` }]} />
+                </View>
+                <Text style={styles.pageProCardMessage}>{message}</Text>
+                <View style={styles.pageProCardActionsRow}>
+                  {canShare ? (
+                    <TouchableOpacity
+                      activeOpacity={0.8}
+                      onPress={shareAction}
+                      style={styles.pageProShareIconBtn}
+                      accessibilityLabel="Partager ma Page Pro"
+                    >
+                      <Ionicons name="share-social" size={22} color="#0ea5e9" />
+                    </TouchableOpacity>
+                  ) : null}
                   <TouchableOpacity
                     activeOpacity={0.88}
-                    onPress={async () => {
-                      try {
-                        const url = getVtcProfileUrl(pageProSlug!);
-                        const msg = `Réservez directement avec moi — mon profil chauffeur privé sur Corail : ${url}`;
-                        await Share.share({ message: msg });
-                      } catch (_e) {}
-                    }}
-                    style={styles.pageProCta}
+                    onPress={onNavigateToPagePro}
+                    style={[styles.pageProCta, canShare && styles.pageProCtaFlex]}
                   >
-                    <Ionicons name="share-social" size={18} color="#fff" />
-                    <Text style={styles.pageProCtaText}>Partager</Text>
+                    <Text style={styles.pageProCtaText}>{canShare ? 'Gérer ma page' : 'Améliorer ma page'}</Text>
                   </TouchableOpacity>
                 </View>
-              ) : (
-                <TouchableOpacity
-                  activeOpacity={0.88}
-                  onPress={onNavigateToPagePro}
-                  style={styles.pageProCta}
-                >
-                  <Text style={styles.pageProCtaText}>Améliorer ma page</Text>
-                </TouchableOpacity>
-              )}
+              </View>
             </View>
           );
         })()}
@@ -823,6 +950,13 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#7dd3fc',
   },
+  heroNetworkSubline: {
+    fontSize: 13,
+    color: theme.colors.textSecondary,
+    marginTop: 4,
+    letterSpacing: 0.4,
+    fontWeight: '500',
+  },
   heroTagline: {
     fontSize: 14,
     color: theme.colors.textMutedDark,
@@ -891,7 +1025,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginHorizontal: 20,
     marginBottom: 16,
     paddingVertical: 12,
     paddingHorizontal: 16,
@@ -943,12 +1076,28 @@ const styles = StyleSheet.create({
   },
   pageProCard: {
     marginBottom: 20,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: 'rgba(14, 165, 233, 0.35)',
+    borderLeftWidth: 4,
+    borderLeftColor: '#0ea5e9',
+    overflow: 'hidden',
+    position: 'relative',
+    backgroundColor: theme.colors.surface,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#0ea5e9',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.2,
+        shadowRadius: 12,
+      },
+      android: { elevation: 8 },
+    }),
+  },
+  pageProCardInner: {
     paddingVertical: 22,
     paddingHorizontal: 20,
-    backgroundColor: theme.colors.surface,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: theme.colors.borderLight,
+    position: 'relative',
   },
   pageProCardTitle: {
     fontSize: 18,
@@ -957,10 +1106,10 @@ const styles = StyleSheet.create({
     letterSpacing: -0.3,
   },
   pageProCardTagline: {
-    fontSize: 14,
+    fontSize: 12,
     color: theme.colors.textMuted,
-    marginTop: 8,
-    lineHeight: 20,
+    marginTop: 6,
+    lineHeight: 18,
   },
   pageProCardPct: {
     fontSize: 13,
@@ -985,8 +1134,23 @@ const styles = StyleSheet.create({
     marginTop: 14,
     lineHeight: 18,
   },
-  pageProCta: {
+  pageProCardActionsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
     marginTop: 20,
+  },
+  pageProShareIconBtn: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: 'rgba(14, 165, 233, 0.15)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(14, 165, 233, 0.3)',
+  },
+  pageProCta: {
     paddingVertical: 14,
     paddingHorizontal: 20,
     borderRadius: 12,
@@ -994,56 +1158,45 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  pageProCardShareRow: {
-    alignItems: 'center',
+  pageProCtaFlex: {
+    flex: 1,
   },
   pageProCtaText: {
     fontSize: 15,
     fontWeight: '600',
     color: '#fff',
   },
-  pageProShareLink: {
-    marginTop: 14,
-    alignItems: 'center',
-    paddingVertical: 8,
-  },
-  pageProShareLinkText: {
-    fontSize: 14,
-    fontWeight: '500',
-    color: theme.colors.info,
-  },
   pageProCardCompact: {
+    marginBottom: 20,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: 'rgba(14, 165, 233, 0.35)',
+    borderLeftWidth: 4,
+    borderLeftColor: '#0ea5e9',
+    overflow: 'hidden',
+    position: 'relative',
+    backgroundColor: theme.colors.surface,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#0ea5e9',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.2,
+        shadowRadius: 12,
+      },
+      android: { elevation: 8 },
+    }),
+  },
+  pageProCompactInner: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: 20,
-    paddingVertical: 14,
-    paddingHorizontal: 16,
-    backgroundColor: theme.colors.surface,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: theme.colors.borderLight,
+    paddingVertical: 18,
+    paddingHorizontal: 20,
+    position: 'relative',
   },
   pageProCompactLeft: {
     flex: 1,
-  },
-  pageProCompactActions: {
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  pageProSharePrimary: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    paddingVertical: 10,
-    paddingHorizontal: 16,
-    borderRadius: 12,
-    backgroundColor: theme.colors.info,
-  },
-  pageProSharePrimaryText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#fff',
+    marginRight: 16,
   },
   todayRow: {
     flexDirection: 'row',

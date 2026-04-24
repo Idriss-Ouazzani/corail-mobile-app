@@ -327,10 +327,10 @@ export async function notifyLowCredits(credits: number): Promise<void> {
 
     await Notifications.scheduleNotificationAsync({
       content: {
-        title: '⚠️ Crédits faibles',
+        title: 'Équilibre faible',
         body: credits === 0 
-          ? 'Vous n\'avez plus de crédits ! Publiez des courses pour en gagner'
-          : `Plus que ${credits} crédit${credits > 1 ? 's' : ''}. Pensez à publier des courses !`,
+          ? 'Solde à zéro. Publiez des courses pour en gagner.'
+          : `Plus que ${credits}. Publiez des courses pour en gagner.`,
         data: { type: 'low_credits' },
         sound: true,
       },
@@ -374,24 +374,22 @@ export async function notifyBadgeEarned(badgeName: string, badgeDescription: str
 export async function notifyGroupInvitation(
   inviteeUserId: string,
   groupName: string, 
-  inviterName: string
+  inviterName: string,
+  options?: { inviterUserId?: string | null }
 ): Promise<void> {
   const prefs = await getNotificationPreferences();
   if (!prefs.enabled || !prefs.groupInvitations) return;
 
-  try {
-    // Notification locale
-    await Notifications.scheduleNotificationAsync({
-      content: {
-        title: '👥 Invitation groupe',
-        body: `${inviterName} vous a invité à rejoindre "${groupName}"`,
-        data: { type: 'group_invitation' },
-        sound: true,
-      },
-      trigger: { type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL, seconds: 1, repeats: false },
-    });
+  if (
+    options?.inviterUserId != null &&
+    String(options.inviterUserId) === String(inviteeUserId)
+  ) {
+    return;
+  }
 
-    // Push notification
+  try {
+    // Push uniquement vers l’appareil de l’invité (pas de notif locale : elle s’afficherait sur le téléphone de l’inviteur).
+
     await PushTokenService.sendPushToUser(
       inviteeUserId,
       '👥 Invitation groupe',
@@ -399,7 +397,7 @@ export async function notifyGroupInvitation(
       { type: 'group_invitation' }
     );
 
-    console.log(`✅ Notifications invitation groupe envoyées (local + push)`);
+    console.log(`✅ Notification push invitation groupe envoyée`);
   } catch (error) {
     console.error('❌ Erreur notification groupe:', error);
   }

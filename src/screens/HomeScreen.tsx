@@ -20,8 +20,8 @@ export const HomeScreen = ({ navigation }: any) => {
 
   const quickActions = [
     {
-      title: 'Voir le Marketplace',
-      description: 'Parcourir les courses disponibles',
+      title: 'Voir le réseau public',
+      description: 'Parcourir les courses du réseau',
       icon: '🔍',
       color: '#ff6b47',
       onPress: () => navigation.navigate('Marketplace'),

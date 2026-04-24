@@ -8,6 +8,12 @@ import Constants from 'expo-constants';
 import * as FileSystem from 'expo-file-system/legacy';
 import type { Ride } from '../types';
 import { getQuoteUrl } from '../constants/urls';
+import {
+  frenchPhoneEqualityVariants,
+  toFrenchNational10,
+  formatPhoneForSubmit,
+  phonesOverlap,
+} from '../utils/phoneFormat';
 
 // ============================================================================
 // HELPER: Get current user ID from Supabase session
@@ -93,49 +99,114 @@ export const addCreditsSecure = async (
 // USERS & VERIFICATION
 // ============================================================================
 
-export const getVerificationStatus = async () => {
-  if (!currentUserId) {
-    throw new Error('User not authenticated');
-  }
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
+async function fetchMyUserRow(): Promise<Record<string, unknown> | null> {
   const { data, error } = await supabase
     .from('users')
     .select('*')
     .or(`id.eq.${currentUserId},supabase_auth_id.eq.${currentUserId}`)
     .limit(1)
     .maybeSingle();
-
   if (error) throw new Error(error.message);
+  return data as Record<string, unknown> | null;
+}
+
+/** Si le trigger a créé la ligne sous un autre `id` (migration email) ou que supabase_auth_id n’est pas encore lisible. */
+async function fetchUserRowByEmail(email: string): Promise<Record<string, unknown> | null> {
+  const trimmed = email.trim();
+  if (!trimmed) return null;
+  const { data, error } = await supabase.from('users').select('*').eq('email', trimmed).limit(1).maybeSingle();
+  if (error) throw new Error(error.message);
+  return data as Record<string, unknown> | null;
+}
+
+async function resolveUserRowWithRetries(authEmail?: string | null): Promise<Record<string, unknown> | null> {
+  for (let attempt = 0; attempt < 12; attempt++) {
+    let row = await fetchMyUserRow();
+    if (row) return row;
+    if (authEmail?.trim()) {
+      row = await fetchUserRowByEmail(authEmail);
+      if (row) return row;
+    }
+    if (attempt < 11) await sleep(400);
+  }
+  return null;
+}
+
+export const getVerificationStatus = async () => {
+  if (!currentUserId) {
+    throw new Error('User not authenticated');
+  }
+
+  const { data: authData } = await supabase.auth.getUser();
+  const authUser = authData?.user;
+  const authEmail = (authUser?.email ?? '').trim();
+
+  // Attendre le trigger handle_new_user() + résolution par email si besoin
+  let data: Record<string, unknown> | null = await resolveUserRowWithRetries(authEmail);
 
   if (!data) {
-    // User doesn't exist yet, create it automatically
-    console.log('🆕 Utilisateur non trouvé, création automatique dans Supabase...');
+    console.log('🆕 Utilisateur non trouvé — tentative insert (policy « own profile » / trigger déjà passé)...');
+
+    if (!authEmail) {
+      throw new Error(
+        'Profil introuvable : reconnectez-vous ou vérifiez votre e-mail. Si le problème persiste, contactez le support.'
+      );
+    }
+
+    const fullName =
+      typeof authUser?.user_metadata?.full_name === 'string'
+        ? authUser.user_metadata.full_name
+        : '';
+
+    const insertPayload: Record<string, unknown> = {
+      id: currentUserId,
+      supabase_auth_id: currentUserId,
+      email: authEmail,
+      full_name: fullName,
+      verification_status: 'UNVERIFIED',
+      is_admin: false,
+      has_accepted_terms: false,
+    };
 
     const { data: newUser, error: createError } = await supabase
       .from('users')
-      .insert({
-        id: currentUserId,
-        email: '',
-        verification_status: 'UNVERIFIED',
-        is_admin: false,
-      })
+      .insert(insertPayload)
       .select()
-      .single();
+      .maybeSingle();
 
     if (createError) {
-      console.error('❌ Erreur création utilisateur:', createError);
-      throw new Error(createError.message);
+      if (createError.code === '23505') {
+        // Ligne déjà créée (trigger ou autre client) : recharger par id / email
+        console.log('ℹ️ Insert profil : conflit unique — relecture');
+        data = await resolveUserRowWithRetries(authEmail);
+      } else {
+        console.error('❌ Erreur création utilisateur:', createError);
+        throw new Error(createError.message);
+      }
+    } else if (newUser) {
+      console.log('✅ Utilisateur créé automatiquement dans Supabase');
+      data = newUser as Record<string, unknown>;
     }
 
-    console.log('✅ Utilisateur créé automatiquement dans Supabase');
-    return { ...newUser, driver_verification_status: null };
+    // INSERT peut réussir sans ligne en RETURNING (RLS SELECT sur la ligne insérée) : ne pas s’y fier
+    if (!data) {
+      data = await resolveUserRowWithRetries(authEmail);
+    }
+
+    if (!data) {
+      throw new Error(
+        'Profil introuvable : la ligne utilisateur n’est pas visible (RLS ou migration). Vérifiez que la migration 080 est appliquée et que les policies SELECT sur `users` autorisent la lecture de votre profil.'
+      );
+    }
   }
 
-  // Charger le statut de vérification chauffeur (vtc_profiles) pour le gating réseau
+  // vtc_profiles.user_id peut être users.id (legacy) ou auth.uid() — aligné sur 053_vtc_profiles_user_rls
   const { data: vtcProfile } = await supabase
     .from('vtc_profiles')
     .select('driver_verification_status, driver_verification_submitted_at, driver_verification_rejection_reason, verification_vtc_card_status, verification_id_card_status, verification_insurance_status, verification_vtc_card_url, verification_id_card_url, verification_insurance_url, verification_vtc_card_admin_notes, verification_id_card_admin_notes, verification_insurance_admin_notes')
-    .eq('user_id', currentUserId)
+    .or(`user_id.eq.${data.id},user_id.eq.${currentUserId}`)
     .limit(1)
     .maybeSingle();
 
@@ -156,10 +227,45 @@ export const getVerificationStatus = async () => {
   };
 };
 
+/** Prise de course réseau + publication annonces (public / groupe) : profil chauffeur approuvé obligatoire */
+async function requireApprovedDriverForNetworkActions(): Promise<void> {
+  const s = await getVerificationStatus();
+  if (s.driver_verification_status !== 'approved') {
+    throw new Error(
+      'Profil chauffeur vérifié requis : sans validation de vos documents, vous ne pouvez pas prendre ni publier de courses sur le réseau (hors courses personnelles que vous saisissez vous-même).'
+    );
+  }
+}
+
+/**
+ * Push Expo vers les membres (Edge Function service role) — indispensable app fermée / arrière-plan.
+ * Ne bloque pas la création de course si l’appel échoue (réseau, fonction non déployée).
+ */
+async function invokeSendRideNotificationEdge(params: {
+  rideId: string;
+  visibility: 'PUBLIC' | 'GROUP';
+  groupId?: string | null;
+}): Promise<void> {
+  try {
+    // Ne pas utiliser fetch + Bearer manuel : la gateway rejette souvent ES256 (JWT GoTrue).
+    const { error } = await supabase.functions.invoke('send-ride-notification', {
+      body: {
+        rideId: params.rideId,
+        visibility: params.visibility,
+        groupId: params.groupId ?? undefined,
+      },
+    });
+    if (error && __DEV__) {
+      console.warn('[invokeSendRideNotificationEdge]', error.message);
+    }
+  } catch (e) {
+    if (__DEV__) console.warn('[invokeSendRideNotificationEdge]', e);
+  }
+}
+
 export const submitVerification = async (verificationData: {
   full_name: string;
   phone: string;
-  siren?: string; // Optionnel : plus demandé à l'inscription ; SIRET configuré plus tard pour facturation
   professional_card_number: string;
   email?: string; // Optionnel mais recommandé
 }) => {
@@ -170,7 +276,6 @@ export const submitVerification = async (verificationData: {
     .update({
       full_name: verificationData.full_name,
       phone: verificationData.phone,
-      siren: verificationData.siren ?? '',
       professional_card_number: verificationData.professional_card_number,
       verification_status: 'PENDING',
       verification_submitted_at: new Date().toISOString(),
@@ -193,7 +298,7 @@ export const getPendingVerifications = async () => {
 
   const { data, error } = await supabase
     .from('users')
-    .select('id, email, full_name, phone, professional_card_number, siren, verification_submitted_at')
+    .select('id, email, full_name, phone, professional_card_number, verification_submitted_at')
     .eq('verification_status', 'PENDING')
     .order('verification_submitted_at', { ascending: true });
 
@@ -319,6 +424,8 @@ export const createRide = async (rideData: {
 }): Promise<Ride> => {
   if (!currentUserId) throw new Error('User not authenticated');
 
+  await requireApprovedDriverForNetworkActions();
+
   // Insert ride
   const { data: ride, error: rideError } = await supabase
     .from('rides')
@@ -348,11 +455,27 @@ export const createRide = async (rideData: {
     ride_id: ride.id,
   });
 
+  // Push + complément au realtime : notifier les autres chauffeurs (groupe ou public)
+  if (rideData.visibility === 'GROUP' && rideData.group_id) {
+    void invokeSendRideNotificationEdge({
+      rideId: ride.id,
+      visibility: 'GROUP',
+      groupId: rideData.group_id,
+    });
+  } else if (rideData.visibility === 'PUBLIC') {
+    void invokeSendRideNotificationEdge({
+      rideId: ride.id,
+      visibility: 'PUBLIC',
+    });
+  }
+
   return ride as any;
 };
 
 export const claimRide = async (rideId: string) => {
   if (!currentUserId) throw new Error('User not authenticated');
+
+  await requireApprovedDriverForNetworkActions();
 
   // Fetch ride: client = 0 crédit, groupe = 0 crédit, annonces publiques = 1 crédit
   const { data: existingRide, error: fetchError } = await supabase
@@ -684,6 +807,8 @@ export const publishPersonalRide = async (
 ) => {
   if (!currentUserId) throw new Error('User not authenticated');
 
+  await requireApprovedDriverForNetworkActions();
+
   // 1. Valider que les infos client sont fournies
   if (!options.client_name) {
     throw new Error('Le nom du client est obligatoire');
@@ -774,6 +899,19 @@ export const publishPersonalRide = async (
     description: `Published personal ride to marketplace as ${options.visibility}`,
     ride_id: newRide.id,
   });
+
+  if (options.visibility === 'GROUP' && options.group_id) {
+    void invokeSendRideNotificationEdge({
+      rideId: newRide.id,
+      visibility: 'GROUP',
+      groupId: options.group_id,
+    });
+  } else if (options.visibility === 'PUBLIC') {
+    void invokeSendRideNotificationEdge({
+      rideId: newRide.id,
+      visibility: 'PUBLIC',
+    });
+  }
 
   return newRide;
 };
@@ -952,21 +1090,26 @@ export const completePersonalRide = async (personalRideId: string) => {
 export const getCredits = async () => {
   if (!currentUserId) throw new Error('User not authenticated');
 
-  console.log('📊 [getCredits] Lecture directe depuis users.credits pour:', currentUserId);
-  
-  // Lire directement depuis users.credits (pas de cache)
+  console.log('📊 [getCredits] Lecture users.credits pour:', currentUserId);
+
   const { data, error } = await supabase
     .from('users')
     .select('credits')
-    .eq('id', currentUserId)
-    .single();
+    .or(`id.eq.${currentUserId},supabase_auth_id.eq.${currentUserId}`)
+    .limit(1)
+    .maybeSingle();
 
   if (error) {
     console.error('❌ [getCredits] Erreur lecture:', error);
     throw new Error(error.message);
   }
 
-  const credits = data?.credits || 0;
+  if (!data) {
+    console.warn('📊 [getCredits] Aucune ligne users (encore) — solde 0');
+    return { credits: 0 };
+  }
+
+  const credits = typeof data.credits === 'number' ? data.credits : Number(data.credits) || 0;
   console.log('📊 [getCredits] Crédits actuels en DB:', credits);
   return { credits };
 };
@@ -1191,6 +1334,141 @@ export const getGroupMembers = async (groupId: string) => {
   }));
 };
 
+export type GroupInvitePreviewResult = {
+  inviteeId: string | null;
+  profileName: string | null;
+  isSelf: boolean;
+  alreadyMember: boolean;
+  pendingInvitation: boolean;
+};
+
+/** Aperçu avant envoi : membre existant, doublon d’invitation, auto-invitation. */
+export const previewGroupInvite = async (
+  groupId: string,
+  params: { email?: string; phone?: string }
+): Promise<GroupInvitePreviewResult> => {
+  const empty: GroupInvitePreviewResult = {
+    inviteeId: null,
+    profileName: null,
+    isSelf: false,
+    alreadyMember: false,
+    pendingInvitation: false,
+  };
+  if (!currentUserId) return empty;
+  if (!params.email?.trim() && !params.phone?.trim()) return empty;
+
+  const { data: membership } = await supabase
+    .from('group_members')
+    .select('role')
+    .eq('group_id', groupId)
+    .eq('user_id', currentUserId)
+    .single();
+  if (!membership || membership.role !== 'ADMIN') return empty;
+
+  const { data: myRow } = await supabase
+    .from('users')
+    .select('id, email, phone, supabase_auth_id')
+    .or(`id.eq.${currentUserId},supabase_auth_id.eq.${currentUserId}`)
+    .maybeSingle();
+  const myCanonicalId = myRow?.id ?? currentUserId;
+  const myEmail = myRow?.email?.trim().toLowerCase() ?? '';
+  const myPhone = myRow?.phone?.trim() ?? '';
+
+  let inviteeId: string | null = null;
+  let profileName: string | null = null;
+  if (params.email?.trim()) {
+    const emailPattern = String(params.email).replace(/\\/g, '\\\\').replace(/%/g, '\\%').replace(/_/g, '\\_');
+    const { data: existingUser } = await supabase
+      .from('users')
+      .select('id, full_name')
+      .ilike('email', emailPattern)
+      .limit(1)
+      .maybeSingle();
+    if (existingUser?.id) {
+      inviteeId = existingUser.id as string;
+      profileName = (existingUser as { full_name?: string }).full_name?.trim() || null;
+    }
+  }
+  if (!inviteeId && params.phone?.trim()) {
+    const variants = [...new Set(frenchPhoneEqualityVariants(params.phone.trim()))];
+    if (variants.length > 0) {
+      const { data: phoneUsers } = await supabase
+        .from('users')
+        .select('id, full_name')
+        .in('phone', variants)
+        .limit(1);
+      const u = phoneUsers?.[0] as { id?: string; full_name?: string } | undefined;
+      if (u?.id) {
+        inviteeId = u.id;
+        profileName = u.full_name?.trim() || null;
+      }
+    }
+  }
+
+  const normalizedInviteePhone =
+    params.phone?.trim() != null && params.phone.trim() !== ''
+      ? toFrenchNational10(params.phone.trim()) || formatPhoneForSubmit(params.phone.trim()) || null
+      : null;
+  const normInvEmail = params.email?.trim().toLowerCase() || null;
+
+  const isSelf =
+    (inviteeId != null && inviteeId === myCanonicalId) ||
+    (normInvEmail != null && normInvEmail === myEmail) ||
+    (params.phone?.trim() && myPhone && phonesOverlap(params.phone.trim(), myPhone));
+
+  const { data: gm } = await supabase
+    .from('group_members')
+    .select('user_id, user:users!group_members_user_id_fkey ( id, email, phone )')
+    .eq('group_id', groupId);
+
+  let alreadyMember = false;
+  for (const row of gm || []) {
+    const u = (row as { user_id?: string; user?: { id?: string; email?: string; phone?: string } }).user;
+    if (inviteeId && row.user_id === inviteeId) {
+      alreadyMember = true;
+      break;
+    }
+    if (normInvEmail && u?.email?.trim().toLowerCase() === normInvEmail) {
+      alreadyMember = true;
+      break;
+    }
+    if (params.phone?.trim() && u?.phone && phonesOverlap(params.phone.trim(), u.phone)) {
+      alreadyMember = true;
+      break;
+    }
+  }
+
+  const { data: pend } = await supabase
+    .from('group_invitations')
+    .select('id, invitee_id, invitee_email, invitee_phone')
+    .eq('group_id', groupId)
+    .eq('status', 'PENDING');
+
+  let pendingInvitation = false;
+  for (const row of pend || []) {
+    if (inviteeId && row.invitee_id === inviteeId) {
+      pendingInvitation = true;
+      break;
+    }
+    if (normInvEmail && row.invitee_email?.trim().toLowerCase() === normInvEmail) {
+      pendingInvitation = true;
+      break;
+    }
+    if (normalizedInviteePhone && row.invitee_phone && phonesOverlap(normalizedInviteePhone, row.invitee_phone)) {
+      pendingInvitation = true;
+      break;
+    }
+  }
+
+  return {
+    inviteeId,
+    profileName,
+    isSelf,
+    alreadyMember,
+    pendingInvitation,
+  };
+};
+
 export const inviteToGroup = async (params: {
   groupId: string;
   email?: string;
@@ -1210,21 +1488,95 @@ export const inviteToGroup = async (params: {
     throw new Error('Vous devez être administrateur pour inviter des membres');
   }
 
+  const { data: myRow } = await supabase
+    .from('users')
+    .select('id, email, phone, supabase_auth_id')
+    .or(`id.eq.${currentUserId},supabase_auth_id.eq.${currentUserId}`)
+    .maybeSingle();
+  const myCanonicalId = myRow?.id ?? currentUserId;
+  const myEmail = myRow?.email?.trim().toLowerCase() ?? '';
+  const myPhone = myRow?.phone?.trim() ?? '';
+
   // Récupérer les infos du groupe et de l'inviteur pour la notification
   const [groupResult, inviterResult] = await Promise.all([
     supabase.from('groups').select('name').eq('id', params.groupId).single(),
-    supabase.from('users').select('full_name').eq('id', currentUserId).single(),
+    supabase
+      .from('users')
+      .select('full_name')
+      .or(`id.eq.${currentUserId},supabase_auth_id.eq.${currentUserId}`)
+      .maybeSingle(),
   ]);
 
-  // Chercher si l'utilisateur existe déjà
-  let inviteeId = null;
-  if (params.email) {
+  // Chercher si l'utilisateur existe déjà (email puis téléphone avec variantes FR)
+  let inviteeId: string | null = null;
+  if (params.email?.trim()) {
+    const emailPattern = String(params.email).replace(/\\/g, '\\\\').replace(/%/g, '\\%').replace(/_/g, '\\_');
     const { data: existingUser } = await supabase
       .from('users')
       .select('id')
-      .eq('email', params.email)
-      .single();
-    if (existingUser) inviteeId = existingUser.id;
+      .ilike('email', emailPattern)
+      .limit(1)
+      .maybeSingle();
+    if (existingUser?.id) inviteeId = existingUser.id;
+  }
+  if (!inviteeId && params.phone?.trim()) {
+    const variants = [...new Set(frenchPhoneEqualityVariants(params.phone.trim()))];
+    if (variants.length > 0) {
+      const { data: phoneUsers } = await supabase.from('users').select('id').in('phone', variants);
+      if (phoneUsers?.length) inviteeId = phoneUsers[0].id as string;
+    }
+  }
+
+  const normalizedInviteePhone =
+    params.phone?.trim() != null && params.phone.trim() !== ''
+      ? toFrenchNational10(params.phone.trim()) || formatPhoneForSubmit(params.phone.trim()) || null
+      : null;
+  const normInvEmail = params.email?.trim().toLowerCase() || null;
+
+  if (inviteeId != null && inviteeId === myCanonicalId) {
+    throw new Error('Vous ne pouvez pas vous inviter vous-même.');
+  }
+  if (normInvEmail && normInvEmail === myEmail) {
+    throw new Error('Vous ne pouvez pas vous inviter vous-même.');
+  }
+  if (params.phone?.trim() && myPhone && phonesOverlap(params.phone.trim(), myPhone)) {
+    throw new Error('Vous ne pouvez pas vous inviter vous-même.');
+  }
+
+  const { data: gm } = await supabase
+    .from('group_members')
+    .select('user_id, user:users!group_members_user_id_fkey ( id, email, phone )')
+    .eq('group_id', params.groupId);
+
+  for (const row of gm || []) {
+    const u = (row as { user_id?: string; user?: { id?: string; email?: string; phone?: string } }).user;
+    if (inviteeId && row.user_id === inviteeId) {
+      throw new Error('Cette personne est déjà membre du groupe.');
+    }
+    if (normInvEmail && u?.email?.trim().toLowerCase() === normInvEmail) {
+      throw new Error('Cette personne est déjà membre du groupe.');
+    }
+    if (params.phone?.trim() && u?.phone && phonesOverlap(params.phone.trim(), u.phone)) {
+      throw new Error('Cette personne est déjà membre du groupe.');
+    }
+  }
+
+  const { data: pend } = await supabase
+    .from('group_invitations')
+    .select('id, invitee_id, invitee_email, invitee_phone')
+    .eq('group_id', params.groupId)
+    .eq('status', 'PENDING');
+
+  for (const row of pend || []) {
+    if (inviteeId && row.invitee_id === inviteeId) {
+      throw new Error('Une invitation est déjà en attente pour cette personne.');
+    }
+    if (normInvEmail && row.invitee_email?.trim().toLowerCase() === normInvEmail) {
+      throw new Error('Une invitation est déjà en attente pour cette personne.');
+    }
+    if (normalizedInviteePhone && row.invitee_phone && phonesOverlap(normalizedInviteePhone, row.invitee_phone)) {
+      throw new Error('Une invitation est déjà en attente pour cette personne.');
+    }
   }
 
   // Créer l'invitation
@@ -1233,8 +1585,8 @@ export const inviteToGroup = async (params: {
     .insert({
       group_id: params.groupId,
       inviter_id: currentUserId,
-      invitee_email: params.email,
-      invitee_phone: params.phone,
+      invitee_email: params.email?.trim() || null,
+      invitee_phone: normalizedInviteePhone,
       invitee_id: inviteeId,
       status: 'PENDING',
     })
@@ -1256,11 +1608,24 @@ export const inviteToGroup = async (params: {
 export const getMyGroupInvitations = async () => {
   if (!currentUserId) throw new Error('User not authenticated');
 
-  const { data: user } = await supabase
+  const { data: userRow } = await supabase
     .from('users')
-    .select('email')
-    .eq('id', currentUserId)
-    .single();
+    .select('id, email, phone')
+    .or(`id.eq.${currentUserId},supabase_auth_id.eq.${currentUserId}`)
+    .maybeSingle();
+
+  const canonicalId = userRow?.id ?? currentUserId;
+  const email = userRow?.email?.trim();
+  const phone = userRow?.phone?.trim();
+
+  const orParts: string[] = [`invitee_id.eq.${canonicalId}`];
+  if (email) orParts.push(`invitee_email.eq.${email}`);
+  if (phone) {
+    for (const v of frenchPhoneEqualityVariants(phone)) {
+      orParts.push(`invitee_phone.eq.${v}`);
+    }
+  }
+  const inviteeOr = [...new Set(orParts)].join(',');
 
   const { data, error } = await supabase
     .from('group_invitations')
@@ -1269,7 +1634,9 @@ export const getMyGroupInvitations = async () => {
       group:groups(*),
       inviter:users!group_invitations_inviter_id_fkey(full_name)
     `)
-    .or(`invitee_id.eq.${currentUserId},invitee_email.eq.${user?.email}`)
+    .or(inviteeOr)
+    /** Ne jamais renvoyer une invitation dont je suis l’inviteur (évite doublons / mauvaise ligne). */
+    .neq('inviter_id', currentUserId)
     .eq('status', 'PENDING')
     .order('created_at', { ascending: false });
 
@@ -1387,7 +1754,8 @@ export const getGroupPendingInvitations = async (groupId: string) => {
     .from('group_invitations')
     .select(`
       *,
-      inviter:users!group_invitations_inviter_id_fkey(full_name)
+      inviter:users!group_invitations_inviter_id_fkey(full_name),
+      invitee:users!group_invitations_invitee_id_fkey(full_name)
     `)
     .eq('group_id', groupId)
     .eq('status', 'PENDING')
@@ -1395,11 +1763,71 @@ export const getGroupPendingInvitations = async (groupId: string) => {
 
   if (error) throw new Error(error.message);
 
-  return data.map((invitation: any) => ({
+  const invitations = data || [];
+
+  const emailToName = new Map<string, string>();
+  const needEmailLookup = invitations.filter(
+    (r: any) => !(r.invitee?.full_name?.trim()) && r.invitee_email?.trim()
+  );
+  const uniqueEmails = [...new Set(needEmailLookup.map((r: any) => r.invitee_email.trim().toLowerCase()))];
+  await Promise.all(
+    uniqueEmails.map(async (em) => {
+      const emailPattern = String(em).replace(/\\/g, '\\\\').replace(/%/g, '\\%').replace(/_/g, '\\_');
+      const { data: u } = await supabase
+        .from('users')
+        .select('full_name')
+        .ilike('email', emailPattern)
+        .maybeSingle();
+      const fn = (u as { full_name?: string } | null)?.full_name?.trim();
+      if (fn) emailToName.set(em, fn);
+    })
+  );
+
+  const phoneVariantToName = new Map<string, string>();
+  const needPhoneLookup = invitations.filter((r: any) => {
+    if (r.invitee?.full_name?.trim()) return false;
+    const em = r.invitee_email?.trim().toLowerCase();
+    if (em && emailToName.has(em)) return false;
+    return !!r.invitee_phone?.trim();
+  });
+  const allPhoneVariants = new Set<string>();
+  for (const r of needPhoneLookup) {
+    frenchPhoneEqualityVariants(String(r.invitee_phone).trim()).forEach((v) => allPhoneVariants.add(v));
+  }
+  if (allPhoneVariants.size > 0) {
+    const { data: phoneUsers } = await supabase
+      .from('users')
+      .select('phone, full_name')
+      .in('phone', [...allPhoneVariants]);
+    for (const u of phoneUsers || []) {
+      const fn = (u as { full_name?: string }).full_name?.trim();
+      const ph = (u as { phone?: string }).phone;
+      if (!fn || !ph) continue;
+      for (const v of frenchPhoneEqualityVariants(ph)) {
+        phoneVariantToName.set(v, fn);
+      }
+    }
+  }
+
+  const resolveInviteeDisplayName = (inv: any): string | null => {
+    const fromId = inv.invitee?.full_name?.trim();
+    if (fromId) return fromId;
+    const em = inv.invitee_email?.trim().toLowerCase();
+    if (em && emailToName.has(em)) return emailToName.get(em)!;
+    if (inv.invitee_phone?.trim()) {
+      for (const v of frenchPhoneEqualityVariants(inv.invitee_phone.trim())) {
+        if (phoneVariantToName.has(v)) return phoneVariantToName.get(v)!;
+      }
+    }
+    return null;
+  };
+
+  return invitations.map((invitation: any) => ({
     id: invitation.id,
     invitee_email: invitation.invitee_email,
     invitee_phone: invitation.invitee_phone,
-    inviter_name: invitation.inviter.full_name,
+    inviter_name: invitation.inviter?.full_name ?? '—',
+    invitee_display_name: resolveInviteeDisplayName(invitation),
     created_at: invitation.created_at,
   }));
 };
@@ -2077,12 +2505,116 @@ export const updateVTCProfile = async (profileData: any) => {
 // DRIVER VERIFICATION (Profil vérifié – documents)
 // ============================================================================
 
+export type DriverVerificationDocType =
+  | 'vtc_card'
+  | 'vtc_card_verso'
+  | 'id_card'
+  | 'id_card_verso'
+  | 'insurance';
+
+export type VerificationIdDocumentType = 'cni' | 'passport';
+
+type VerificationApprovalRow = {
+  verification_vtc_card_status: string | null;
+  verification_vtc_card_status_verso: string | null;
+  verification_vtc_card_url: string | null;
+  verification_vtc_card_url_verso: string | null;
+  verification_id_card_status: string | null;
+  verification_id_card_status_verso: string | null;
+  verification_id_card_url: string | null;
+  verification_id_card_url_verso: string | null;
+  verification_id_document_type: string | null;
+  verification_insurance_status: string | null;
+};
+
+function computeAllVerificationDocsApproved(p: VerificationApprovalRow): boolean {
+  const vtcR = p.verification_vtc_card_status === 'approved';
+  const hasVtcV = !!(p.verification_vtc_card_url_verso && String(p.verification_vtc_card_url_verso).trim());
+  const vtcV =
+    p.verification_vtc_card_status_verso === 'approved' || (!hasVtcV && vtcR);
+  const vtcOk = vtcR && vtcV;
+
+  const idType = (p.verification_id_document_type || 'cni') as VerificationIdDocumentType;
+  const idR = p.verification_id_card_status === 'approved';
+  let idOk = false;
+  if (idType === 'passport') {
+    idOk = idR;
+  } else {
+    const hasIdV = !!(p.verification_id_card_url_verso && String(p.verification_id_card_url_verso).trim());
+    const idV =
+      p.verification_id_card_status_verso === 'approved' || (!hasIdV && idR);
+    idOk = idR && idV;
+  }
+
+  const insOk = p.verification_insurance_status === 'approved';
+  return vtcOk && idOk && insOk;
+}
+
+function verificationColumnsForDocType(docType: DriverVerificationDocType): { url: string; status: string; notes: string } {
+  switch (docType) {
+    case 'vtc_card':
+      return {
+        url: 'verification_vtc_card_url',
+        status: 'verification_vtc_card_status',
+        notes: 'verification_vtc_card_admin_notes',
+      };
+    case 'vtc_card_verso':
+      return {
+        url: 'verification_vtc_card_url_verso',
+        status: 'verification_vtc_card_status_verso',
+        notes: 'verification_vtc_card_admin_notes_verso',
+      };
+    case 'id_card':
+      return {
+        url: 'verification_id_card_url',
+        status: 'verification_id_card_status',
+        notes: 'verification_id_card_admin_notes',
+      };
+    case 'id_card_verso':
+      return {
+        url: 'verification_id_card_url_verso',
+        status: 'verification_id_card_status_verso',
+        notes: 'verification_id_card_admin_notes_verso',
+      };
+    case 'insurance':
+      return {
+        url: 'verification_insurance_url',
+        status: 'verification_insurance_status',
+        notes: 'verification_insurance_admin_notes',
+      };
+  }
+}
+
 export const getDriverVerification = async () => {
   if (!currentUserId) throw new Error('User not authenticated');
   const { data, error } = await supabase
     .from('vtc_profiles')
-    .select('driver_verification_status, driver_verification_submitted_at, driver_verification_reviewed_at, driver_verification_rejection_reason, verification_vtc_card_url, verification_id_card_url, verification_insurance_url, verification_vtc_card_status, verification_id_card_status, verification_insurance_status, verification_vtc_card_admin_notes, verification_id_card_admin_notes, verification_insurance_admin_notes')
+    .select(
+      'driver_verification_status, driver_verification_submitted_at, driver_verification_reviewed_at, driver_verification_rejection_reason, verification_id_document_type, verification_vtc_card_url, verification_vtc_card_url_verso, verification_id_card_url, verification_id_card_url_verso, verification_insurance_url, verification_vtc_card_status, verification_vtc_card_status_verso, verification_id_card_status, verification_id_card_status_verso, verification_insurance_status, verification_vtc_card_admin_notes, verification_vtc_card_admin_notes_verso, verification_id_card_admin_notes, verification_id_card_admin_notes_verso, verification_insurance_admin_notes'
+    )
     .eq('user_id', currentUserId)
+    .limit(1)
+    .maybeSingle();
+  if (error) throw new Error(error.message);
+  return data;
+};
+
+/** CNI (recto+verso) ou passeport (une photo). Passage en passeport efface le verso identité. */
+export const setVerificationIdDocumentType = async (docType: VerificationIdDocumentType) => {
+  if (!currentUserId) throw new Error('User not authenticated');
+  const updates: Record<string, unknown> = {
+    verification_id_document_type: docType,
+  };
+  if (docType === 'passport') {
+    updates.verification_id_card_url_verso = null;
+    updates.verification_id_card_status_verso = 'missing';
+    updates.verification_id_card_admin_notes_verso = null;
+  }
+  const { data, error } = await supabase
+    .from('vtc_profiles')
+    .update(updates)
+    .eq('user_id', currentUserId)
+    .select()
     .limit(1)
     .maybeSingle();
   if (error) throw new Error(error.message);
@@ -2097,10 +2629,9 @@ const base64ToUint8Array = (base64: string): Uint8Array => {
   return bytes;
 };
 
-/** Upload un document de vérification. docType: vtc_card | id_card | insurance.
- *  Préfère file.base64 (du picker avec base64: true) ; sinon lecture URI via FileSystem. */
+/** Upload un document de vérification. Dossiers storage : même nom que docType (ex. vtc_card_verso). */
 export const uploadDriverVerificationDocument = async (
-  docType: 'vtc_card' | 'id_card' | 'insurance',
+  docType: DriverVerificationDocType,
   file: { uri: string; type?: string; name?: string; base64?: string }
 ) => {
   if (!currentUserId) throw new Error('User not authenticated');
@@ -2131,8 +2662,7 @@ export const uploadDriverVerificationDocument = async (
     console.warn('createSignedUrl failed, storing path:', signError?.message);
   }
   const urlToStore = signedData?.signedUrl ?? uploadData.path;
-  const columnUrl = docType === 'vtc_card' ? 'verification_vtc_card_url' : docType === 'id_card' ? 'verification_id_card_url' : 'verification_insurance_url';
-  const columnStatus = docType === 'vtc_card' ? 'verification_vtc_card_status' : docType === 'id_card' ? 'verification_id_card_status' : 'verification_insurance_status';
+  const { url: columnUrl, status: columnStatus } = verificationColumnsForDocType(docType);
   const { data: profile, error: updateError } = await supabase
     .from('vtc_profiles')
     .update({ [columnUrl]: urlToStore, [columnStatus]: 'uploaded' })
@@ -2144,19 +2674,74 @@ export const uploadDriverVerificationDocument = async (
   return { path: uploadData.path, profile };
 };
 
-/** Soumettre la vérification (passe en pending). Tous les docs doivent être uploaded. */
+/** KBIS / extrait Kbis (lié au SIRET légal) — bucket driver-verification, colonne vtc_profiles.legal_kbis_url. */
+export const uploadLegalKbisDocument = async (file: {
+  uri: string;
+  type?: string;
+  name?: string;
+  base64?: string;
+}) => {
+  if (!currentUserId) throw new Error('User not authenticated');
+  const ext = file.name?.split('.').pop() || (file.type?.includes('pdf') ? 'pdf' : 'jpg');
+  const path = `${currentUserId}/legal_kbis/${Date.now()}.${ext}`;
+  const contentType = file.type || (ext === 'pdf' ? 'application/pdf' : 'image/jpeg');
+
+  let base64: string;
+  if (file.base64?.trim()) {
+    base64 = file.base64.trim();
+  } else {
+    base64 = await FileSystem.readAsStringAsync(file.uri, { encoding: 'base64' });
+  }
+  const fileData = base64ToUint8Array(base64);
+  if (fileData.length === 0) {
+    throw new Error('Fichier vide ou inaccessible.');
+  }
+
+  const { data: uploadData, error: uploadError } = await supabase.storage
+    .from('driver-verification')
+    .upload(path, fileData, { contentType, upsert: true });
+  if (uploadError) throw new Error(uploadError.message);
+
+  const { data: signedData, error: signError } = await supabase.storage
+    .from('driver-verification')
+    .createSignedUrl(uploadData.path, 315360000);
+  if (signError || !signedData?.signedUrl) {
+    console.warn('createSignedUrl KBIS:', signError?.message);
+  }
+  const urlToStore = signedData?.signedUrl ?? uploadData.path;
+
+  const { data: profile, error: updateError } = await supabase
+    .from('vtc_profiles')
+    .update({ legal_kbis_url: urlToStore })
+    .eq('user_id', currentUserId)
+    .select()
+    .limit(1)
+    .maybeSingle();
+  if (updateError || !profile) throw new Error(updateError?.message || 'Profil VTC introuvable.');
+  return { path: uploadData.path, profile };
+};
+
+/** Soumettre la vérification (passe en pending). Tous les emplacements requis doivent être uploaded. */
 export const submitDriverVerification = async () => {
   if (!currentUserId) throw new Error('User not authenticated');
   const { data: profile, error: fetchError } = await supabase
     .from('vtc_profiles')
-    .select('verification_vtc_card_status, verification_id_card_status, verification_insurance_status')
+    .select(
+      'verification_vtc_card_status, verification_vtc_card_status_verso, verification_id_card_status, verification_id_card_status_verso, verification_id_document_type, verification_insurance_status'
+    )
     .eq('user_id', currentUserId)
     .limit(1)
     .maybeSingle();
   if (fetchError || !profile) throw new Error('Profil VTC introuvable. Complétez d\'abord votre Page Pro.');
-  if (profile.verification_vtc_card_status !== 'uploaded' && profile.verification_vtc_card_status !== 'approved') throw new Error('Téléversez la carte professionnelle chauffeur.');
-  if (profile.verification_id_card_status !== 'uploaded' && profile.verification_id_card_status !== 'approved') throw new Error('Téléversez la pièce d\'identité.');
-  if (profile.verification_insurance_status !== 'uploaded' && profile.verification_insurance_status !== 'approved') throw new Error('Téléversez l\'attestation d\'assurance RC Pro.');
+  const ok = (s: string | null | undefined) => s === 'uploaded' || s === 'approved';
+  if (!ok(profile.verification_vtc_card_status)) throw new Error('Téléversez le recto de la carte professionnelle chauffeur.');
+  if (!ok(profile.verification_vtc_card_status_verso)) throw new Error('Téléversez le verso de la carte professionnelle chauffeur.');
+  if (!ok(profile.verification_id_card_status)) throw new Error('Téléversez la pièce d\'identité (recto ou page passeport).');
+  const idType = (profile.verification_id_document_type || 'cni') as VerificationIdDocumentType;
+  if (idType === 'cni' && !ok(profile.verification_id_card_status_verso)) {
+    throw new Error('Téléversez le verso de votre CNI.');
+  }
+  if (!ok(profile.verification_insurance_status)) throw new Error('Téléversez l\'attestation d\'assurance RC Pro.');
   const { data, error } = await supabase
     .from('vtc_profiles')
     .update({
@@ -2180,11 +2765,16 @@ const mapVtcProfileToPendingVerification = (row: any) => ({
   id: row.id,
   user_id: row.user_id,
   driver_verification_submitted_at: row.driver_verification_submitted_at,
+  verification_id_document_type: row.verification_id_document_type ?? 'cni',
   verification_vtc_card_status: row.verification_vtc_card_status ?? 'missing',
+  verification_vtc_card_status_verso: row.verification_vtc_card_status_verso ?? 'missing',
   verification_id_card_status: row.verification_id_card_status ?? 'missing',
+  verification_id_card_status_verso: row.verification_id_card_status_verso ?? 'missing',
   verification_insurance_status: row.verification_insurance_status ?? 'missing',
   verification_vtc_card_url: row.verification_vtc_card_url,
+  verification_vtc_card_url_verso: row.verification_vtc_card_url_verso,
   verification_id_card_url: row.verification_id_card_url,
+  verification_id_card_url_verso: row.verification_id_card_url_verso,
   verification_insurance_url: row.verification_insurance_url,
   user: {
     id: row.user_id,
@@ -2204,11 +2794,16 @@ export const listPendingDriverVerifications = async () => {
         id,
         user_id,
         driver_verification_submitted_at,
+        verification_id_document_type,
         verification_vtc_card_status,
+        verification_vtc_card_status_verso,
         verification_id_card_status,
+        verification_id_card_status_verso,
         verification_insurance_status,
         verification_vtc_card_url,
+        verification_vtc_card_url_verso,
         verification_id_card_url,
+        verification_id_card_url_verso,
         verification_insurance_url,
         user:users!vtc_profiles_user_id_fkey(id, full_name, email)
       `)
@@ -2271,28 +2866,26 @@ export const getDriverVerificationDocumentSignedUrlAdmin = async (path: string):
   return json?.url ?? null;
 };
 
-/** Approuver ou rejeter un document (admin). Si les 3 sont approuvés, passe le profil en approved. */
+/** Approuver ou rejeter un document (admin). Si tout le dossier requis est approuvé, passe le profil en approved. */
 export const reviewDriverVerificationDocument = async (
   vtcProfileId: string,
-  docType: 'vtc_card' | 'id_card' | 'insurance',
+  docType: DriverVerificationDocType,
   status: 'approved' | 'rejected',
   adminNotes?: string | null
 ) => {
   if (!currentUserId) throw new Error('User not authenticated');
-  const colStatus = docType === 'vtc_card' ? 'verification_vtc_card_status' : docType === 'id_card' ? 'verification_id_card_status' : 'verification_insurance_status';
-  const colNotes = docType === 'vtc_card' ? 'verification_vtc_card_admin_notes' : docType === 'id_card' ? 'verification_id_card_admin_notes' : 'verification_insurance_admin_notes';
+  const { status: colStatus, notes: colNotes } = verificationColumnsForDocType(docType);
   const update: Record<string, unknown> = { [colStatus]: status, [colNotes]: adminNotes ?? null };
   const { data: profile, error: updateError } = await supabase
     .from('vtc_profiles')
     .update(update)
     .eq('id', vtcProfileId)
-    .select('verification_vtc_card_status, verification_id_card_status, verification_insurance_status')
+    .select(
+      'verification_vtc_card_status, verification_vtc_card_status_verso, verification_vtc_card_url, verification_vtc_card_url_verso, verification_id_card_status, verification_id_card_status_verso, verification_id_card_url, verification_id_card_url_verso, verification_id_document_type, verification_insurance_status'
+    )
     .single();
   if (updateError) throw new Error(updateError.message);
-  const allApproved =
-    profile.verification_vtc_card_status === 'approved' &&
-    profile.verification_id_card_status === 'approved' &&
-    profile.verification_insurance_status === 'approved';
+  const allApproved = computeAllVerificationDocsApproved(profile as VerificationApprovalRow);
   if (allApproved) {
     await supabase
       .from('vtc_profiles')
@@ -2504,7 +3097,18 @@ export const acceptDriverRideRequest = async (requestId: string) => {
     .single();
   if (insertError) {
     await supabase.from('driver_ride_requests').update({ status: 'PENDING', updated_at: new Date().toISOString() }).eq('id', requestId).eq('driver_id', currentUserId);
-    throw new Error(insertError.message);
+    const code = (insertError as { code?: string }).code;
+    if (code === '23505') {
+      throw new Error(
+        "Impossible d'enregistrer la course : un créneau ou un trajet identique existe peut-être déjà. Rafraîchissez la liste puis réessayez."
+      );
+    }
+    if (code === '23503') {
+      throw new Error(
+        "Impossible d'enregistrer la course : données liées invalides ou compte non synchronisé. Réessayez ou contactez le support."
+      );
+    }
+    throw new Error(insertError.message || "Impossible d'enregistrer la course personnelle.");
   }
 
   // Email automatique au client : réservation acceptée (Resend)
@@ -2608,11 +3212,10 @@ export const updateUserPhoto = async (photoUrl: string) => {
 };
 
 /**
- * Mise à jour du profil utilisateur (SIRET/SIREN, téléphone, carte pro)
- * Permet de compléter ou modifier ces infos après l'inscription.
+ * Mise à jour du profil utilisateur (téléphone, carte pro).
+ * SIRET géré sur vtc_profiles (infos légales).
  */
 export const updateUserProfile = async (updates: {
-  siren?: string;
   phone?: string;
   professional_card_number?: string;
 }) => {
@@ -2621,7 +3224,6 @@ export const updateUserProfile = async (updates: {
   }
 
   const updateData: Record<string, string> = {};
-  if (updates.siren !== undefined) updateData.siren = updates.siren.trim();
   if (updates.phone !== undefined) updateData.phone = updates.phone.trim();
   if (updates.professional_card_number !== undefined) updateData.professional_card_number = updates.professional_card_number.trim();
 
@@ -2854,32 +3456,32 @@ export interface InAppNotification {
   created_at: string;
 }
 
-export const listInAppNotifications = async (limit = 50): Promise<InAppNotification[]> => {
+export const listInAppNotifications = async (limit = 50, offset = 0): Promise<InAppNotification[]> => {
   if (!currentUserId) return [];
-  const { data, error } = await supabase.rpc('list_my_in_app_notifications', { lim: limit });
-  if (error) {
-    console.error('[notifications] listInAppNotifications RPC error:', error.message, error);
-    // Fallback: requête directe (RLS 058 autorise user_id = auth.uid() ou users.id)
+
+  const runFallback = async () => {
     const { data: fallbackData, error: fallbackError } = await supabase
       .from('in_app_notifications')
       .select('*')
       .eq('user_id', currentUserId)
       .order('created_at', { ascending: false })
-      .limit(limit);
+      .range(offset, offset + limit - 1);
     if (fallbackError) {
       console.error('[notifications] listInAppNotifications fallback error:', fallbackError.message);
       return [];
     }
-    if (__DEV__) {
-      console.log('[notifications] listInAppNotifications (fallback):', (fallbackData || []).length, 'items');
-    }
     return (fallbackData || []) as InAppNotification[];
+  };
+
+  if (offset > 0) {
+    return runFallback();
   }
-  const list = Array.isArray(data) ? data : [];
-  if (__DEV__ && list.length > 0) {
-    console.log('[notifications] listInAppNotifications:', list.length, 'items');
+
+  const { data, error } = await supabase.rpc('list_my_in_app_notifications', { lim: limit });
+  if (error) {
+    return runFallback();
   }
-  return list as InAppNotification[];
+  return (Array.isArray(data) ? data : []) as InAppNotification[];
 };
 
 export const getUnreadNotificationsCount = async (): Promise<number> => {
@@ -2912,12 +3514,17 @@ export const getUnreadNotificationsCount = async (): Promise<number> => {
   return count;
 };
 
-export const markNotificationRead = async (id: string): Promise<void> => {
-  if (!currentUserId) return;
-  await supabase
+export const markNotificationRead = async (id: string): Promise<boolean> => {
+  if (!currentUserId) return false;
+  const { error } = await supabase
     .from('in_app_notifications')
     .update({ read_at: new Date().toISOString() })
     .eq('id', id);
+  if (error) {
+    if (__DEV__) console.warn('[notifications] markNotificationRead:', error.message);
+    return false;
+  }
+  return true;
 };
 
 export const markAllNotificationsRead = async (): Promise<void> => {
@@ -2935,6 +3542,7 @@ export const insertInAppNotification = async (payload: {
   target_personal_ride_id?: string | null;
 }): Promise<string | null> => {
   if (!currentUserId) return null;
+
   const { data, error } = await supabase.rpc('insert_my_in_app_notification', {
     p_type: payload.type,
     p_title: payload.title,
@@ -2943,11 +3551,225 @@ export const insertInAppNotification = async (payload: {
     p_target_screen: payload.target_screen ?? null,
     p_target_personal_ride_id: payload.target_personal_ride_id ?? null,
   });
-  if (error) {
-    if (__DEV__) console.warn('[notifications] insertInAppNotification:', error.message);
-    return null;
+
+  if (!error) {
+    return data ? String(data) : null;
   }
-  return data ? String(data) : null;
+
+  const isFunctionNotFound =
+    /Could not find the function|function.*in the schema cache/i.test(error.message) ||
+    error.code === 'PGRST202';
+
+  const isInsertColumnError = /column "target_personal_ride_id".*does not exist/i.test(error.message);
+
+  if ((isFunctionNotFound || isInsertColumnError) && currentUserId) {
+    const row: Record<string, unknown> = {
+      user_id: currentUserId,
+      type: payload.type,
+      title: payload.title,
+      body: payload.body ?? null,
+      target_ride_id: payload.target_ride_id ?? null,
+      target_screen: payload.target_screen ?? null,
+    };
+    const { data: insertData, error: insertError } = await supabase
+      .from('in_app_notifications')
+      .insert(row)
+      .select('id')
+      .single();
+    if (!insertError && insertData?.id) return String(insertData.id);
+    if (__DEV__) console.warn('[notifications] insertInAppNotification fallback:', insertError?.message);
+  } else if (__DEV__) {
+    console.warn('[notifications] insertInAppNotification:', error.message);
+  }
+  return null;
+};
+
+// ============================================================================
+// Changements tél. / n° VTC / SIRET (profil certifié) — demande + validation admin
+// ============================================================================
+
+export type CredentialChangeRequestType = 'phone' | 'vtc_number' | 'siret' | 'insurance';
+
+async function getInternalUserIdForRequests(): Promise<string> {
+  if (!currentUserId) throw new Error('User not authenticated');
+  const { data, error } = await supabase
+    .from('users')
+    .select('id')
+    .or(`id.eq.${currentUserId},supabase_auth_id.eq.${currentUserId}`)
+    .maybeSingle();
+  if (error) throw new Error(error.message);
+  if (!data?.id) throw new Error('Profil utilisateur introuvable.');
+  return data.id;
+}
+
+export const getMyCredentialChangeRequests = async () => {
+  const internalId = await getInternalUserIdForRequests();
+  const { data, error } = await supabase
+    .from('profile_credential_change_requests')
+    .select('*')
+    .eq('user_id', internalId)
+    .order('created_at', { ascending: false })
+    .limit(30);
+  if (error) throw new Error(error.message);
+  return data ?? [];
+};
+
+/**
+ * Crée une demande + upload optionnel du justificatif (driver-verification, chemin {users.id}/credential_request/{id}/...).
+ * Téléphone : justificatif optionnel. Carte VTC : recto + verso obligatoires. SIRET / assurance : un fichier obligatoire.
+ * Réservé au chauffeur dont les documents sont déjà approuvés.
+ */
+export const createCredentialChangeRequest = async (params: {
+  requestType: CredentialChangeRequestType;
+  requestedValue: string;
+  document?: { uri: string; type?: string; name?: string; base64?: string } | null;
+  /** Obligatoire si requestType === 'vtc_number' (verso carte). */
+  documentVerso?: { uri: string; type?: string; name?: string; base64?: string } | null;
+}) => {
+  const internalId = await getInternalUserIdForRequests();
+  if (!currentUserId) throw new Error('User not authenticated');
+
+  const { data: vp, error: vpErr } = await supabase
+    .from('vtc_profiles')
+    .select('driver_verification_status')
+    .or(`user_id.eq.${currentUserId},user_id.eq.${internalId}`)
+    .limit(1)
+    .maybeSingle();
+  if (vpErr) throw new Error(vpErr.message);
+  if (vp?.driver_verification_status !== 'approved') {
+    throw new Error(
+      'Cette option est réservée aux profils dont la vérification est déjà validée. Utilisez la fiche vérification pour les cas initiaux.'
+    );
+  }
+
+  const { data: pending } = await supabase
+    .from('profile_credential_change_requests')
+    .select('id')
+    .eq('user_id', internalId)
+    .eq('request_type', params.requestType)
+    .eq('status', 'pending')
+    .maybeSingle();
+  if (pending?.id) {
+    throw new Error('Une demande est déjà en attente pour ce type. Vous serez averti après traitement.');
+  }
+
+  const { data: uRow } = await supabase
+    .from('users')
+    .select('phone, professional_card_number, vtc_card_number')
+    .eq('id', internalId)
+    .maybeSingle();
+
+  let currentValue: string | null = null;
+  if (params.requestType === 'phone') {
+    currentValue = uRow?.phone ?? null;
+  } else if (params.requestType === 'vtc_number') {
+    currentValue = uRow?.professional_card_number || uRow?.vtc_card_number || null;
+  } else if (params.requestType === 'insurance') {
+    currentValue = null;
+  } else {
+    const { data: leg } = await supabase
+      .from('vtc_profiles')
+      .select('siret')
+      .or(`user_id.eq.${currentUserId},user_id.eq.${internalId}`)
+      .limit(1)
+      .maybeSingle();
+    currentValue = leg?.siret ?? null;
+  }
+
+  let requested = params.requestedValue.trim();
+  if (params.requestType === 'phone') {
+    requested = formatPhoneForSubmit(requested);
+  } else if (params.requestType === 'siret') {
+    requested = requested.replace(/\s/g, '');
+    if (requested.length !== 14 || !/^\d+$/.test(requested)) {
+      throw new Error('SIRET : 14 chiffres requis.');
+    }
+  } else if (params.requestType === 'vtc_number' && !requested) {
+    throw new Error('Indiquez le nouveau numéro de carte professionnelle.');
+  } else if (params.requestType === 'insurance') {
+    if (!requested) {
+      requested = 'Attestation RC Pro (mise à jour)';
+    }
+  }
+
+  if (params.requestType === 'vtc_number') {
+    if (!params.document?.uri || !params.documentVerso?.uri) {
+      throw new Error('Joignez le recto et le verso de la carte VTC (deux photos).');
+    }
+  } else if (params.requestType === 'insurance' && (!params.document || !params.document.uri)) {
+    throw new Error('Joignez la nouvelle attestation (photo ou PDF).');
+  }
+
+  const { data: row, error: insErr } = await supabase
+    .from('profile_credential_change_requests')
+    .insert({
+      user_id: internalId,
+      request_type: params.requestType,
+      current_value: currentValue,
+      requested_value: requested,
+      status: 'pending',
+    })
+    .select('id')
+    .single();
+  if (insErr) throw new Error(insErr.message);
+
+  const file = params.document;
+  if (
+    (params.requestType === 'phone' || params.requestType === 'siret') &&
+    (!file || !file.uri)
+  ) {
+    return { id: row.id, path: null as string | null, pathVerso: null as string | null };
+  }
+  if (!file?.uri) {
+    return { id: row.id, path: null as string | null, pathVerso: null as string | null };
+  }
+
+  const uploadOne = async (
+    f: { uri: string; type?: string; name?: string; base64?: string },
+    objectSuffix: string
+  ) => {
+    const ext = f.name?.split('.').pop() || (f.type?.includes('pdf') ? 'pdf' : 'jpg');
+    const contentType = f.type || (ext === 'pdf' ? 'application/pdf' : 'image/jpeg');
+    let b64: string;
+    if (f.base64?.trim()) {
+      b64 = f.base64.trim();
+    } else {
+      b64 = await FileSystem.readAsStringAsync(f.uri, { encoding: 'base64' });
+    }
+    const fileData = base64ToUint8Array(b64);
+    if (fileData.length === 0) {
+      throw new Error('Fichier vide ou illisible.');
+    }
+    const objectPath = `${internalId}/credential_request/${row.id}/${objectSuffix}.${ext}`;
+    const { data: up, error: upErr } = await supabase.storage
+      .from('driver-verification')
+      .upload(objectPath, fileData, { contentType, upsert: true });
+    if (upErr) {
+      await supabase.from('profile_credential_change_requests').delete().eq('id', row.id);
+      throw new Error(upErr.message);
+    }
+    return up.path;
+  };
+
+  const pathRecto = await uploadOne(file, 'proof_recto');
+
+  let pathVerso: string | null = null;
+  if (params.requestType === 'vtc_number' && params.documentVerso?.uri) {
+    pathVerso = await uploadOne(params.documentVerso, 'proof_verso');
+  }
+
+  const { error: updErr } = await supabase
+    .from('profile_credential_change_requests')
+    .update({
+      document_path: pathRecto,
+      document_path_verso: pathVerso,
+    })
+    .eq('id', row.id)
+    .eq('user_id', internalId)
+    .eq('status', 'pending');
+  if (updErr) throw new Error(updErr.message);
+
+  return { id: row.id, path: pathRecto, pathVerso };
 };
 
 
@@ -2981,6 +3803,7 @@ export const supabaseApi = {
   getGroup,
   createGroup,
   getGroupMembers,
+  previewGroupInvite,
   inviteToGroup,
   getMyGroupInvitations,
   respondToInvitation,
@@ -3004,7 +3827,9 @@ export const supabaseApi = {
   updateVTCProfile,
   deleteVTCProfile,
   getDriverVerification,
+  setVerificationIdDocumentType,
   uploadDriverVerificationDocument,
+  uploadLegalKbisDocument,
   submitDriverVerification,
   listPendingDriverVerifications,
   getDriverVerificationDocumentSignedUrl,
@@ -3027,7 +3852,9 @@ export const supabaseApi = {
   markNotificationRead,
   markAllNotificationsRead,
   insertInAppNotification,
-};
+  getMyCredentialChangeRequests,
+  createCredentialChangeRequest,
+  };
 
 export default supabaseApi;
 

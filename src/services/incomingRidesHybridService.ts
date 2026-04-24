@@ -10,11 +10,14 @@
 import { supabase } from '../lib/supabase';
 import * as Notifications from 'expo-notifications';
 import { RealtimeChannel } from '@supabase/supabase-js';
+import { isSameCorailUser } from '../utils/isSameCorailUser';
 
 let ridesChannel: RealtimeChannel | null = null;
 let groupRidesChannels: RealtimeChannel[] = [];
 let onNewRideCallback: ((ride: any) => void) | null = null;
 let currentUserId: string | null = null;
+/** `public.users.id` si différent de l’UUID auth (comptes migrés) */
+let canonicalUsersTableId: string | null = null;
 
 const MAX_RECONNECT_ATTEMPTS = 4;
 const RECONNECT_DELAYS_MS = [2000, 4000, 8000, 12000];
@@ -39,11 +42,13 @@ Notifications.setNotificationHandler({
  */
 export const initializeHybridSystem = async (
   userId: string,
-  onNewRide: (ride: any) => void
+  onNewRide: (ride: any) => void,
+  options?: { usersTableId?: string | null }
 ) => {
   console.log('🚀 Initialisation système hybride de notifications');
   
   currentUserId = userId;
+  canonicalUsersTableId = options?.usersTableId ?? null;
   onNewRideCallback = onNewRide;
 
   // 1. Demander les permissions et enregistrer le token push
@@ -80,6 +85,7 @@ export const stopHybridSystem = async () => {
   
   onNewRideCallback = null;
   currentUserId = null;
+  canonicalUsersTableId = null;
 };
 
 /**
@@ -109,7 +115,7 @@ const registerPushToken = async (userId: string) => {
     const { error } = await supabase
       .from('users')
       .update({ expo_push_token: token })
-      .eq('id', userId);
+      .or(`id.eq.${userId},supabase_auth_id.eq.${userId}`);
     
     if (error) {
       console.error('❌ Erreur enregistrement token:', error);
@@ -144,7 +150,23 @@ const startRealtimeListening = async (userId: string) => {
   const timestamp = Date.now();
   console.log('🔑 Canal unique ID:', timestamp);
 
-  // 1. Écouter les nouvelles courses marketplace (PUBLIC)
+  const handlePayload = (payload: { new: any }) => {
+    const row = payload.new;
+    console.log('📢 [REALTIME] Course reçue:', {
+      id: row.id,
+      status: row.status,
+      visibility: row.visibility,
+      creator_id: row.creator_id,
+    });
+    if (row.visibility !== 'PUBLIC') {
+      if (__DEV__) console.log('⚠️ Course ignorée (pas PUBLIC):', row.visibility);
+      return;
+    }
+    console.log('✅ Course PUBLIC valide, traitement...');
+    handleNewRide(row);
+  };
+
+  // 1. Écouter les nouvelles courses marketplace (INSERT + UPDATE → PUBLISHED)
   ridesChannel = supabase
     .channel(`marketplace-rides-${timestamp}`)
     .on(
@@ -155,23 +177,20 @@ const startRealtimeListening = async (userId: string) => {
         table: 'rides',
         filter: 'status=eq.PUBLISHED',
       },
+      (payload) => handlePayload(payload as { new: any })
+    )
+    .on(
+      'postgres_changes',
+      {
+        event: 'UPDATE',
+        schema: 'public',
+        table: 'rides',
+        filter: 'status=eq.PUBLISHED',
+      },
       (payload) => {
-        console.log('📢 [REALTIME] Nouvelle course reçue:', {
-          id: payload.new.id,
-          status: payload.new.status,
-          visibility: payload.new.visibility,
-          creator_id: payload.new.creator_id
-        });
-        
-        // Filtrer côté client : ignorer si ce n'est pas PUBLIC
-        if (payload.new.visibility !== 'PUBLIC') {
-          console.log('⚠️ Course ignorée (pas PUBLIC):', payload.new.visibility);
-          return;
-        }
-        
-        console.log('✅ Course PUBLIC valide, traitement...');
-        console.log('🔍 [REALTIME] creator_id:', payload.new.creator_id, '| currentUserId:', currentUserId);
-        handleNewRide(payload.new);
+        // Course passée à PUBLISHED (ex. créée depuis le site puis publiée)
+        if (__DEV__) console.log('📢 [REALTIME] Course mise à jour → PUBLISHED:', payload.new?.id);
+        handlePayload(payload as { new: any });
       }
     )
     .subscribe((status, err) => {
@@ -201,12 +220,19 @@ const startRealtimeListening = async (userId: string) => {
     });
 
   // 2. Écouter les nouvelles courses de mes groupes
-  const { data: userGroups } = await supabase
-    .from('group_members')
-    .select('group_id')
-    .eq('user_id', userId);
+  // Même utilisateur peut être enregistré comme users.id (legacy) ou auth.uid() — les deux doivent matcher.
+  const { data: userRow } = await supabase
+    .from('users')
+    .select('id')
+    .or(`id.eq.${userId},supabase_auth_id.eq.${userId}`)
+    .maybeSingle();
+  const canonicalUserId = userRow?.id ?? userId;
+  canonicalUsersTableId = userRow?.id ?? canonicalUsersTableId ?? null;
+  const memberUserIds = [...new Set([userId, canonicalUserId].filter(Boolean))];
+  const memberOr = memberUserIds.map((id) => `user_id.eq.${id}`).join(',');
+  const { data: userGroups } = await supabase.from('group_members').select('group_id').or(memberOr);
 
-  const groupIds = userGroups?.map(g => g.group_id) || [];
+  const groupIds = userGroups?.map((g) => g.group_id) || [];
   console.log(`👥 Écoute de ${groupIds.length} groupe(s)`);
 
   if (groupIds.length > 0) {
@@ -271,15 +297,17 @@ const startRealtimeListening = async (userId: string) => {
  * Gérer une nouvelle course détectée
  */
 const handleNewRide = (ride: any) => {
+  const own = currentUserId ? isSameCorailUser(ride.creator_id, currentUserId, canonicalUsersTableId) : false;
   console.log('🔍 [handleNewRide] Traitement course:', {
     rideId: ride.id,
     creatorId: ride.creator_id,
     currentUserId,
-    isOwnRide: ride.creator_id === currentUserId,
+    canonicalUsersTableId,
+    isOwnRide: own,
   });
   
-  // Ignorer si c'est ma propre course
-  if (ride.creator_id === currentUserId) {
+  // Ignorer si c'est ma propre course (auth.uid ou public.users.id legacy)
+  if (own) {
     console.log('⚠️ Course créée par moi-même, ignorée');
     return;
   }

@@ -2,6 +2,7 @@ import React from "react"
 import type { Metadata } from 'next'
 import { DM_Sans, Playfair_Display } from 'next/font/google'
 import { Analytics } from '@vercel/analytics/next'
+import { ScrollProgress } from '@/components/landing/ScrollProgress'
 import './globals.css'
 
 const dmSans = DM_Sans({ subsets: ["latin"], variable: "--font-dm-sans" });
@@ -12,13 +13,13 @@ const SITE_URL = 'https://getcorail.com';
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
   title: 'Corail - Réservation transport avec chauffeur privé',
-  description: 'Gérez vos courses, partagez vos réservations avec des chauffeurs de confiance et développez votre activité. Devis, facturation et planning intégrés.',
+  description: 'Réseau de chauffeurs indépendants, 0% de commission. Réservez votre course ou rejoignez un réseau premium, structuré et gratuit. Mise en relation, transparence, confirmation par mail.',
   alternates: {
     canonical: SITE_URL,
   },
   openGraph: {
     title: 'Corail - Réserver une course | Réseau de chauffeurs privés',
-    description: 'Réservez votre course en quelques clics. Les chauffeurs du réseau Corail vous répondent. Chauffeurs : rejoignez un réseau premium, gratuit et indépendant.',
+    description: 'Réseau de chauffeurs indépendants, 0% de commission. Réservez votre course ou rejoignez un réseau premium, structuré et gratuit.',
     url: SITE_URL,
     siteName: 'Corail',
     images: [
@@ -35,7 +36,7 @@ export const metadata: Metadata = {
   twitter: {
     card: 'summary_large_image',
     title: 'Corail - Réserver une course | Réseau de chauffeurs privés',
-    description: 'Réservez votre course en quelques clics. Chauffeurs : rejoignez un réseau premium, gratuit et indépendant.',
+    description: 'Réseau de chauffeurs indépendants, 0% de commission. Réservez votre course ou rejoignez un réseau premium, structuré et gratuit.',
     images: ['/images/corail-logo.png'],
   },
   icons: {
@@ -52,6 +53,7 @@ export default function RootLayout({
   return (
     <html lang="fr" className={`${dmSans.variable} ${playfair.variable}`}>
       <body className="font-sans antialiased">
+        <ScrollProgress />
         {children}
         <Analytics />
       </body>

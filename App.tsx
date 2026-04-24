@@ -38,7 +38,7 @@ Sentry.init({
   },
 });
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   View,
   Text,
@@ -49,6 +49,7 @@ import {
   ActivityIndicator,
   AppState,
   AppStateStatus,
+  Platform,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons, MaterialIcons, FontAwesome5 } from '@expo/vector-icons';
@@ -100,12 +101,15 @@ import { useRides, usePersonalRides, useCredits, useBadges, useGroups, useRideAc
 import Toast from 'react-native-toast-message';
 import { toastConfig } from './src/config/toastConfig';
 import { apiClient } from './src/services/api';
+import { supabase } from './src/lib/supabase';
 import { haptic } from './src/services/haptic';
 import { toast } from './src/services/toast';
+import * as Notifications from 'expo-notifications';
 import * as IncomingRidesService from './src/services/incomingRidesHybridService';
-import { setupNotificationListeners } from './src/services/pushNotifications';
+import { routeNotificationTapData, type NotificationNavHandlers } from './src/services/notificationDeepLink';
 import { logger } from './src/services/logger';
 import { formatName } from './src/utils/formatName';
+import { isSameCorailUser } from './src/utils/isSameCorailUser';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as SplashScreen from 'expo-splash-screen';
 import LoadingScreen from './src/components/LoadingScreen';
@@ -113,7 +117,7 @@ import OnboardingScreen from './src/screens/OnboardingScreen';
 import { appStyles } from './src/styles/App.styles';
 import type { Ride } from './src/types';
 
-const ONBOARDING_SEEN_KEY = '@corail_onboarding_seen';
+const onboardingSeenKeyForUser = (userId: string) => `@corail_onboarding_seen_${userId}`;
 
 const { width } = Dimensions.get('window');
 
@@ -144,6 +148,7 @@ function AppContent() {
     verificationSubmittedAt,
     isAdmin,
     hasAcceptedTerms,
+    publicUsersRowId,
     loadVerificationStatus,
     signOut,
   } = useAuth();
@@ -253,6 +258,8 @@ function AppContent() {
     setMyRidesTab,
     forceShowOnboarding,
     setForceShowOnboarding,
+    prepareForNotificationNavigation,
+    restoreAfterNotificationModalCloseIfNeeded,
   } = useNavigation();
   
   // 🆔 ID de l'utilisateur courant (Supabase Auth ID)
@@ -265,6 +272,8 @@ function AppContent() {
 
   // 📨 État pour les invitations de groupe en attente
   const [pendingInvitationsCount, setPendingInvitationsCount] = useState(0);
+  /** Recharge accueil (badge demandes site) après accept/refus dans l’écran modale */
+  const [driverRequestsRefreshNonce, setDriverRequestsRefreshNonce] = useState(0);
 
   // 🚗 États pour le système de notifications de courses entrantes
   const [incomingRide, setIncomingRide] = useState<any | null>(null);
@@ -309,48 +318,70 @@ function AppContent() {
     loadRidesRef.current = loadRides;
   }, [loadRides]);
 
-  // 📨 Charger le nombre d'invitations en attente + s'assurer qu'elles apparaissent dans la cloche
-  const loadPendingInvitations = React.useCallback(async () => {
-    if (!currentUserId) return;
-    try {
-      const invitations = await apiClient.getMyGroupInvitations();
-      const list = Array.isArray(invitations) ? invitations : [];
-      setPendingInvitationsCount(list.length);
-      for (const inv of list) {
-        const key = `@corail_group_invitation_notif_${inv.id}`;
-        try {
-          const already = await AsyncStorage.getItem(key);
-          if (already === 'true') continue;
-          const groupName = inv.group?.name || 'Un groupe';
-          const inviterName = inv.inviter?.full_name?.trim() || 'Quelqu\'un';
-          await apiClient.insertInAppNotification({
-            type: 'group_invitation',
-            title: 'Invitation à un groupe',
-            body: `${inviterName} vous invite à rejoindre « ${groupName} ».`,
-            target_screen: 'group_invitations',
-          });
-          await AsyncStorage.setItem(key, 'true');
-        } catch (_) {}
-      }
-      if (list.length > 0) loadUnreadNotificationsCount();
-    } catch (error) {
-      console.error('❌ Erreur chargement invitations:', error);
-    }
-  }, [currentUserId, loadUnreadNotificationsCount]);
-
-  // 🔔 Compteur de notifications in-app (pastille cloche)
+  // 🔔 Compteur de notifications in-app (pastille cloche) — déclaré avant loadPendingInvitations (pas de TDZ)
   const [unreadNotificationsCount, setUnreadNotificationsCount] = useState(0);
   const loadUnreadNotificationsCount = React.useCallback(async () => {
     if (!currentUserId) return;
     try {
       const count = await apiClient.getUnreadNotificationsCount();
       setUnreadNotificationsCount(count);
+      if (Platform.OS === 'ios') {
+        await Notifications.setBadgeCountAsync(count);
+      }
     } catch (_) {}
+  }, [currentUserId]);
+
+  /** Tap push new_ride / ride_in_group : Annonces + filtre + fiche course + données à jour */
+  const openRideFromPush = useCallback(
+    async (rideId: string, filter: 'all' | 'public' | 'groups') => {
+      setCurrentScreen('courses');
+      setCoursesTab('marketplace');
+      setActiveFilter(filter);
+      try {
+        await Promise.all([loadRides(), loadGroups()]);
+      } catch (_) {}
+      try {
+        const ride = await apiClient.getRide(rideId);
+        if (ride) setSelectedRide(ride);
+      } catch (_) {}
+      await loadUnreadNotificationsCount();
+    },
+    [
+      setCurrentScreen,
+      setCoursesTab,
+      setActiveFilter,
+      loadRides,
+      loadGroups,
+      setSelectedRide,
+      loadUnreadNotificationsCount,
+    ]
+  );
+
+  // 📨 Invitations reçues (badge profil) — les lignes in-app sont créées par le trigger SQL uniquement (pas de doublon client)
+  const loadPendingInvitations = React.useCallback(async () => {
+    if (!currentUserId) return;
+    try {
+      const invitations = await apiClient.getMyGroupInvitations();
+      const list = Array.isArray(invitations) ? invitations : [];
+      setPendingInvitationsCount(list.length);
+    } catch (error) {
+      console.error('❌ Erreur chargement invitations:', error);
+    }
   }, [currentUserId]);
 
   // 🚗 Handlers pour les courses entrantes
   const handleAcceptRide = async () => {
     if (!incomingRide) return;
+
+    if (!isDriverVerified) {
+      toast.warning(
+        'Profil vérifié requis',
+        'Vous ne pouvez prendre une course réseau qu’avec un profil chauffeur validé.'
+      );
+      setShowIncomingModal(false);
+      setIncomingRide(null);
+      return;
+    }
     
     try {
       console.log('✅ Acceptation de la course:', incomingRide.id);
@@ -399,14 +430,63 @@ function AppContent() {
     loadUnreadNotificationsCount();
   }, [loadUnreadNotificationsCount]);
 
-  // Rafraîchir la pastille de la cloche quand l'app repasse au premier plan (ex: après une push)
+  // P0-4 : onglet Courses > Mes courses = même source que le planning (état app à jour)
   useEffect(() => {
     if (!currentUserId) return;
-    const sub = AppState.addEventListener('change', (next: AppStateStatus) => {
-      if (next === 'active') loadUnreadNotificationsCount();
+    if (currentScreen !== 'courses' || coursesTab !== 'myrides') return;
+    loadRides().catch(() => {});
+    loadPersonalRides().catch(() => {});
+  }, [currentScreen, coursesTab, currentUserId, loadRides, loadPersonalRides]);
+
+  // Nouvelle ligne in_app_notifications → pastille cloche (nécessite migration 078 + trigger SQL)
+  useEffect(() => {
+    if (!currentUserId) return;
+    const uid = String(currentUserId);
+    const channel = supabase
+      .channel(`in-app-notifs-${uid}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'in_app_notifications',
+          filter: `user_id=eq.${uid}`,
+        },
+        () => {
+          loadUnreadNotificationsCount();
+        }
+      )
+      .subscribe();
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [currentUserId, loadUnreadNotificationsCount]);
+
+  // Push reçue au premier plan → recharger la cloche (notif in-app souvent déjà insérée côté serveur)
+  useEffect(() => {
+    if (!currentUserId) return;
+    const sub = Notifications.addNotificationReceivedListener(() => {
+      loadUnreadNotificationsCount();
     });
     return () => sub.remove();
   }, [currentUserId, loadUnreadNotificationsCount]);
+
+  // Au retour depuis l’arrière-plan : cloche + listes annonces / groupes + courses perso + vérif (P0-4 / P0-5)
+  const appStateResumeRef = useRef(AppState.currentState);
+  useEffect(() => {
+    if (!currentUserId) return;
+    const sub = AppState.addEventListener('change', (next: AppStateStatus) => {
+      const prev = appStateResumeRef.current;
+      appStateResumeRef.current = next;
+      if (next !== 'active' || (prev !== 'background' && prev !== 'inactive')) return;
+      loadUnreadNotificationsCount();
+      loadRides().catch(() => {});
+      loadGroups().catch(() => {});
+      loadPersonalRides().catch(() => {});
+      loadVerificationStatus().catch(() => {});
+    });
+    return () => sub.remove();
+  }, [currentUserId, loadUnreadNotificationsCount, loadRides, loadGroups, loadPersonalRides, loadVerificationStatus]);
 
   // 🪸 Rappel « Terminer votre course » : afficher 1 par 1 quand l'app repasse au premier plan (courses passées CLAIMED > 30 min)
   useEffect(() => {
@@ -426,6 +506,7 @@ function AppContent() {
   // 🎯 Hook pour les actions sur les courses
   const { handleDeleteRide, handleCompleteRide, handleClaimRide, handleCreateRide } = useRideActions({
     currentUserId,
+    publicUsersRowId,
     userName: userFullName,
     userCredits,
     verificationStatus,
@@ -433,6 +514,7 @@ function AppContent() {
     loadRides,
     loadPersonalRides,
     loadCredits,
+    onAfterNetworkRideCreated: loadUnreadNotificationsCount,
   });
 
   // 🔔 Hook pour les notifications (initialisation automatique)
@@ -442,18 +524,55 @@ function AppContent() {
     verificationStatus,
   });
 
-  // 📬 Au tap sur une notification (ex. devis accepté/refusé), ouvrir l'écran concerné
+  /** Ref pour le routage push / tap sans fermer sur des deps instables */
+  const notificationNavRef = useRef<NotificationNavHandlers | null>(null);
+  useEffect(() => {
+    notificationNavRef.current = {
+      setCurrentScreen,
+      setCoursesTab,
+      setActiveFilter,
+      openRideFromPush,
+      setShowMyQuotes,
+      setShowGroupInvitations,
+      setShowGroups,
+      setShowDriverRequests,
+      setShowVTCProfile,
+      setShowVerificationProfile,
+      setShowAdminPanel,
+      setShowPlanning,
+      loadUnreadNotificationsCount,
+      loadVerificationStatus,
+      prepareForNotificationNavigation,
+    };
+  });
+
+  // 📬 Tap sur une notification (push ou locale) : une seule subscription, routage par data.type
   useEffect(() => {
     if (!user) return;
-    const unsubscribe = setupNotificationListeners(undefined, (response) => {
-      const data = response?.notification?.request?.content?.data;
-      if (!data) return;
-      if (data.type === 'quote_accepted' || data.type === 'quote_refused') {
-        setShowMyQuotes(true);
+    const sub = Notifications.addNotificationResponseReceivedListener((response) => {
+      const data = response.notification.request.content.data as Record<string, unknown>;
+      if (notificationNavRef.current) {
+        routeNotificationTapData(data, notificationNavRef.current);
       }
     });
-    return unsubscribe;
+    return () => sub.remove();
   }, [user]);
+
+  // Cold start : ouverture de l’app via une notification (tuile iOS / Android)
+  useEffect(() => {
+    if (!user?.id) return;
+    let cancelled = false;
+    Notifications.getLastNotificationResponseAsync().then((response) => {
+      if (cancelled || !response?.notification) return;
+      const data = response.notification.request.content.data as Record<string, unknown>;
+      if (notificationNavRef.current) {
+        routeNotificationTapData(data, notificationNavRef.current);
+      }
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [user?.id]);
 
   // 📊 Hook pour le tracking des écrans (analytics automatique)
   useScreenTracking({
@@ -485,7 +604,7 @@ function AppContent() {
         console.log('📢 Nouvelle course détectée:', ride);
         
         // Vérifier que ce n'est pas une course créée par l'utilisateur lui-même
-        if (ride.creator_id === currentUserId) {
+        if (isSameCorailUser(ride.creator_id, currentUserId, publicUsersRowId)) {
           console.log('⚠️ Course créée par moi-même, ignorée');
           return;
         }
@@ -507,17 +626,9 @@ function AppContent() {
           console.log('🔕 App en arrière-plan → Notification');
           IncomingRidesService.sendLocalNotification(ride);
         }
-      }
+      },
+      { usersTableId: publicUsersRowId }
     );
-
-    // Écouter les clics sur les notifications
-    const unsubscribeNotifications = IncomingRidesService.setupNotificationListener((rideId) => {
-      console.log('📱 Notification tapée, rideId:', rideId);
-      
-      // Ouvrir l'app sur l'onglet Courses / Marketplace
-      setCurrentScreen('courses');
-      setCoursesTab('marketplace');
-    });
 
     // Écouter les changements d'état de l'app
     const appStateSubscription = AppState.addEventListener('change', (nextAppState: AppStateStatus) => {
@@ -529,23 +640,22 @@ function AppContent() {
     return () => {
       console.log('🔕 Nettoyage du système de notifications');
       IncomingRidesService.stopHybridSystem();
-      unsubscribeNotifications();
       appStateSubscription.remove();
     };
-  }, [currentUserId, user, verificationStatus]);
+  }, [currentUserId, user, verificationStatus, publicUsersRowId, isDriverVerified]);
 
   // ✅ L'authentification, les données et la navigation sont gérées par les Contexts !
   
   // ✅ Les données (rides, credits, badges, groups) sont maintenant gérées par AppDataContext
   // Plus besoin de useState ici !
 
-  // Charger la préférence onboarding (affiché une seule fois)
+  // Charger la préférence onboarding (une fois par compte, pas seulement par appareil)
   useEffect(() => {
-    if (!user || !hasAcceptedTerms) return;
-    AsyncStorage.getItem(ONBOARDING_SEEN_KEY).then((v) => {
+    if (!user?.id || !hasAcceptedTerms) return;
+    AsyncStorage.getItem(onboardingSeenKeyForUser(user.id)).then((v) => {
       setOnboardingSeen(v === 'true');
     });
-  }, [user, hasAcceptedTerms]);
+  }, [user?.id, hasAcceptedTerms]);
 
   /** Même logique que les `return <LoadingScreen />` : tant que vrai, le splash natif reste affiché. */
   const isBlockingLaunchScreen =
@@ -648,7 +758,9 @@ function AppContent() {
     return (
       <OnboardingScreen
         onComplete={async () => {
-          await AsyncStorage.setItem(ONBOARDING_SEEN_KEY, 'true');
+          if (user?.id) {
+            await AsyncStorage.setItem(onboardingSeenKeyForUser(user.id), 'true');
+          }
           setOnboardingSeen(true);
           setForceShowOnboarding(false);
         }}
@@ -741,9 +853,11 @@ function AppContent() {
     loadRides,
     loadCredits,
     loadUnreadNotificationsCount,
+    onDriverRequestsListChanged: () => setDriverRequestsRefreshNonce((n) => n + 1),
     setCurrentScreen,
     setCoursesTab,
     setActiveFilter,
+    restoreAfterNotificationTap: restoreAfterNotificationModalCloseIfNeeded,
   });
   if (modalScreen !== null) return modalScreen;
 
@@ -762,7 +876,9 @@ function AppContent() {
             onRefreshVerification={loadVerificationStatus}
             userFullName={userFullName}
             currentUserId={currentUserId}
+            publicUsersRowId={publicUsersRowId}
             userRides={rides}
+            userGroups={userGroups}
             pendingInvitationsCount={pendingInvitationsCount}
             onNavigateToCourses={() => {
               setCoursesTab('marketplace');
@@ -792,6 +908,15 @@ function AppContent() {
             onShowNotifications={() => setShowNotifications(true)}
             unreadNotificationsCount={unreadNotificationsCount}
             onRefreshUnreadCount={loadUnreadNotificationsCount}
+            onNavigateToGroupRides={() => {
+              setCoursesTab('marketplace');
+              setActiveFilter('groups');
+              setCurrentScreen('courses');
+            }}
+            onRefreshRides={async () => {
+              await Promise.all([loadRides(), loadGroups()]);
+            }}
+            driverRequestsRefreshNonce={driverRequestsRefreshNonce}
           />
         )}
         {currentScreen === 'courses' && (
@@ -812,6 +937,7 @@ function AppContent() {
                 loadRides={loadRides}
                 rides={rides}
                 currentUserId={currentUserId}
+                publicUsersRowId={publicUsersRowId}
                 loadingRides={loadingRides}
                 selectedCity={selectedCity}
                 activeFilter={activeFilter}
@@ -844,6 +970,7 @@ function AppContent() {
                 rides={rides}
                 personalRides={personalRides}
                 currentUserId={currentUserId}
+                publicUsersRowId={publicUsersRowId}
                 activeTab={myRidesTab}
                 onTabChange={setMyRidesTab}
                 onCreateRide={() => {

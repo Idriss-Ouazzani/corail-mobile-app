@@ -86,7 +86,7 @@ export const MarketplaceScreen = ({ navigation }: any) => {
       <SafeAreaView style={styles.container} edges={['top']}>
         <LinearGradient colors={['#0c4a6e', '#075985']} style={styles.gradient}>
           <View style={styles.header}>
-            <Text style={styles.title}>Marketplace</Text>
+            <Text style={styles.title}>Réseau public</Text>
             <Text style={styles.subtitle}>Erreur de chargement</Text>
           </View>
           <View style={styles.errorContainer}>
@@ -110,7 +110,7 @@ export const MarketplaceScreen = ({ navigation }: any) => {
       >
         {/* Header */}
         <View style={styles.header}>
-          <Text style={styles.title}>Marketplace</Text>
+          <Text style={styles.title}>Réseau public</Text>
           <Text style={styles.subtitle}>{rides.length} courses disponibles</Text>
         </View>
 

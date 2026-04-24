@@ -19,7 +19,7 @@ Pour qu'une notification apparaisse dans la cloche, elle **doit** être inséré
 - **rides** (055, 059) : course réclamée → créateur ; course terminée → créateur ; notation reçue → créateur ; course annulée → chauffeur (picker).
 - **rides** (060) : nouvelle course en visibilité groupe → tous les membres du groupe sauf le créateur (`ride_in_group`, tap → Annonces filtrées par Groupes).
 - **vtc_profiles** (056, 057, 059) : soumission documents → tous les admins ; statut `approved` → utilisateur (`verification_approved`) ; statut `rejected` → utilisateur (`verification_rejected`).
-- **group_invitations** (059) : nouvelle invitation avec `invitee_id` renseigné → invité (`group_invitation`, ouvre l’écran des invitations).
+- **group_invitations** (059) : nouvelle invitation avec `invitee_id` renseigné → invité (`group_invitation`, ouvre l’écran des invitations). **Ne pas** recréer la même ligne depuis l’app client (`loadPendingInvitations`) : cela doublait la notif et pouvait faire apparaître une ligne pour l’inviteur si la requête renvoyait des lignes ambiguës.
 - **quotes** (060) : devis accepté ou refusé → chauffeur (`quote_accepted` / `quote_refused`, tap → page de la course concernée, ride ou personal_ride).
 - **driver_ride_requests** (061) : réservation directe depuis le site (demande adressée au chauffeur) → chauffeur (`ride_from_site`, tap → écran Demandes).
 

@@ -48,7 +48,6 @@ export const GroupInvitationsBanner: React.FC<GroupInvitationsBannerProps> = ({ 
 
 const styles = StyleSheet.create({
   container: {
-    marginHorizontal: 20,
     marginBottom: 16,
     borderRadius: 12,
     overflow: 'hidden',
