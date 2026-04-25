@@ -38,7 +38,7 @@ Sentry.init({
   },
 });
 
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import {
   View,
   Text,
@@ -305,6 +305,19 @@ function AppContent() {
       (r) => Date.now() - new Date(r.updated_at).getTime() >= REMINDER_30MIN_MS
     );
   }, [claimedByMeRidesPast]);
+
+  /** Annonces disponibles (hors mes pubs) — doit rester avant tout return conditionnel (règles des hooks). */
+  const marketplaceAvailableCount = useMemo(() => {
+    return (rides || []).filter((ride: any) => {
+      if (!ride) return false;
+      if (String(ride.status || '').toUpperCase() !== 'PUBLISHED') return false;
+      if (currentUserId && isSameCorailUser(ride.creator_id, currentUserId, publicUsersRowId)) return false;
+      const t = ride.scheduled_at ? new Date(ride.scheduled_at).getTime() : NaN;
+      if (!Number.isNaN(t) && t < Date.now()) return false;
+      return true;
+    }).length;
+  }, [rides, currentUserId, publicUsersRowId]);
+
   const shouldShowReminderRef = useRef(shouldShowReminder);
   const claimedByMeRidesPastRef = useRef(claimedByMeRidesPast);
   useEffect(() => {
@@ -859,6 +872,7 @@ function AppContent() {
     setActiveFilter,
     restoreAfterNotificationTap: restoreAfterNotificationModalCloseIfNeeded,
   });
+
   if (modalScreen !== null) return modalScreen;
 
 
@@ -928,6 +942,7 @@ function AppContent() {
             onRefreshVerification={loadVerificationStatus}
             onOpenVerificationProfile={() => setShowVerificationProfile(true)}
             userCredits={userCredits}
+            marketplaceAvailableCount={marketplaceAvailableCount}
             equilibreDismissedThisSession={equilibreDismissedThisSession}
             onShowCreditsOnboarding={() => setShowCreditsOnboarding(true)}
             marketplaceContent={
@@ -1082,6 +1097,7 @@ function AppContent() {
         <BottomNavigation
           currentScreen={currentScreen}
           onNavigate={setCurrentScreen}
+          marketplaceAvailableCount={marketplaceAvailableCount}
           onCreateRide={() => {
             setCreateRideMode('create');
             setShowCreateRide(true);

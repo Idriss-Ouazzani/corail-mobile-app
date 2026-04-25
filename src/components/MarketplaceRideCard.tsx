@@ -85,14 +85,21 @@ export function MarketplaceRideCard({ ride, currentUserId, publicUsersRowId = nu
   const dropoff = shorten(ride.dropoff_address || '');
   const when = formatWhen(ride.scheduled_at);
   const isClientDemand = ride.source === 'client';
-  const price = ride.price_cents != null ? `${(ride.price_cents / 100).toFixed(0)} €` : '—';
+  const hasPrice = ride.price_cents != null && ride.price_cents > 0;
+  const lastRefused = (ride as { last_refused_quote_cents?: number | null }).last_refused_quote_cents;
+  const price = hasPrice
+    ? `${(ride.price_cents! / 100).toFixed(0)} €`
+    : isClientDemand
+      ? 'Devis'
+      : '—';
   const indicativeRange =
     isClientDemand && ride.indicative_low_cents != null && ride.indicative_high_cents != null
       ? `${(ride.indicative_low_cents / 100).toFixed(0)}€ – ${(ride.indicative_high_cents / 100).toFixed(0)}€`
       : null;
-  const pricePerKm = ride.distance_km != null && ride.distance_km > 0 && ride.price_cents != null
-    ? ((ride.price_cents / 100) / ride.distance_km).toFixed(2)
-    : null;
+  const pricePerKm =
+    ride.distance_km != null && ride.distance_km > 0 && hasPrice
+      ? ((ride.price_cents! / 100) / ride.distance_km).toFixed(2)
+      : null;
   const extra = [ride.distance_km != null && `${ride.distance_km} km`, ride.duration_minutes != null && `${ride.duration_minutes} min`]
     .filter(Boolean)
     .join(' · ');
@@ -132,8 +139,13 @@ export function MarketplaceRideCard({ ride, currentUserId, publicUsersRowId = nu
             {isClientDemand && indicativeRange != null && (
               <Text style={styles.indicativeRange}>Fourchette : {indicativeRange}</Text>
             )}
+            {isClientDemand && lastRefused != null && lastRefused > 0 && (
+              <Text style={styles.refusedHint}>Dernier devis refusé : {(lastRefused / 100).toFixed(0)} €</Text>
+            )}
             <Text style={styles.price}>{price}</Text>
-            {isClientDemand && <Text style={styles.budgetClient}>Budget client</Text>}
+            {isClientDemand && (
+              <Text style={styles.budgetClient}>{hasPrice ? 'Montant public' : 'Demande de devis'}</Text>
+            )}
             {pricePerKm != null && !isClientDemand && (
               <Text style={styles.pricePerKm}>{pricePerKm} €/km</Text>
             )}
@@ -285,6 +297,13 @@ const styles = StyleSheet.create({
   indicativeRange: {
     fontSize: 11,
     color: '#94a3b8',
+  },
+  refusedHint: {
+    fontSize: 10,
+    color: '#fbbf24',
+    fontWeight: '600',
+    maxWidth: 120,
+    textAlign: 'right',
   },
   budgetClient: {
     fontSize: 11,

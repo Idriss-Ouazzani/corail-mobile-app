@@ -8,10 +8,10 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Calendar as CalendarIcon, Clock, Euro, Baby, Wifi, Briefcase, PawPrint, Users, ArrowRight, Sparkles } from "lucide-react";
+import { Calendar as CalendarIcon, Clock, Baby, Wifi, Briefcase, PawPrint, Users, ArrowRight, Sparkles } from "lucide-react";
 import { AddressAutocomplete, type AddressSuggestion } from "./AddressAutocomplete";
 import { calculateDistanceKm } from "@/lib/distance";
-import { computeIndicativeRange, formatEUR, roundToFiftyCents } from "@/lib/pricing";
+import { computeIndicativeRange, formatEUR } from "@/lib/pricing";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -43,8 +43,6 @@ export function BookingForm() {
   const [arrivalLabel, setArrivalLabel] = useState("");
   const [date, setDate] = useState<Date | undefined>(undefined);
   const [time, setTime] = useState<string>("");
-  const [budgetChoice, setBudgetChoice] = useState<"median" | "custom" | null>(null);
-  const [budget, setBudget] = useState("");
   const [datePickerOpen, setDatePickerOpen] = useState(false);
   const [clientName, setClientName] = useState("");
   const [clientEmail, setClientEmail] = useState("");
@@ -71,10 +69,6 @@ export function BookingForm() {
       : null;
 
   const indicativeRange = distanceKm != null && distanceKm > 0 ? computeIndicativeRange(distanceKm) : null;
-  const medianEur = indicativeRange ? roundToFiftyCents((indicativeRange.low + indicativeRange.high) / 2) : 0;
-  const budgetValue = budget !== "" ? parseFloat(budget.replace(",", ".")) : null;
-  const isBudgetAboveRange = indicativeRange != null && budgetValue != null && !Number.isNaN(budgetValue) && budgetValue > indicativeRange.high;
-  const effectiveBudget = budgetChoice === "median" ? String(medianEur) : budget;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -92,12 +86,6 @@ export function BookingForm() {
     const phone = clientPhone.trim().replace(/\s/g, "");
     if (!email && !phone) {
       setSubmitError("Indiquez au moins votre email ou votre téléphone pour recevoir la confirmation de votre réservation.");
-      setSubmitStatus("error");
-      return;
-    }
-    const budgetNum = parseFloat((effectiveBudget || "0").replace(",", "."));
-    if (!Number.isFinite(budgetNum) || budgetNum <= 0) {
-      setSubmitError("Veuillez indiquer un budget (option prix médian ou montant personnalisé).");
       setSubmitStatus("error");
       return;
     }
@@ -119,7 +107,6 @@ export function BookingForm() {
       pickup_address: departureAddress.label,
       dropoff_address: arrivalAddress.label,
       scheduled_at: scheduledAt.toISOString(),
-      price_cents: Math.round(budgetNum * 100),
       distance_km: distanceKm ?? undefined,
       indicative_low_cents: indicativeRange ? Math.round(indicativeRange.low * 100) : undefined,
       indicative_high_cents: indicativeRange ? Math.round(indicativeRange.high * 100) : undefined,
@@ -179,21 +166,14 @@ export function BookingForm() {
             Réservez simplement
           </h2>
           <p className="text-muted-foreground text-lg max-w-2xl mx-auto leading-relaxed">
-            Indiquez votre trajet, choisissez un tarif recommandé ou proposez le vôtre.
+            Indiquez votre trajet. Vous voyez une <strong className="text-foreground/90">estimation indicative</strong> (non contractuelle) : le chauffeur vous envoie un devis.
             <br />
-            Un chauffeur disponible du réseau confirme votre réservation.
-            <br />
-            Vous êtes ensuite mis en relation directement. Vous recevez une confirmation par email.
-            <br />
-            <span className="text-foreground/80 font-medium">Paiement effectué auprès du chauffeur.</span>
+            <span className="text-foreground/80 font-medium">Paiement auprès du chauffeur.</span>
           </p>
         </div>
 
         <div className="max-w-3xl mx-auto min-w-0 px-2 sm:px-0">
           <form className="form-focus-ring bg-card/80 backdrop-blur-sm border border-border/80 rounded-3xl p-6 sm:p-8 lg:p-10 shadow-xl shadow-black/5 overflow-hidden min-w-0 max-w-full" onSubmit={handleSubmit}>
-            {indicativeRange && budgetChoice != null && (
-              <input type="hidden" name="budget" value={effectiveBudget} />
-            )}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8 min-w-0">
               <AddressAutocomplete
                 label="Adresse de départ"
@@ -306,74 +286,11 @@ export function BookingForm() {
             </div>
 
             {indicativeRange && (
-              <div className="mb-8 space-y-4">
-                <p className="text-sm font-medium text-foreground">
-                  Tarifs habituellement constatés pour ce trajet : {formatEUR(indicativeRange.low)} – {formatEUR(indicativeRange.high)}.
+              <div className="mb-8 p-4 rounded-2xl border border-border/80 bg-muted/20">
+                <p className="text-sm font-medium text-foreground">Estimation indicative (non contractuelle)</p>
+                <p className="text-sm text-muted-foreground mt-1">
+                  Fourchette usuelle : {formatEUR(indicativeRange.low)} – {formatEUR(indicativeRange.high)}. Le tarif retenu sera sur le devis du professionnel.
                 </p>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <button
-                    type="button"
-                    onClick={() => { setBudgetChoice("median"); setBudget(""); }}
-                    className={cn(
-                      "text-center p-5 rounded-2xl border-2 transition-all flex flex-col items-center",
-                      budgetChoice === "median"
-                        ? "border-green-500/60 bg-green-500/10"
-                        : "border-border bg-muted/30 hover:border-green-500/40 hover:bg-green-500/5"
-                    )}
-                  >
-                    <span className="text-sm font-semibold text-foreground mb-2">
-                      Réserver au prix médian
-                    </span>
-                    {budgetChoice === "median" && (
-                      <div className="mt-3 space-y-2 w-full flex flex-col items-center text-center">
-                        <p className="text-sm text-muted-foreground">
-                          Prix suggéré pour confirmation rapide : <strong className="text-foreground">{formatEUR(medianEur)}</strong>
-                        </p>
-                        <p className="text-xs text-muted-foreground">
-                          Suggestion médiane indicative. Le chauffeur peut accepter ou proposer un ajustement.
-                        </p>
-                        <Button type="submit" size="sm" className="mt-2 w-full bg-green-600 hover:bg-green-700 text-white">
-                          Réserver à {formatEUR(medianEur)} (confirmation rapide)
-                        </Button>
-                      </div>
-                    )}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setBudgetChoice("custom")}
-                    className={cn(
-                      "text-center p-5 rounded-2xl border-2 transition-all flex flex-col items-center",
-                      budgetChoice === "custom"
-                        ? "border-blue-500/60 bg-blue-500/10"
-                        : "border-border bg-muted/30 hover:border-blue-500/40 hover:bg-blue-500/5"
-                    )}
-                  >
-                    <span className="text-sm font-semibold text-foreground mb-2">
-                      Proposer un autre budget
-                    </span>
-                    {budgetChoice === "custom" && (
-                      <div className="mt-3 w-full flex flex-col items-stretch text-center">
-                        <Label htmlFor="budget" className="text-xs text-muted-foreground block text-left mb-1">Mon budget</Label>
-                        <div className="relative w-full max-w-full">
-                          <Euro className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
-                          <Input
-                            id="budget"
-                            type="number"
-                            placeholder="45"
-                            value={budget}
-                            onChange={(e) => setBudget(e.target.value)}
-                            className="w-full pl-9 pr-3 h-10 bg-background border-border rounded-xl text-sm [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                            onClick={(e) => e.stopPropagation()}
-                          />
-                        </div>
-                        <p className="mt-1 text-xs text-muted-foreground">Montant en euros</p>
-                        {isBudgetAboveRange && (
-                          <p className="mt-1 text-xs text-amber-600 dark:text-amber-500">Budget supérieur aux tarifs habituels.</p>
-                        )}
-                      </div>
-                    )}
-                  </button>
-                </div>
               </div>
             )}
 
@@ -467,7 +384,7 @@ export function BookingForm() {
                 onCheckedChange={(c) => setTermsAccepted(c === true)}
               />
               <label htmlFor="terms" className="text-sm text-muted-foreground leading-relaxed min-w-0 flex-1 cursor-pointer font-normal block">
-                J&apos;accepte que ma demande soit transmise aux chauffeurs du réseau Corail (mise en relation, prix conclu avec le chauffeur).
+                J&apos;accepte que ma demande soit transmise aux chauffeurs du réseau Corail. Le tarif sera porté sur le devis.
                 <br />
                 J&apos;accepte les{" "}
                 <Link href="/cgu" className="text-primary underline hover:no-underline" target="_blank" rel="noopener noreferrer">CGU</Link>
@@ -477,8 +394,11 @@ export function BookingForm() {
             </div>
 
             {submitStatus === "success" && (
-              <div className="mb-6 p-4 rounded-2xl bg-green-500/10 border border-green-500/30 text-green-700 dark:text-green-400 text-center">
-                Votre réservation a bien été envoyée. Les chauffeurs à proximité la verront et pourront vous répondre.
+              <div className="mb-6 p-4 rounded-2xl bg-green-500/10 border border-green-500/30 text-green-700 dark:text-green-400 text-center space-y-1">
+                <p className="font-semibold">Devis en cours</p>
+                <p className="text-sm">
+                  Votre demande est visible par les chauffeurs. Vous recevrez un devis par email dès qu’un tarif sera proposé.
+                </p>
               </div>
             )}
             {submitStatus === "error" && submitError && (
@@ -492,7 +412,7 @@ export function BookingForm() {
               disabled={submitStatus === "loading"}
               className="w-full h-14 text-base font-medium bg-primary text-primary-foreground hover:bg-primary/90 rounded-2xl shadow-lg shadow-primary/20 transition-shadow disabled:opacity-70"
             >
-              {submitStatus === "loading" ? "Envoi en cours…" : budgetChoice === "median" && indicativeRange ? `Réserver à ${formatEUR(medianEur)} (confirmation rapide)` : "Réserver ma course"}
+              {submitStatus === "loading" ? "Envoi en cours…" : "Envoyer ma demande de devis"}
               <ArrowRight className="w-5 h-5 ml-2" />
             </Button>
           </form>

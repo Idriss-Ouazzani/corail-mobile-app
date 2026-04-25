@@ -2001,6 +2001,10 @@ export const createQuote = async (quoteData: {
   scheduled_time: string; // HH:MM:SS
   price_cents: number;
   notes?: string | null;
+  /** Si défini, lie le devis à une demande page pro et met à jour `driver_ride_requests.active_quote_id` */
+  source_driver_request_id?: string | null;
+  /** Si défini, lie le devis à une annonce marketplace (rides). */
+  source_ride_id?: string | null;
 }) => {
   if (!currentUserId) {
     console.error('❌ createQuote - Pas de currentUserId !');
@@ -2018,11 +2022,14 @@ export const createQuote = async (quoteData: {
   const validUntil = new Date();
   validUntil.setDate(validUntil.getDate() + 30);
 
+  const { source_driver_request_id, source_ride_id, ...restQuote } = quoteData;
   const { data, error } = await supabase
     .from('quotes')
     .insert({
       driver_id: currentUserId,
-      ...quoteData,
+      ...restQuote,
+      source_driver_request_id: source_driver_request_id ?? null,
+      source_ride_id: source_ride_id ?? null,
       valid_until: validUntil.toISOString().split('T')[0],
       status: 'SENT',
       sent_at: new Date().toISOString(),
@@ -2037,6 +2044,30 @@ export const createQuote = async (quoteData: {
 
   console.log('✅ Quote created:', data.id);
   console.log('📦 Quote data:', JSON.stringify(data, null, 2));
+
+  if (source_driver_request_id && data?.id) {
+    const { error: upErr } = await supabase
+      .from('driver_ride_requests')
+      .update({ active_quote_id: data.id, updated_at: new Date().toISOString() })
+      .eq('id', source_driver_request_id)
+      .eq('driver_id', currentUserId);
+    if (upErr) console.warn('source_driver_request_id update:', upErr);
+  }
+
+  if (source_ride_id && data?.id) {
+    const { error: upRideErr } = await supabase
+      .from('rides')
+      .update({
+        quote_id: data.id,
+        quote_token: (data as { token?: string }).token ?? null,
+        quote_status: 'SENT',
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', source_ride_id)
+      .eq('picker_id', currentUserId)
+      .eq('status', 'CLAIMED');
+    if (upRideErr) console.warn('source_ride_id update:', upRideErr);
+  }
 
   // Envoi SMS au client si numéro fourni (Edge Function send-quote-sms à déployer avec Twilio/etc.)
   if (quoteData.client_phone && data?.id) {
@@ -3064,95 +3095,75 @@ export const getDriverRideRequestById = async (id: string) => {
   return data;
 };
 
-export const acceptDriverRideRequest = async (requestId: string) => {
+/**
+ * Propose un tarif (devis) pour une demande page pro : enregistre le devis + email au client.
+ * Montant en **centimes** (ex. 45€ → 4500).
+ */
+export const submitDriverRequestQuote = async (requestId: string, priceCents: number) => {
   if (!currentUserId) throw new Error('User not authenticated');
+  if (!Number.isFinite(priceCents) || priceCents < 100) {
+    throw new Error('Indiquez un montant valide (minimum 1,00 €).');
+  }
   const request = await getDriverRideRequestById(requestId);
-  if (request.status !== 'PENDING') {
-    throw new Error('Cette demande a déjà été traitée');
+  if ((request as { status?: string }).status !== 'PENDING') {
+    throw new Error('Cette demande ne peut plus recevoir de devis.');
   }
-  const { error: updateError } = await supabase
-    .from('driver_ride_requests')
-    .update({ status: 'ACCEPTED', updated_at: new Date().toISOString() })
-    .eq('id', requestId)
-    .eq('driver_id', currentUserId);
-  if (updateError) throw new Error(updateError.message);
+  const sched = new Date((request as { scheduled_at: string }).scheduled_at);
+  if (Number.isNaN(sched.getTime())) throw new Error('Date invalide sur la demande');
+  const scheduled_date = sched.toISOString().split('T')[0];
+  const scheduled_time = `${String(sched.getHours()).padStart(2, '0')}:${String(
+    sched.getMinutes()
+  ).padStart(2, '0')}:00`;
 
-  const { data: insertedRide, error: insertError } = await supabase
-    .from('personal_rides')
-    .insert({
-      driver_id: currentUserId,
-      source: 'DIRECT_CLIENT',
-      pickup_address: request.pickup_address,
-      dropoff_address: request.dropoff_address,
-      scheduled_at: request.scheduled_at,
-      price_cents: request.price_cents,
-      distance_km: request.distance_km,
-      client_name: request.client_name,
-      client_phone: request.client_phone,
-      client_email: request.client_email,
-      notes: request.notes ? `${request.notes}\n(Demande depuis page publique)` : 'Demande depuis page publique',
-      status: 'SCHEDULED',
-    })
-    .select('id')
+  const { data: driver } = await supabase
+    .from('users')
+    .select('full_name')
+    .eq('id', currentUserId)
     .single();
-  if (insertError) {
-    await supabase.from('driver_ride_requests').update({ status: 'PENDING', updated_at: new Date().toISOString() }).eq('id', requestId).eq('driver_id', currentUserId);
-    const code = (insertError as { code?: string }).code;
-    if (code === '23505') {
-      throw new Error(
-        "Impossible d'enregistrer la course : un créneau ou un trajet identique existe peut-être déjà. Rafraîchissez la liste puis réessayez."
-      );
-    }
-    if (code === '23503') {
-      throw new Error(
-        "Impossible d'enregistrer la course : données liées invalides ou compte non synchronisé. Réessayez ou contactez le support."
-      );
-    }
-    throw new Error(insertError.message || "Impossible d'enregistrer la course personnelle.");
-  }
+  const driverName = (driver as { full_name?: string } | null)?.full_name;
 
-  // Email automatique au client : réservation acceptée (Resend)
-  const clientEmail = request.client_email?.trim();
-  console.log('📧 [Booking accepted] client_email sur la demande:', clientEmail ?? '(vide)');
-  if (clientEmail) {
+  const quote = await createQuote({
+    client_name: (request as { client_name?: string | null }).client_name?.trim() || 'Client',
+    client_phone: (request as { client_phone?: string | null }).client_phone || undefined,
+    client_email: (request as { client_email?: string | null }).client_email || undefined,
+    pickup_address: (request as { pickup_address: string }).pickup_address,
+    dropoff_address: (request as { dropoff_address: string }).dropoff_address,
+    scheduled_date,
+    scheduled_time,
+    price_cents: Math.round(priceCents),
+    notes: (request as { notes?: string | null }).notes
+      ? `${(request as { notes?: string | null }).notes}\n(Demande page pro)`
+      : 'Demande page pro',
+    source_driver_request_id: requestId,
+  });
+
+  const clientEmail = (request as { client_email?: string | null }).client_email?.trim();
+  const token = (quote as { token?: string })?.token;
+  if (clientEmail && token) {
+    const d = new Date(`${scheduled_date}T${scheduled_time}`);
+    const priceEur = (Math.round(priceCents) / 100).toFixed(2);
     try {
-      const { data: driver } = await supabase
-        .from('users')
-        .select('full_name, phone')
-        .eq('id', currentUserId)
-        .single();
-      const payload = {
+      await sendQuoteEmail({
         clientEmail,
-        clientName: request.client_name?.trim() || 'Client',
-        driverName: (driver as { full_name?: string } | null)?.full_name || 'Votre chauffeur',
-        driverPhone: (driver as { phone?: string } | null)?.phone || '',
-        scheduledAt: request.scheduled_at,
-        pickupAddress: request.pickup_address,
-        dropoffAddress: request.dropoff_address,
-        priceCents: request.price_cents ?? undefined,
-        reservationId: (insertedRide as { id?: string } | null)?.id,
-      };
-      const url = `${SUPABASE_URL}/functions/v1/send-booking-accepted-email`;
-      console.log('📧 [Booking accepted] Appel Edge Function:', url, '→', payload.clientEmail);
-      const res = await fetch(url, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${SUPABASE_ANON_KEY}` },
-        body: JSON.stringify(payload),
+        clientName: (request as { client_name?: string | null }).client_name?.trim() || 'Client',
+        quoteUrl: getQuoteUrl(token),
+        price: priceEur,
+        date: d.toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' }),
+        time: d.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }),
+        pickupAddress: (request as { pickup_address: string }).pickup_address,
+        dropoffAddress: (request as { dropoff_address: string }).dropoff_address,
+        driverName: driverName || undefined,
       });
-      const body = await res.json().catch(() => ({}));
-      if (!res.ok) {
-        console.warn('⚠️ [Booking accepted] Edge Function HTTP', res.status, body);
-      } else {
-        console.log('📧 [Booking accepted] Email:', body.error ? 'échec' : 'ok', body);
-      }
-    } catch (emailErr) {
-      console.warn('⚠️ [Booking accepted] Erreur envoi email (non bloquant):', emailErr);
+    } catch (e) {
+      console.warn('submitDriverRequestQuote: sendQuoteEmail', e);
     }
-  } else {
-    console.log('📧 Pas d’email client sur la demande, envoi réservation acceptée ignoré');
   }
+  return quote;
+};
 
-  return { success: true };
+export const acceptDriverRideRequest = async (requestId: string) => {
+  console.warn('acceptDriverRideRequest appelé sur un flux désactivé', { requestId });
+  throw new Error('Flux obsolète : proposez un devis au client (Prendre + envoyer devis).');
 };
 
 export const refuseDriverRideRequest = async (requestId: string) => {
@@ -3168,8 +3179,10 @@ export const refuseDriverRideRequest = async (requestId: string) => {
       pickup_address: request.pickup_address,
       dropoff_address: request.dropoff_address,
       scheduled_at: request.scheduled_at,
-      price_cents: request.price_cents ?? 0,
+      price_cents: request.price_cents != null ? request.price_cents : null,
       distance_km: request.distance_km,
+      indicative_low_cents: (request as { indicative_low_cents?: number | null }).indicative_low_cents ?? null,
+      indicative_high_cents: (request as { indicative_high_cents?: number | null }).indicative_high_cents ?? null,
       notes: request.notes,
       client_name: request.client_name,
       client_email: request.client_email,
@@ -3786,6 +3799,7 @@ export const supabaseApi = {
   getRide,
   createRide,
   claimRide,
+  updateRidePriceAfterClaim,
   completeRide,
   deleteRide,
   listPersonalRides,
@@ -3842,6 +3856,7 @@ export const supabaseApi = {
   getDriverRideRequestsPendingCount,
   getDriverRideRequests,
   getDriverRideRequestById,
+  submitDriverRequestQuote,
   acceptDriverRideRequest,
   refuseDriverRideRequest,
   requestDataExport,

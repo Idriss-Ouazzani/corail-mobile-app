@@ -11,6 +11,7 @@ import { toast } from '../services/toast';
 import { logger } from '../services/logger';
 import analytics from '../services/analytics';
 import { isSameCorailUser } from '../utils/isSameCorailUser';
+import { getQuoteUrl } from '../constants/urls';
 
 interface UseRideActionsProps {
   currentUserId: string;
@@ -156,7 +157,7 @@ export function useRideActions(props: UseRideActionsProps) {
   /**
    * Réclamer une course (claim)
    */
-  const handleClaimRide = useCallback(async (ride: any) => {
+  const handleClaimRide = useCallback(async (ride: any, proposedPriceCents?: number) => {
     try {
       // 🔐 Profil chauffeur vérifié requis pour prendre une course sur le réseau
       if (!isDriverVerified) {
@@ -175,6 +176,13 @@ export function useRideActions(props: UseRideActionsProps) {
       if (costsCredit && userCredits < 1) {
         haptic.warning();
         toast.insufficientCredits();
+        return null;
+      }
+
+      const needsQuotePrice = isClientRide && ((ride.price_cents ?? 0) <= 0);
+      if (needsQuotePrice && (!proposedPriceCents || proposedPriceCents < 100)) {
+        haptic.warning();
+        toast.warning('Montant requis', 'Saisissez un montant puis envoyez le devis au client.');
         return null;
       }
 
@@ -205,8 +213,46 @@ export function useRideActions(props: UseRideActionsProps) {
         console.warn('⚠️ Analytics error (non-blocking):', analyticsError);
       }
       
-      // 🔔 Notifier le créateur que sa course a été prise (PUSH)
-      if (claimedRide.creator_id && !isSameCorailUser(claimedRide.creator_id, currentUserId, publicUsersRowId)) {
+      if (isClientRide) {
+        const finalPrice = proposedPriceCents ?? (ride.price_cents ?? 0);
+        if (finalPrice < 100) {
+          throw new Error('Montant invalide pour envoyer le devis');
+        }
+
+        await apiClient.updateRidePriceAfterClaim(ride.id, finalPrice);
+
+        const sched = new Date(ride.scheduled_at);
+        const scheduledDate = sched.toISOString().split('T')[0];
+        const scheduledTime = `${String(sched.getHours()).padStart(2, '0')}:${String(sched.getMinutes()).padStart(2, '0')}:00`;
+
+        const quote = await apiClient.createQuote({
+          client_name: ride.client_name?.trim?.() || 'Client',
+          client_phone: ride.client_phone || undefined,
+          client_email: ride.client_email || undefined,
+          pickup_address: ride.pickup_address,
+          dropoff_address: ride.dropoff_address,
+          scheduled_date: scheduledDate,
+          scheduled_time: scheduledTime,
+          price_cents: Math.round(finalPrice),
+          notes: ride.notes ? `${ride.notes}\n(Devis annonce client)` : 'Devis annonce client',
+          source_ride_id: ride.id,
+        });
+
+        if (ride.client_email && quote?.token) {
+          await apiClient.sendQuoteEmail({
+            clientEmail: ride.client_email,
+            clientName: ride.client_name?.trim?.() || 'Client',
+            quoteUrl: getQuoteUrl(quote.token),
+            price: (finalPrice / 100).toFixed(2),
+            date: sched.toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' }),
+            time: sched.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }),
+            pickupAddress: ride.pickup_address,
+            dropoffAddress: ride.dropoff_address,
+            driverName: userName || undefined,
+          });
+        }
+      } else if (claimedRide.creator_id && !isSameCorailUser(claimedRide.creator_id, currentUserId, publicUsersRowId)) {
+        // 🔔 Notifier le créateur que sa course a été prise (PUSH)
         await NotificationService.notifyRideClaimed(
           claimedRide.creator_id,
           ride.pickup_address,
@@ -249,7 +295,11 @@ export function useRideActions(props: UseRideActionsProps) {
       // Recharger la course spécifique pour voir les infos client mises à jour
       const updatedRide = await apiClient.getRide(ride.id);
       
-      toast.rideClaimed();
+      if (isClientRide) {
+        toast.success('Devis envoyé', 'La course apparaît dans Mes courses > Devis en attente.');
+      } else {
+        toast.rideClaimed();
+      }
       if (creditsSpent > 0) toast.creditSpent();
 
       return updatedRide;

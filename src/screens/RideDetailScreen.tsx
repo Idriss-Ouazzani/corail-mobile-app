@@ -10,6 +10,7 @@ import {
   Share,
   ActivityIndicator,
   Platform,
+  TextInput,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import type { Ride, RideSource } from '../types';
@@ -31,7 +32,7 @@ interface RideDetailScreenProps {
   currentUserId: string;
   userCredits?: number;
   onBack: () => void;
-  onClaim?: () => void;
+  onClaim?: (priceCents?: number) => void;
   onDelete?: () => void;
   /** Appelé avec la notation (étoiles + commentaire) quand l'utilisateur valide la modal de fin de course */
   onComplete?: (rating?: RideRatingInput) => void | Promise<void>;
@@ -116,28 +117,24 @@ export const RideDetailScreen: React.FC<RideDetailScreenProps> = ({
   const highEur = isClientDemand
     ? (hasStoredRange ? ride.indicative_high_cents! / 100 : computedRange?.high ?? 100)
     : 100;
-  const budgetEur = (ride.price_cents ?? 0) / 100;
   const indicativeRange =
     isClientDemand && (hasStoredRange || computedRange)
       ? `${lowEur.toFixed(0)}€ – ${highEur.toFixed(0)}€`
       : null;
-  const rangeSpan = highEur - lowEur;
-  const budgetPositionPercent =
-    rangeSpan <= 0
-      ? 50
-      : budgetEur <= lowEur
-        ? 0
-        : budgetEur >= highEur
-          ? 100
-          : Math.round(((budgetEur - lowEur) / rangeSpan) * 100);
-  const budgetStatus: 'in_range' | 'below' | 'above' =
-    !isClientDemand || (lowEur === 0 && highEur === 100)
-      ? 'in_range'
-      : budgetEur < lowEur
-        ? 'below'
-        : budgetEur > highEur
-          ? 'above'
-          : 'in_range';
+  const needsClientQuotePrice =
+    isClientDemand && String(ride.status).toUpperCase() === 'PUBLISHED' && !isMyRide && ((ride.price_cents ?? 0) <= 0);
+  const [clientQuotePriceInput, setClientQuotePriceInput] = useState('');
+  const parsedClientQuoteEur = parseFloat(clientQuotePriceInput.replace(',', '.').trim());
+  const isQuoteAboveIndicative =
+    needsClientQuotePrice &&
+    indicativeRange != null &&
+    Number.isFinite(parsedClientQuoteEur) &&
+    parsedClientQuoteEur > highEur;
+  const isQuoteAwaitingClient = ['SENT', 'VIEWED'].includes(String(ride.quote_status || '').toUpperCase());
+  const hasSentQuote =
+    isClientDemand &&
+    Number(ride.price_cents ?? 0) > 0 &&
+    ['SENT', 'VIEWED', 'ACCEPTED', 'REFUSED'].includes(String(ride.quote_status || '').toUpperCase());
 
   useEffect(() => {
     if (!ride.creator?.id || ride.creator_id === currentUserId) return;
@@ -453,61 +450,42 @@ export const RideDetailScreen: React.FC<RideDetailScreenProps> = ({
             </View>
           )}
 
-          {/* Demande client : fourchette (barre lisible) + budget en exergue + message */}
+          {/* Demande client : fourchette indicative uniquement */}
           {isClientDemand && (
             <View style={styles.clientDemandCard}>
-              <Text style={styles.clientDemandTitle}>Demande client</Text>
-              {indicativeRange != null && (
-                <>
-                  <Text style={styles.clientDemandFourchetteLabel}>Fourchette indicative</Text>
-                  <View style={styles.indicativeBarWrap}>
-                    <View style={styles.indicativeBar}>
-                      <View
-                        style={[
-                          styles.indicativeBarMarker,
-                          { left: `${budgetPositionPercent}%`, marginLeft: -10 },
-                        ]}
-                      />
-                    </View>
-                    <View style={styles.indicativeBarLabels}>
-                      <Text style={styles.indicativeBarLabel}>{lowEur.toFixed(0)} €</Text>
-                      <Text style={styles.indicativeBarLabel}>{highEur.toFixed(0)} €</Text>
-                    </View>
+              <View style={styles.clientDemandHeaderRow}>
+                <Text style={styles.clientDemandTitle}>Demande de devis</Text>
+                {ride.quote_status ? (
+                  <View style={[styles.quoteStatusBadge, getQuoteStatusStyle(ride.quote_status)]}>
+                    <Text style={styles.quoteStatusText}>{getQuoteStatusLabel(ride.quote_status)}</Text>
                   </View>
-                </>
-              )}
-              <View style={styles.budgetClientHighlight}>
-                <Text style={styles.budgetClientLabel}>Budget client</Text>
-                <Text style={styles.budgetClientValue}>{budgetEur.toFixed(0)} €</Text>
+                ) : null}
               </View>
-              {indicativeRange != null && (
-                <View style={[
-                  styles.budgetStatusMessage,
-                  budgetStatus === 'in_range' && styles.budgetStatusInRange,
-                  budgetStatus === 'below' && styles.budgetStatusBelow,
-                  budgetStatus === 'above' && styles.budgetStatusAbove,
-                ]}>
-                  <Text style={[
-                    styles.budgetStatusText,
-                    budgetStatus === 'in_range' && styles.budgetStatusTextInRange,
-                    budgetStatus === 'below' && styles.budgetStatusTextBelow,
-                    budgetStatus === 'above' && styles.budgetStatusTextAbove,
-                  ]}>
-                    {budgetStatus === 'in_range' && 'Dans la fourchette — Le premier qui accepte confirme la course.'}
-                    {budgetStatus === 'below' && 'Sous fourchette'}
-                    {budgetStatus === 'above' && 'Budget supérieur aux tarifs habituels.'}
-                  </Text>
-                  {budgetStatus === 'below' && (
-                    <Text style={styles.budgetStatusCaption}>Décision libre</Text>
-                  )}
+
+              {hasSentQuote ? (
+                <View style={styles.proposedPriceCard}>
+                  <Text style={styles.proposedPriceLabel}>Votre prix proposé</Text>
+                  <Text style={styles.proposedPriceValue}>{formatPrice(ride.price_cents)}</Text>
                 </View>
+              ) : null}
+
+              {indicativeRange != null ? (
+                <View style={styles.indicativeCompactRow}>
+                  <Text style={styles.clientDemandFourchetteLabel}>Fourchette indicative</Text>
+                  <Text style={styles.indicativeCompactValue}>{indicativeRange}</Text>
+                </View>
+              ) : (
+                <Text style={styles.clientDemandHint}>Aucune fourchette disponible sur cette course.</Text>
               )}
-              <Text style={styles.clientDemandWarning}>
-                Si un autre chauffeur accepte au budget du client, vous pourriez louper la course.
+
+              <Text style={styles.clientDemandHint}>
+                {hasSentQuote
+                  ? 'Le client a recu votre devis par email.'
+                  : 'Le tarif final sera envoye au client via un devis.'}
               </Text>
             </View>
           )}
-          {/* Montant (caché pour demande client, déjà affiché dans le bloc jaune) */}
+          {/* Montant */}
           {!isClientDemand && (
             <View style={styles.priceTopCard}>
               <View style={styles.priceTopLeft}>
@@ -935,6 +913,30 @@ export const RideDetailScreen: React.FC<RideDetailScreenProps> = ({
                     </TouchableOpacity>
                   </View>
                 )}
+                {isQuoteAwaitingClient && (
+                  <>
+                    <View style={styles.quotePendingHint}>
+                      <Ionicons name="time-outline" size={14} color="#f59e0b" />
+                      <Text style={styles.quotePendingHintText}>
+                        Devis envoyé, en attente de réponse client.
+                      </Text>
+                    </View>
+                    {ride.client_email && (
+                      <TouchableOpacity
+                        onPress={() =>
+                          Linking.openURL(
+                            `mailto:${ride.client_email}?subject=${encodeURIComponent('Rappel de votre devis Corail')}`
+                          )
+                        }
+                        activeOpacity={0.75}
+                        style={[styles.clientContactButton, styles.quoteReminderButton]}
+                      >
+                        <Ionicons name="mail" size={18} color="#fff" />
+                        <Text style={styles.clientContactButtonText}>Relancer par email</Text>
+                      </TouchableOpacity>
+                    )}
+                  </>
+                )}
               </View>
             </View>
           </View>
@@ -1035,15 +1037,45 @@ export const RideDetailScreen: React.FC<RideDetailScreenProps> = ({
         {/* Prendre cette course — crédit affiché uniquement sur l'action (discret) */}
       {!isMyRide && ride.status === 'PUBLISHED' && onClaim && (
         <View style={styles.actionContainer}>
+          {needsClientQuotePrice && (
+            <View style={styles.quotePriceWrap}>
+              <Text style={styles.quotePriceLabel}>Votre montant devis (EUR)</Text>
+              <TextInput
+                style={styles.quotePriceInput}
+                value={clientQuotePriceInput}
+                onChangeText={setClientQuotePriceInput}
+                keyboardType="decimal-pad"
+                placeholder="ex. 45,00"
+                placeholderTextColor="#94a3b8"
+              />
+              {isQuoteAboveIndicative ? (
+                <Text style={styles.quotePriceWarning}>
+                  Au-dessus de la fourchette indicative ({highEur.toFixed(0)} EUR). Vous pouvez quand meme envoyer.
+                </Text>
+              ) : null}
+              <Text style={styles.quotePriceHint}>Le client recevra un email avec lien accepter/refuser.</Text>
+            </View>
+          )}
           <TouchableOpacity
             style={styles.actionButton}
-            onPress={onClaim}
+            onPress={() => {
+              if (needsClientQuotePrice) {
+                const eur = parseFloat(clientQuotePriceInput.replace(',', '.').trim());
+                if (!Number.isFinite(eur) || eur < 1) {
+                  Alert.alert('Montant requis', 'Indiquez un montant valide avant de prendre la course.');
+                  return;
+                }
+                onClaim(Math.round(eur * 100));
+                return;
+              }
+              onClaim();
+            }}
             activeOpacity={0.8}
           >
             <View style={styles.actionButtonInner}>
               <Ionicons name="car" size={24} color="#fff" />
               <Text style={styles.actionButtonText}>
-                Prendre cette course
+                {needsClientQuotePrice ? 'Prendre + envoyer devis' : 'Prendre cette course'}
               </Text>
             </View>
           </TouchableOpacity>
@@ -1354,17 +1386,63 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: 'rgba(14, 165, 233, 0.3)',
   },
+  clientDemandHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 10,
+    gap: 8,
+  },
   clientDemandTitle: {
     fontSize: 14,
     fontWeight: '700',
     color: '#0ea5e9',
+  },
+  proposedPriceCard: {
+    backgroundColor: 'rgba(15, 23, 42, 0.48)',
+    borderRadius: 12,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(14, 165, 233, 0.25)',
     marginBottom: 10,
   },
+  proposedPriceLabel: {
+    fontSize: 12,
+    color: '#94a3b8',
+    fontWeight: '600',
+  },
+  proposedPriceValue: {
+    marginTop: 4,
+    fontSize: 28,
+    fontWeight: '800',
+    color: '#f8fafc',
+  },
+  indicativeCompactRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 8,
+    paddingHorizontal: 10,
+    borderRadius: 10,
+    backgroundColor: 'rgba(30, 41, 59, 0.35)',
+    borderWidth: 1,
+    borderColor: 'rgba(148, 163, 184, 0.18)',
+    marginBottom: 8,
+  },
   clientDemandFourchetteLabel: {
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: '600',
     color: '#94a3b8',
-    marginBottom: 8,
+  },
+  indicativeCompactValue: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#e2e8f0',
+  },
+  clientDemandHint: {
+    fontSize: 12,
+    color: '#cbd5e1',
   },
   clientDemandKm: {
     fontSize: 13,
@@ -1936,6 +2014,28 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#fff',
   },
+  quotePendingHint: {
+    marginTop: 10,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: 'rgba(245, 158, 11, 0.12)',
+    borderWidth: 1,
+    borderColor: 'rgba(245, 158, 11, 0.35)',
+    borderRadius: 8,
+    paddingVertical: 8,
+    paddingHorizontal: 10,
+  },
+  quotePendingHintText: {
+    fontSize: 12,
+    color: '#fcd34d',
+    fontWeight: '600',
+  },
+  quoteReminderButton: {
+    marginTop: 8,
+    backgroundColor: '#0ea5e9',
+    shadowColor: '#0ea5e9',
+  },
 
   creatorCard: {
     flexDirection: 'row',
@@ -2035,6 +2135,42 @@ const styles = StyleSheet.create({
   actionContainer: {
     marginTop: 20,
     marginBottom: 16,
+  },
+  quotePriceWrap: {
+    marginBottom: 12,
+    backgroundColor: 'rgba(15, 23, 42, 0.45)',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(14, 165, 233, 0.25)',
+    padding: 12,
+  },
+  quotePriceLabel: {
+    color: '#e2e8f0',
+    fontSize: 13,
+    fontWeight: '600',
+    marginBottom: 8,
+  },
+  quotePriceInput: {
+    borderWidth: 1,
+    borderColor: 'rgba(148,163,184,0.35)',
+    borderRadius: 10,
+    backgroundColor: 'rgba(2,6,23,0.45)',
+    color: '#fff',
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    fontSize: 18,
+    fontWeight: '700',
+  },
+  quotePriceHint: {
+    marginTop: 8,
+    color: '#94a3b8',
+    fontSize: 12,
+  },
+  quotePriceWarning: {
+    marginTop: 8,
+    color: '#fbbf24',
+    fontSize: 12,
+    fontWeight: '600',
   },
   creditsCostBanner: {
     backgroundColor: '#1e293b',

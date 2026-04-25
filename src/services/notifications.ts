@@ -345,6 +345,28 @@ export async function notifyLowCredits(credits: number): Promise<void> {
 }
 
 /**
+ * 5b. Rappel devis en attente de réponse client
+ */
+export async function notifyPendingQuoteResponses(count: number): Promise<void> {
+  const prefs = await getNotificationPreferences();
+  if (!prefs.enabled || count <= 0) return;
+
+  try {
+    await Notifications.scheduleNotificationAsync({
+      content: {
+        title: 'Devis en attente',
+        body: `${count} devis attend${count > 1 ? 'ent' : ''} encore une réponse client.`,
+        data: { type: 'quote_pending_followup', count },
+        sound: true,
+      },
+      trigger: { type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL, seconds: 1, repeats: false },
+    });
+  } catch (error) {
+    console.error('❌ Erreur notification devis en attente:', error);
+  }
+}
+
+/**
  * 6. Nouveau badge débloqué
  */
 export async function notifyBadgeEarned(badgeName: string, badgeDescription: string): Promise<void> {

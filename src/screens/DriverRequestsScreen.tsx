@@ -9,6 +9,7 @@ import {
   Alert,
   RefreshControl,
   Image,
+  TextInput,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -22,7 +23,10 @@ type DriverRequest = {
   pickup_address: string;
   dropoff_address: string;
   scheduled_at: string;
-  price_cents: number;
+  price_cents: number | null;
+  indicative_low_cents?: number | null;
+  indicative_high_cents?: number | null;
+  active_quote_id?: string | null;
   client_name: string | null;
   client_phone: string | null;
   client_email: string | null;
@@ -45,6 +49,7 @@ export default function DriverRequestsScreen({ onBack, onRequestAccepted, onRequ
   const [refreshing, setRefreshing] = useState(false);
   const [selected, setSelected] = useState<DriverRequest | null>(null);
   const [actionLoading, setActionLoading] = useState(false);
+  const [quotePriceInput, setQuotePriceInput] = useState('');
 
   const load = useCallback(async () => {
     try {
@@ -63,22 +68,49 @@ export default function DriverRequestsScreen({ onBack, onRequestAccepted, onRequ
     load();
   }, [load]);
 
+  useEffect(() => {
+    if (!selected) {
+      setQuotePriceInput('');
+      return;
+    }
+    if (selected.active_quote_id) return;
+    const existingPriceCents = Number(selected.price_cents ?? 0);
+    if (existingPriceCents > 0) {
+      setQuotePriceInput((existingPriceCents / 100).toFixed(2).replace('.', ','));
+      return;
+    }
+    setQuotePriceInput('');
+  }, [selected]);
+
   const handleRefresh = () => {
     setRefreshing(true);
     load();
   };
 
-  const handleAccept = async () => {
+  const handleSendQuote = async () => {
     if (!selected) return;
+    const raw = quotePriceInput.replace(',', '.').trim();
+    const eur = parseFloat(raw);
+    if (!Number.isFinite(eur) || eur < 1) {
+      Alert.alert('Montant', 'Indiquez un tarif en euros (ex. 45 ou 45,50).');
+      return;
+    }
+    const cents = Math.round(eur * 100);
     setActionLoading(true);
     try {
-      await apiClient.acceptDriverRideRequest(selected.id);
-      Alert.alert('Demande acceptée', 'La course a été ajoutée à vos courses personnelles.');
+      await apiClient.submitDriverRequestQuote(selected.id, cents);
+      Alert.alert(
+        'Devis envoyé',
+        selected.client_email
+          ? 'Un email avec le lien de validation a été envoyé au client.'
+          : 'Devis enregistré. Partagez le lien depuis l’onglet Devis si besoin.',
+      );
+      setQuotePriceInput('');
       setSelected(null);
       await load();
       onRequestAccepted?.();
     } catch (e: any) {
-      Alert.alert('Erreur', e?.message || 'Impossible d\'accepter la demande.');
+      Alert.alert('Erreur', e?.message || 'Envoi impossible.');
     } finally {
       setActionLoading(false);
     }
@@ -174,17 +206,42 @@ export default function DriverRequestsScreen({ onBack, onRequestAccepted, onRequ
             </View>
           </View>
 
-          <View style={styles.detailSection}>
-            <Text style={styles.sectionTitle}>Montant</Text>
-            <View style={styles.detailBlock}>
-              <View style={styles.detailRow}>
-                <View style={[styles.detailIconWrap, { backgroundColor: theme.colors.primaryLight }]}>
-                  <Ionicons name="cash" size={18} color={theme.colors.primary} />
-                </View>
-                <Text style={[styles.detailValue, styles.price]}>{((selected.price_cents || 0) / 100).toFixed(2)} €</Text>
+          {(selected.indicative_low_cents != null && selected.indicative_high_cents != null) ? (
+            <View style={styles.detailSection}>
+              <Text style={styles.sectionTitle}>Estimation indicative</Text>
+              <View style={styles.detailBlock}>
+                <Text style={styles.detailValue}>
+                  {(selected.indicative_low_cents / 100).toFixed(0)} € – {(selected.indicative_high_cents / 100).toFixed(0)} € (non contractuel)
+                </Text>
               </View>
             </View>
-          </View>
+          ) : null}
+
+          {selected.price_cents != null && selected.price_cents > 0 ? (
+            <View style={styles.detailSection}>
+              <Text style={styles.sectionTitle}>Montant indicatif client</Text>
+              <View style={styles.detailBlock}>
+                <View style={styles.detailRow}>
+                  <View style={[styles.detailIconWrap, { backgroundColor: theme.colors.primaryLight }]}>
+                    <Ionicons name="cash" size={18} color={theme.colors.primary} />
+                  </View>
+                  <Text style={[styles.detailValue, styles.price]}>{(selected.price_cents / 100).toFixed(2)} €</Text>
+                </View>
+                <Text style={{ color: theme.colors.textMuted, marginTop: 8, fontSize: 12 }}>
+                  Ce montant est informatif. Le client validera uniquement votre devis.
+                </Text>
+              </View>
+            </View>
+          ) : null}
+
+          {selected.active_quote_id ? (
+            <View style={[styles.detailBlock, { marginHorizontal: 20, backgroundColor: 'rgba(14, 165, 233, 0.12)', borderColor: 'rgba(14, 165, 233, 0.35)', borderWidth: 1, borderRadius: 12, padding: 14 }]}>
+              <Text style={{ color: theme.colors.text, fontWeight: '600' }}>Devis envoyé</Text>
+              <Text style={{ color: theme.colors.textMuted, marginTop: 6, fontSize: 13 }}>
+                En attente de validation ou de refus par le client (email).
+              </Text>
+            </View>
+          ) : null}
 
           {(selected.client_name || selected.client_phone || selected.client_email) && (
             <View style={styles.detailSection}>
@@ -227,24 +284,47 @@ export default function DriverRequestsScreen({ onBack, onRequestAccepted, onRequ
             </View>
           )}
 
+          {!selected.active_quote_id && selected.status === 'PENDING' ? (
+            <View style={{ paddingHorizontal: 20, marginBottom: 12 }}>
+              <Text style={[styles.sectionTitle, { marginBottom: 8 }]}>Votre tarif (€)</Text>
+              <TextInput
+                style={styles.priceInput}
+                placeholder="ex. 45,00"
+                placeholderTextColor={theme.colors.textMuted}
+                keyboardType="decimal-pad"
+                value={quotePriceInput}
+                onChangeText={setQuotePriceInput}
+              />
+              <Text style={{ fontSize: 12, color: theme.colors.textMuted, marginTop: 6 }}>
+                Un devis sera envoyé au client par email (lien accepter / refuser).
+              </Text>
+            </View>
+          ) : null}
+
           <View style={styles.actions}>
-            <TouchableOpacity
-              style={[styles.actionBtn, styles.acceptBtn]}
-              onPress={handleAccept}
-              disabled={actionLoading}
-            >
-              <LinearGradient colors={['#10b981', '#059669']} style={StyleSheet.absoluteFill} />
-              <Ionicons name="checkmark-circle" size={22} color="#fff" style={styles.actionBtnIcon} />
-              <Text style={styles.actionBtnText}>Accepter</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[styles.actionBtn, styles.refuseBtn]}
-              onPress={handleRefuse}
-              disabled={actionLoading}
-            >
-              <Ionicons name="close-circle" size={22} color={theme.colors.textMuted} style={styles.actionBtnIcon} />
-              <Text style={styles.refuseBtnText}>Refuser</Text>
-            </TouchableOpacity>
+            {!selected.active_quote_id && selected.status === 'PENDING' ? (
+              <TouchableOpacity
+                style={[styles.actionBtn, styles.acceptBtn]}
+                onPress={handleSendQuote}
+                disabled={actionLoading}
+              >
+                <LinearGradient colors={['#10b981', '#059669']} style={StyleSheet.absoluteFill} />
+                <Ionicons name="paper-plane" size={22} color="#fff" style={styles.actionBtnIcon} />
+                <Text style={styles.actionBtnText}>Envoyer le devis</Text>
+              </TouchableOpacity>
+            ) : null}
+            {selected.status === 'PENDING' && (
+              <TouchableOpacity
+                style={[styles.actionBtn, styles.refuseBtn]}
+                onPress={handleRefuse}
+                disabled={actionLoading}
+              >
+                <Ionicons name="close-circle" size={22} color={theme.colors.textMuted} style={styles.actionBtnIcon} />
+                <Text style={styles.refuseBtnText}>
+                  {selected.active_quote_id ? 'Refuser (contact client)' : 'Refuser la demande'}
+                </Text>
+              </TouchableOpacity>
+            )}
           </View>
         </ScrollView>
       </View>
@@ -328,7 +408,13 @@ export default function DriverRequestsScreen({ onBack, onRequestAccepted, onRequ
                         <Ionicons name="calendar-outline" size={14} color={theme.colors.textMuted} />
                         <Text style={styles.requestDate}>{dateStr} · {timeStr}</Text>
                       </View>
-                      <Text style={styles.requestPrice}>{((req.price_cents || 0) / 100).toFixed(2)} €</Text>
+                      <Text style={styles.requestPrice}>
+                        {req.active_quote_id
+                          ? 'Devis envoyé'
+                          : req.price_cents != null && req.price_cents > 0
+                            ? `${(req.price_cents / 100).toFixed(2)} €`
+                            : 'Devis demandé'}
+                      </Text>
                     </View>
                   </View>
                 </View>
@@ -534,4 +620,15 @@ const styles = StyleSheet.create({
   actionBtnText: { color: '#fff', fontWeight: '600', fontSize: 16 },
   refuseBtn: { backgroundColor: theme.colors.surface, borderWidth: 1, borderColor: theme.colors.border },
   refuseBtnText: { color: theme.colors.text, fontWeight: '600', fontSize: 16 },
+  priceInput: {
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    fontSize: 18,
+    fontWeight: '600',
+    color: theme.colors.text,
+    backgroundColor: theme.colors.surface,
+  },
 });

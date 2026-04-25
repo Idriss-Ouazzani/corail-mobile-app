@@ -41,6 +41,21 @@ interface MyRidesListProps {
   onPublishPersonalRide?: (ride: Ride) => void; // Nouveau: pour publier une course perso
 }
 
+function getRideAmountLabel(ride: Ride): string {
+  const cents = Number(ride.price_cents ?? 0);
+  if (!Number.isFinite(cents) || cents <= 0) return 'Devis';
+  return `${(cents / 100).toFixed(2)}€`;
+}
+
+function getClaimedQuoteBadge(ride: Ride): { text: string; color: string } | null {
+  if ((ride.source || '').toLowerCase() !== 'client') return null;
+  const q = String((ride as any).quote_status || '').toUpperCase();
+  if (q === 'SENT' || q === 'VIEWED') return { text: 'DEVIS EN ATTENTE', color: '#f59e0b' };
+  if (q === 'ACCEPTED') return { text: 'CONFIRMÉE', color: '#10b981' };
+  if (q === 'REFUSED') return { text: 'REFUSÉE', color: '#ef4444' };
+  return { text: 'À CHIFFRER', color: '#64748b' };
+}
+
 // Sous-composant pour afficher une course compacte (isHistoric = passées ; isPastDue = date passée, à terminer)
 function CompactRideRow({ 
   ride, 
@@ -106,7 +121,7 @@ function CompactRideRow({
         
         <View style={styles.compactRideRight}>
           <Text style={[styles.compactRidePrice, isHistoric && styles.compactRidePriceMuted]}>
-            {(ride.price_cents / 100).toFixed(2)}€
+            {getRideAmountLabel(ride)}
           </Text>
           <TouchableOpacity
             style={styles.publishButton}
@@ -165,7 +180,7 @@ function CompactRideRow({
       <View style={styles.compactRideRight}>
         <View style={styles.compactRidePriceContainer}>
           <Text style={[styles.compactRidePrice, isHistoric && styles.compactRidePriceMuted]}>
-            {(ride.price_cents / 100).toFixed(2)}€
+            {getRideAmountLabel(ride)}
           </Text>
           {statusBadge && (
             <View style={[styles.compactStatusBadge, { backgroundColor: statusBadgeColor || '#6366f1' }]}>
@@ -193,6 +208,7 @@ export default function MyRidesList({
   onPublishPersonalRide,
 }: MyRidesListProps) {
   const [limits, setLimits] = useState({
+    claimedPendingQuotes: INITIAL_PAGE_SIZE,
     claimedEnCours: INITIAL_PAGE_SIZE,
     claimedTerminees: INITIAL_PAGE_SIZE,
     publishedEnLigne: INITIAL_PAGE_SIZE,
@@ -221,24 +237,57 @@ export default function MyRidesList({
 
   // CLAIMED TAB
   if (activeTab === 'claimed') {
-    const shownClaimed = claimedRides.slice(0, limits.claimedEnCours);
+    const pendingQuoteRides = claimedRides.filter((ride) => {
+      if ((ride.source || '').toLowerCase() !== 'client') return false;
+      const q = String((ride as any).quote_status || '').toUpperCase();
+      return q === 'SENT' || q === 'VIEWED';
+    });
+    const otherClaimedRides = claimedRides.filter((ride) => !pendingQuoteRides.includes(ride));
+    const shownPendingQuotes = pendingQuoteRides.slice(0, limits.claimedPendingQuotes);
+    const shownClaimed = otherClaimedRides.slice(0, limits.claimedEnCours);
     const shownCompleted = completedRides.slice(0, limits.claimedTerminees);
     return (
       <>
+        {pendingQuoteRides.length > 0 && (
+          <View style={styles.section}>
+            <Text style={styles.sectionLabel}>Devis en attente de réponse</Text>
+            {shownPendingQuotes.map((ride) => (
+              <CompactRideRow
+                key={ride.id}
+                ride={ride}
+                onPress={onRidePress}
+                iconName="time-outline"
+                iconColor="rgba(245, 158, 11, 0.2)"
+                statusBadge="DEVIS EN ATTENTE"
+                statusBadgeColor="#f59e0b"
+                isPastDue={ride.scheduled_at ? new Date(ride.scheduled_at).getTime() < Date.now() : false}
+              />
+            ))}
+            {renderVoirPlus(pendingQuoteRides.length, 'claimedPendingQuotes')}
+          </View>
+        )}
+
         {claimedRides.length > 0 && (
           <View style={styles.section}>
-            <Text style={styles.sectionLabel}>En cours</Text>
+            <Text style={styles.sectionLabel}>En cours (devis / confirmées)</Text>
             {shownClaimed.map((ride) => (
+              (() => {
+                const badge = getClaimedQuoteBadge(ride);
+                return (
               <CompactRideRow
                 key={ride.id}
                 ride={ride}
                 onPress={onRidePress}
                 iconName="car-sport-outline"
                 iconColor="rgba(14, 165, 233, 0.2)"
+                statusBadge={badge?.text}
+                statusBadgeColor={badge?.color}
                 isPastDue={ride.scheduled_at ? new Date(ride.scheduled_at).getTime() < Date.now() : false}
               />
+                );
+              })()
             ))}
-            {renderVoirPlus(claimedRides.length, 'claimedEnCours')}
+            {renderVoirPlus(otherClaimedRides.length, 'claimedEnCours')}
           </View>
         )}
 

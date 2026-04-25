@@ -65,6 +65,8 @@ export default function MyRidesTab({
   onPersonalRidePress,
   onPublishPersonalRide,
 }: MyRidesTabProps) {
+  const now = Date.now();
+
   // Filter rides where current user is the picker (claimed rides)
   const claimedByMe = rides.filter((ride) => ride.picker_id === currentUserId);
   const claimedRides = claimedByMe.filter((ride) => ride.status === 'CLAIMED');
@@ -88,10 +90,15 @@ export default function MyRidesTab({
   const activePublished = publishedByMe.filter((ride) => {
     if ((ride.status || '').toUpperCase() !== 'PUBLISHED') return false;
     const scheduledTime = ride.scheduled_at ? new Date(ride.scheduled_at).getTime() : NaN;
-    return Number.isNaN(scheduledTime) || scheduledTime >= Date.now();
+    return Number.isNaN(scheduledTime) || scheduledTime >= now;
   });
   
   const claimedPublished = publishedByMe.filter((ride) => ride.status === 'CLAIMED' || ride.status === 'COMPLETED');
+  const claimedPublishedActive = claimedPublished.filter((ride) => {
+    if ((ride.status || '').toUpperCase() === 'COMPLETED') return false;
+    const scheduledTime = ride.scheduled_at ? new Date(ride.scheduled_at).getTime() : NaN;
+    return Number.isNaN(scheduledTime) || scheduledTime >= now;
+  });
   
   // Personal rides actives (SCHEDULED avec date future uniquement)
   const activePersonal = personalByMe.filter((ride) => {
@@ -101,7 +108,7 @@ export default function MyRidesTab({
     }
     // Pour les courses SCHEDULED, vérifier que la date est future
     const scheduledTime = new Date(ride.scheduled_at ?? 0).getTime();
-    return scheduledTime >= Date.now();
+    return scheduledTime >= now;
   });
 
   // 📜 HISTORIQUE (claimed : section « Passées » = completedRides dans MyRidesList)
@@ -125,8 +132,14 @@ export default function MyRidesTab({
     }
     // Courses SCHEDULED mais dont la date est passée
     const scheduledTime = new Date(ride.scheduled_at ?? 0).getTime();
-    return scheduledTime < Date.now();
+    return scheduledTime < now;
   }).sort((a, b) => new Date(b.scheduled_at ?? 0).getTime() - new Date(a.scheduled_at ?? 0).getTime());
+
+  const pendingQuotesCount = claimedRides.filter((ride) => {
+    if ((ride.source || '').toLowerCase() !== 'client') return false;
+    const quoteStatus = String((ride as any).quote_status || '').toUpperCase();
+    return quoteStatus === 'SENT' || quoteStatus === 'VIEWED';
+  }).length;
 
   const totalCount = activeTab === 'claimed' ? claimedByMe.length : activeTab === 'published' ? publishedByMe.length : personalByMe.length;
 
@@ -139,9 +152,10 @@ export default function MyRidesTab({
 
       <MyRidesTabBar
         activeTab={activeTab}
-        claimedCount={claimedRides.length + completedRides.length}
-        publishedCount={activePublished.length + claimedPublished.length + historyPublished.length}
-        personalCount={activePersonal.length + historyPersonal.length}
+        claimedCount={claimedRides.length}
+        publishedCount={activePublished.length + claimedPublishedActive.length}
+        personalCount={activePersonal.length}
+        pendingQuotesCount={pendingQuotesCount}
         onTabChange={onTabChange}
       />
 

@@ -4,8 +4,8 @@
  * Extrait de App.tsx pour améliorer la lisibilité
  */
 
-import React from 'react';
-import { View, Text, TouchableOpacity } from 'react-native';
+import React, { useEffect, useRef } from 'react';
+import { View, Text, TouchableOpacity, StyleSheet, Animated } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { haptic } from '../services/haptic';
@@ -17,13 +17,37 @@ interface BottomNavigationProps {
   currentScreen: Screen;
   onNavigate: (screen: Screen) => void;
   onCreateRide: () => void;
+  marketplaceAvailableCount?: number;
 }
 
 export const BottomNavigation: React.FC<BottomNavigationProps> = ({
   currentScreen,
   onNavigate,
   onCreateRide,
+  marketplaceAvailableCount = 0,
 }) => {
+  const pulseAnim = useRef(new Animated.Value(1)).current;
+  const prevCountRef = useRef(marketplaceAvailableCount);
+
+  useEffect(() => {
+    const prev = prevCountRef.current;
+    if (marketplaceAvailableCount > prev) {
+      Animated.sequence([
+        Animated.timing(pulseAnim, {
+          toValue: 1.16,
+          duration: 160,
+          useNativeDriver: true,
+        }),
+        Animated.timing(pulseAnim, {
+          toValue: 1,
+          duration: 220,
+          useNativeDriver: true,
+        }),
+      ]).start();
+    }
+    prevCountRef.current = marketplaceAvailableCount;
+  }, [marketplaceAvailableCount, pulseAnim]);
+
   return (
     <View style={appStyles.bottomNavWrapper}>
       <LinearGradient
@@ -67,6 +91,11 @@ export const BottomNavigation: React.FC<BottomNavigationProps> = ({
                 size={22}
                 color={currentScreen === 'courses' ? '#fff' : '#94a3b8'}
               />
+              {marketplaceAvailableCount > 0 && (
+                <Animated.View style={[styles.marketBadge, { transform: [{ scale: pulseAnim }] }]}>
+                  <Text style={styles.marketBadgeText}>{marketplaceAvailableCount > 99 ? '99+' : marketplaceAvailableCount}</Text>
+                </Animated.View>
+              )}
             </View>
             <Text style={[appStyles.navText, currentScreen === 'courses' && appStyles.navTextActive]}>
               Courses
@@ -133,6 +162,28 @@ export const BottomNavigation: React.FC<BottomNavigationProps> = ({
     </View>
   );
 };
+
+const styles = StyleSheet.create({
+  marketBadge: {
+    position: 'absolute',
+    top: -5,
+    right: -8,
+    minWidth: 18,
+    height: 18,
+    borderRadius: 9,
+    backgroundColor: '#10b981',
+    borderWidth: 1,
+    borderColor: 'rgba(15, 23, 42, 0.8)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 4,
+  },
+  marketBadgeText: {
+    color: '#fff',
+    fontSize: 10,
+    fontWeight: '800',
+  },
+});
 
 
 

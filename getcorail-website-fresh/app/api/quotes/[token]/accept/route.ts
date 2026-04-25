@@ -57,13 +57,94 @@ export async function POST(
 
     const quoteId = result.quote_id;
     if (quoteId) {
-      const { data: quote } = await supabase
+      const { data: fullQuote } = await supabase
         .from("quotes")
-        .select("driver_id")
+        .select(
+          "id, driver_id, source_driver_request_id, source_ride_id, client_name, client_phone, client_email, pickup_address, dropoff_address, scheduled_date, scheduled_time, price_cents, notes, token"
+        )
         .eq("id", quoteId)
         .single();
-      const driverId = (quote as { driver_id?: string } | null)?.driver_id;
+      const q = fullQuote as {
+        id: string;
+        driver_id: string;
+        source_driver_request_id: string | null;
+        source_ride_id: string | null;
+        client_name: string;
+        client_phone: string;
+        client_email: string | null;
+        pickup_address: string;
+        dropoff_address: string;
+        scheduled_date: string;
+        scheduled_time: string;
+        price_cents: number;
+        notes: string | null;
+        token: string;
+      } | null;
+
+      if (q?.source_driver_request_id) {
+        const t = (q.scheduled_time || "12:00:00").length <= 5 ? `${q.scheduled_time}:00` : q.scheduled_time;
+        const schedIso = new Date(`${q.scheduled_date}T${t}`).toISOString();
+        const { data: pr, error: prErr } = await supabase
+          .from("personal_rides")
+          .insert({
+            driver_id: q.driver_id,
+            source: "DIRECT_CLIENT",
+            pickup_address: q.pickup_address,
+            dropoff_address: q.dropoff_address,
+            scheduled_at: schedIso,
+            price_cents: q.price_cents,
+            client_name: q.client_name,
+            client_phone: q.client_phone,
+            client_email: q.client_email,
+            notes: q.notes ? `${q.notes}\n(Devis accepté)` : "Devis accepté (page pro)",
+            quote_id: q.id,
+            status: "SCHEDULED",
+          })
+          .select("id")
+          .single();
+        if (prErr) {
+          console.error("[quotes/accept] personal_rides insert", prErr);
+        } else {
+          const pid = (pr as { id: string })?.id;
+          await supabase
+            .from("driver_ride_requests")
+            .update({
+              status: "ACCEPTED",
+              personal_ride_id: pid ?? null,
+              responded_at: new Date().toISOString(),
+            })
+            .eq("id", q.source_driver_request_id);
+        }
+      }
+
+      if (q?.source_ride_id) {
+        const { error: rideUpdErr } = await supabase
+          .from("rides")
+          .update({
+            quote_status: "ACCEPTED",
+            updated_at: new Date().toISOString(),
+          })
+          .eq("id", q.source_ride_id)
+          .eq("picker_id", q.driver_id);
+        if (rideUpdErr) {
+          console.error("[quotes/accept] source ride update", rideUpdErr);
+        }
+      }
+
+      const driverId =
+        (fullQuote as { driver_id?: string } | null)?.driver_id ??
+        (q as { driver_id?: string } | null)?.driver_id;
       if (driverId) {
+        await supabase
+          .from("in_app_notifications")
+          .insert({
+            user_id: driverId,
+            type: "quote_accepted",
+            title: "Devis accepté",
+            body: "Le client a accepté votre devis. Course confirmée.",
+          })
+          .then(() => {})
+          .catch((err) => console.warn("[quotes/accept] in-app notification insert:", err));
         sendPushToUser(
           driverId,
           "Devis accepté",

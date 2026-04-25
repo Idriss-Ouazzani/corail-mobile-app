@@ -56,6 +56,10 @@ class ApiClient {
     return supabaseApi.claimRide(rideId);
   }
 
+  async updateRidePriceAfterClaim(rideId: string, priceCents: number) {
+    return supabaseApi.updateRidePriceAfterClaim(rideId, priceCents);
+  }
+
   async completeRide(rideId: string, rating?: { stars: number; comment?: string | null }) {
     return supabaseApi.completeRide(rideId, rating);
   }
@@ -363,6 +367,10 @@ class ApiClient {
 
   async getDriverRideRequestById(id: string) {
     return supabaseApi.getDriverRideRequestById(id);
+  }
+
+  async submitDriverRequestQuote(requestId: string, priceCents: number) {
+    return supabaseApi.submitDriverRequestQuote(requestId, priceCents);
   }
 
   async acceptDriverRideRequest(requestId: string) {

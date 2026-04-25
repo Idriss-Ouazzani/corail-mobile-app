@@ -7,6 +7,7 @@
 import { useEffect } from 'react';
 import * as NotificationService from '../services/notifications';
 import * as PushTokenService from '../services/pushTokens';
+import { apiClient } from '../services/api';
 
 interface UseNotificationsProps {
   user: any; // Supabase user
@@ -42,11 +43,20 @@ export const useNotifications = ({
             console.log('✅ Push token enregistré');
           }
           
-          // Vérifier les crédits pour alerte si faible
-          // Note: Vérifier uniquement si les crédits ont été chargés (>= 0 avec délai)
-          // La fonction notifyLowCredits gère déjà la limite < 2
+          // Vérifier les crédits faibles en relisant la valeur serveur
+          // (évite les faux positifs au démarrage quand le state local est encore à 0)
           if (userCredits >= 0 && userCredits < 2) {
-            await NotificationService.notifyLowCredits(userCredits);
+            try {
+              const fresh = await apiClient.getCredits();
+              const freshCredits = typeof fresh === 'object' && fresh?.credits !== undefined
+                ? Number(fresh.credits)
+                : Number(fresh);
+              if (Number.isFinite(freshCredits) && freshCredits >= 0 && freshCredits < 2) {
+                await NotificationService.notifyLowCredits(freshCredits);
+              }
+            } catch (e) {
+              console.warn('Low credits check skipped (fresh read failed):', e);
+            }
           }
           
           // Notifier QR Code prêt (une seule fois)

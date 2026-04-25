@@ -11,6 +11,8 @@ export async function POST(request: NextRequest) {
       scheduled_at,
       price_cents,
       distance_km,
+      indicative_low_cents,
+      indicative_high_cents,
       notes,
       client_name,
       client_email,
@@ -21,8 +23,10 @@ export async function POST(request: NextRequest) {
       pickup_address?: string;
       dropoff_address?: string;
       scheduled_at?: string;
-      price_cents?: number;
+      price_cents?: number | null;
       distance_km?: number;
+      indicative_low_cents?: number;
+      indicative_high_cents?: number;
       notes?: string;
       client_name?: string;
       client_email?: string;
@@ -61,7 +65,14 @@ export async function POST(request: NextRequest) {
         pickup_address: pickup_address.trim(),
         dropoff_address: dropoff_address.trim(),
         scheduled_at,
-        price_cents: price_cents != null ? Math.round(price_cents) : null,
+        price_cents:
+          price_cents != null && Number.isFinite(Number(price_cents))
+            ? Math.round(Number(price_cents))
+            : null,
+        indicative_low_cents:
+          indicative_low_cents != null ? Math.round(indicative_low_cents) : null,
+        indicative_high_cents:
+          indicative_high_cents != null ? Math.round(indicative_high_cents) : null,
         distance_km: distance_km != null ? Number(distance_km) : null,
         notes: notes?.trim() || null,
         client_name: client_name?.trim() || null,

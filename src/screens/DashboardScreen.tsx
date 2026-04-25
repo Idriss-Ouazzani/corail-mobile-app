@@ -111,6 +111,7 @@ export default function DashboardScreen({
   const [generatedInvoice, setGeneratedInvoice] = useState<any>(null);
   const [showShareInvoiceAlert, setShowShareInvoiceAlert] = useState(false);
   const [pendingDriverRequestsCount, setPendingDriverRequestsCount] = useState(0);
+  const [pendingQuoteResponsesCount, setPendingQuoteResponsesCount] = useState(0);
   const [pageProStatus, setPageProStatus] = useState<'inactive' | 'incomplete' | 'active' | null>(null);
   const [pageProCompletion, setPageProCompletion] = useState<number>(0);
   const [pageProMonthViews, setPageProMonthViews] = useState<number>(0);
@@ -265,6 +266,16 @@ export default function DashboardScreen({
         (r: any) => r.scheduled_at
       );
 
+      const pendingQuoteResponses = (userRides || []).filter((r: any) => {
+        if (!r) return false;
+        if (String(r.status || '').toUpperCase() !== 'CLAIMED') return false;
+        if (String(r.source || '').toLowerCase() !== 'client') return false;
+        if (String(r.picker_id || '') !== String(currentUserId)) return false;
+        const qs = String(r.quote_status || '').toUpperCase();
+        return qs === 'SENT' || qs === 'VIEWED';
+      });
+      setPendingQuoteResponsesCount(pendingQuoteResponses.length);
+
       // Séparer EN_COURS (scheduled_at passé, mais < 1h) et À_VENIR (scheduled_at futur)
       const inProgress = allMyScheduledRides.filter((ride: any) => {
         const scheduledTime = new Date(ride.scheduled_at).getTime();
@@ -288,6 +299,7 @@ export default function DashboardScreen({
       // Clés pour éviter d'insérer les mêmes notifs in-app à chaque chargement (1 fois par jour max)
       const NOTIF_IMMINENT_KEY = '@corail_notif_inserted_imminent';
       const NOTIF_DAILY_KEY = '@corail_notif_inserted_daily_summary';
+      const NOTIF_QUOTES_PENDING_KEY = '@corail_quotes_pending_last_notified_at';
 
       // Planifier les notifications "1 minute avant" pour les courses à venir + ajout dans la cloche (1 fois par course par jour)
       let imminentStored: Record<string, string[]> = {};
@@ -320,6 +332,25 @@ export default function DashboardScreen({
       if (todayImminent.length > 0) {
         imminentStored[today] = todayImminent;
         await AsyncStorage.setItem(NOTIF_IMMINENT_KEY, JSON.stringify(imminentStored));
+      }
+
+      // Anti-oubli devis : rappel local max toutes les 6h si au moins un devis attend la réponse client
+      if (pendingQuoteResponses.length > 0) {
+        try {
+          const lastPendingRaw = await AsyncStorage.getItem(NOTIF_QUOTES_PENDING_KEY);
+          const lastPendingAt = lastPendingRaw ? new Date(lastPendingRaw).getTime() : 0;
+          const sixHours = 6 * 60 * 60 * 1000;
+          if (!lastPendingAt || Date.now() - lastPendingAt > sixHours) {
+            await NotificationService.notifyPendingQuoteResponses(pendingQuoteResponses.length);
+            await apiClient.insertInAppNotification({
+              type: 'quote_pending_followup',
+              title: 'Devis en attente',
+              body: `${pendingQuoteResponses.length} devis attend${pendingQuoteResponses.length > 1 ? 'ent' : ''} la réponse client.`,
+              target_screen: 'myrides',
+            });
+            await AsyncStorage.setItem(NOTIF_QUOTES_PENDING_KEY, new Date().toISOString());
+          }
+        } catch (_e) {}
       }
 
       // Courses du jour (personnelles + marketplace réclamées)
@@ -653,6 +684,27 @@ export default function DashboardScreen({
               </View>
             </View>
             <Ionicons name="chevron-forward" size={20} color="rgba(255,255,255,0.8)" />
+          </TouchableOpacity>
+        )}
+
+        {pendingQuoteResponsesCount > 0 && onNavigateToActivity && (
+          <TouchableOpacity
+            activeOpacity={0.82}
+            onPress={onNavigateToActivity}
+            style={styles.pendingQuotesBanner}
+          >
+            <View style={styles.pendingQuotesBannerLeft}>
+              <View style={styles.pendingQuotesIcon}>
+                <Ionicons name="time" size={18} color="#f59e0b" />
+              </View>
+              <View>
+                <Text style={styles.pendingQuotesTitle}>
+                  {pendingQuoteResponsesCount} devis en attente de réponse
+                </Text>
+                <Text style={styles.pendingQuotesSubtitle}>Prioritaire · relance client recommandée</Text>
+              </View>
+            </View>
+            <Ionicons name="chevron-forward" size={20} color="#f8fafc" />
           </TouchableOpacity>
         )}
 
@@ -1072,6 +1124,42 @@ const styles = StyleSheet.create({
   driverRequestsBannerSubtitle: {
     fontSize: 12,
     color: theme.colors.textMuted,
+    marginTop: 2,
+  },
+  pendingQuotesBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 16,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 12,
+    backgroundColor: 'rgba(245, 158, 11, 0.16)',
+    borderWidth: 1,
+    borderColor: 'rgba(245, 158, 11, 0.35)',
+  },
+  pendingQuotesBannerLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
+  pendingQuotesIcon: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: 'rgba(245, 158, 11, 0.2)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 10,
+  },
+  pendingQuotesTitle: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#f8fafc',
+  },
+  pendingQuotesSubtitle: {
+    fontSize: 12,
+    color: '#fde68a',
     marginTop: 2,
   },
   pageProCard: {

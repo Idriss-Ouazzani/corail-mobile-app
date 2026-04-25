@@ -10,6 +10,7 @@ interface MyRidesTabBarProps {
   claimedCount: number;
   publishedCount: number;
   personalCount: number;
+  pendingQuotesCount?: number;
   onTabChange: (tab: 'claimed' | 'published' | 'personal') => void;
 }
 
@@ -24,6 +25,7 @@ export default function MyRidesTabBar({
   claimedCount,
   publishedCount,
   personalCount,
+  pendingQuotesCount = 0,
   onTabChange,
 }: MyRidesTabBarProps) {
   const counts = { claimed: claimedCount, published: publishedCount, personal: personalCount };
@@ -40,6 +42,11 @@ export default function MyRidesTabBar({
           <Text style={[styles.chipLabel, activeTab === key && styles.chipLabelActive]}>
             {label} {counts[key]}
           </Text>
+          {key === 'claimed' && pendingQuotesCount > 0 && (
+            <View style={styles.pendingBadge}>
+              <Text style={styles.pendingBadgeText}>{pendingQuotesCount > 99 ? '99+' : pendingQuotesCount}</Text>
+            </View>
+          )}
         </TouchableOpacity>
       ))}
     </View>
@@ -55,6 +62,7 @@ const styles = StyleSheet.create({
   },
   chip: {
     flex: 1,
+    position: 'relative',
     paddingVertical: 10,
     paddingHorizontal: 12,
     borderRadius: 12,
@@ -81,6 +89,25 @@ const styles = StyleSheet.create({
   chipLabelActive: {
     color: '#fff',
     fontWeight: '700',
+  },
+  pendingBadge: {
+    position: 'absolute',
+    top: -7,
+    right: -7,
+    minWidth: 22,
+    height: 22,
+    borderRadius: 11,
+    backgroundColor: '#f59e0b',
+    borderWidth: 2,
+    borderColor: '#0f172a',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 5,
+  },
+  pendingBadgeText: {
+    color: '#fff',
+    fontSize: 11,
+    fontWeight: '800',
   },
 });
 

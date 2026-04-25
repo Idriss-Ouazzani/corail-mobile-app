@@ -61,7 +61,7 @@ Sans **domaine vérifié** dans Resend, l'envoi est souvent limité :
 - Soit Resend n'accepte d'envoyer qu'à l'adresse du compte (ton email perso),
 - Soit l'expéditeur par défaut `onboarding@resend.dev` a des restrictions.
 
-**Solution :** ajouter et **vérifier ton domaine** (ex. `getcorail.com`) dans Resend. Ensuite tu peux envoyer à n'importe quelle adresse depuis `reservations@getcorail.com` (ou autre @getcorail.com).
+**Solution :** ajouter et **vérifier ton domaine** (ex. `getcorail.com`) dans Resend. Ensuite tu peux envoyer à n'importe quelle adresse depuis n'importe quelle adresse @ ce domaine (ex. `contact@getcorail.com`).
 
 ---
 
@@ -85,8 +85,8 @@ Une fois le domaine vérifié dans Resend :
 1. Supabase → **Edge Functions** → **Secrets**
 2. Ajoute (ou modifie) :
    - **Name :** `RESEND_FROM_EMAIL`
-   - **Value :** `GetCorail <reservations@getcorail.com>`  
-     (ou `noreply@getcorail.com`, etc.)
+   - **Value :** `GetCorail <contact@getcorail.com>`  
+     (toute adresse @getcorail.com est utilisable si le domaine est vérifié dans Resend)
 
 Les prochains emails (réservation acceptée, devis) partiront de cette adresse et pourront être envoyés à n'importe quel destinataire.
 

@@ -4,13 +4,14 @@
  * Badge crédits visible dans le header (tous onglets).
  */
 
-import React, { useEffect } from 'react';
+import React, { useEffect, useRef } from 'react';
 import {
   View,
   Text,
   StyleSheet,
   TouchableOpacity,
   StatusBar,
+  Animated,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
@@ -35,6 +36,7 @@ interface CoursesScreenProps {
   onOpenVerificationProfile?: () => void;
   marketplaceContent: React.ReactNode;
   myRidesContent: React.ReactNode;
+  marketplaceAvailableCount?: number;
 }
 
 export default function CoursesScreen({
@@ -49,8 +51,11 @@ export default function CoursesScreen({
   onOpenVerificationProfile,
   marketplaceContent,
   myRidesContent,
+  marketplaceAvailableCount = 0,
 }: CoursesScreenProps) {
   const showAnnoncesLock = activeTab === 'marketplace' && !isDriverVerified;
+  const pulseAnim = useRef(new Animated.Value(1)).current;
+  const prevCountRef = useRef(marketplaceAvailableCount);
 
   // À chaque visite sur Annonces : afficher le pop-up Équilibre 1 fois par session (ou si "Ne plus afficher" pas coché)
   useEffect(() => {
@@ -64,6 +69,25 @@ export default function CoursesScreen({
     }, 350);
     return () => clearTimeout(timer);
   }, [activeTab, equilibreDismissedThisSession, onShowCreditsOnboarding]);
+
+  useEffect(() => {
+    const prev = prevCountRef.current;
+    if (marketplaceAvailableCount > prev) {
+      Animated.sequence([
+        Animated.timing(pulseAnim, {
+          toValue: 1.16,
+          duration: 160,
+          useNativeDriver: true,
+        }),
+        Animated.timing(pulseAnim, {
+          toValue: 1,
+          duration: 220,
+          useNativeDriver: true,
+        }),
+      ]).start();
+    }
+    prevCountRef.current = marketplaceAvailableCount;
+  }, [marketplaceAvailableCount, pulseAnim]);
 
   const renderContent = () => {
     switch (activeTab) {
@@ -168,11 +192,21 @@ export default function CoursesScreen({
               >
                 <Ionicons name="storefront" size={20} color="#fff" />
                 <Text style={styles.tabTextActive}>Annonces</Text>
+                {marketplaceAvailableCount > 0 && (
+                  <Animated.View style={[styles.marketBadge, { transform: [{ scale: pulseAnim }] }]}>
+                    <Text style={styles.marketBadgeText}>{marketplaceAvailableCount > 99 ? '99+' : marketplaceAvailableCount}</Text>
+                  </Animated.View>
+                )}
               </LinearGradient>
             ) : (
               <View style={styles.tabInner}>
                 <Ionicons name="storefront-outline" size={20} color="#94a3b8" />
                 <Text style={styles.tabText}>Annonces</Text>
+                {marketplaceAvailableCount > 0 && (
+                  <Animated.View style={[styles.marketBadge, { transform: [{ scale: pulseAnim }] }]}>
+                    <Text style={styles.marketBadgeText}>{marketplaceAvailableCount > 99 ? '99+' : marketplaceAvailableCount}</Text>
+                  </Animated.View>
+                )}
               </View>
             )}
           </TouchableOpacity>
@@ -290,6 +324,7 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   tabInner: {
+    position: 'relative',
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
@@ -306,6 +341,25 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '700',
     color: '#fff',
+  },
+  marketBadge: {
+    position: 'absolute',
+    top: 4,
+    right: 8,
+    minWidth: 18,
+    height: 18,
+    borderRadius: 9,
+    backgroundColor: '#10b981',
+    borderWidth: 1,
+    borderColor: 'rgba(15, 23, 42, 0.65)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 4,
+  },
+  marketBadgeText: {
+    fontSize: 10,
+    fontWeight: '800',
+    color: '#ffffff',
   },
   content: {
     flex: 1,

@@ -21,7 +21,7 @@ export async function POST(request: NextRequest) {
     pickup_address: string;
     dropoff_address: string;
     scheduled_at: string;
-    price_cents: number;
+    price_cents?: number | null;
     distance_km?: number;
     indicative_low_cents?: number;
     indicative_high_cents?: number;
@@ -44,6 +44,8 @@ export async function POST(request: NextRequest) {
     scheduled_at,
     price_cents,
     distance_km,
+    indicative_low_cents,
+    indicative_high_cents,
     notes,
     client_name,
     client_email,
@@ -52,9 +54,9 @@ export async function POST(request: NextRequest) {
     fallback_to_marketplace,
   } = body;
 
-  if (!pickup_address?.trim() || !dropoff_address?.trim() || !scheduled_at || price_cents == null) {
+  if (!pickup_address?.trim() || !dropoff_address?.trim() || !scheduled_at) {
     return NextResponse.json(
-      { error: "Champs obligatoires manquants (départ, arrivée, date/heure, budget)" },
+      { error: "Champs obligatoires manquants (départ, arrivée, date/heure)" },
       { status: 400 }
     );
   }
@@ -86,6 +88,8 @@ export async function POST(request: NextRequest) {
     }
 
     const driverId = (profile as { user_id: string }).user_id;
+    const pc =
+      price_cents != null && Number.isFinite(Number(price_cents)) ? Math.round(Number(price_cents)) : null;
     const { data: req, error: insertError } = await supabase
       .from("driver_ride_requests")
       .insert({
@@ -93,7 +97,11 @@ export async function POST(request: NextRequest) {
         pickup_address: pickup_address.trim(),
         dropoff_address: dropoff_address.trim(),
         scheduled_at,
-        price_cents: Math.round(price_cents),
+        price_cents: pc,
+        indicative_low_cents:
+          indicative_low_cents != null ? Math.round(indicative_low_cents) : null,
+        indicative_high_cents:
+          indicative_high_cents != null ? Math.round(indicative_high_cents) : null,
         distance_km: distance_km != null ? Number(distance_km) : null,
         notes: notes?.trim() || null,
         client_name: client_name?.trim() || null,
@@ -118,6 +126,20 @@ export async function POST(request: NextRequest) {
       { type: "driver_ride_request", request_id: req?.id }
     ).catch((err) => console.warn("[driver-booking-request] Push notification error:", err));
 
+    if (email) {
+      await sendBookingRequestReceivedEmail({
+        supabaseUrl,
+        clientEmail: email,
+        clientName: client_name?.trim() || undefined,
+        pickupAddress: pickup_address.trim(),
+        dropoffAddress: dropoff_address.trim(),
+        scheduledAt: scheduled_at,
+        indicativeLowCents: indicative_low_cents ?? null,
+        indicativeHighCents: indicative_high_cents ?? null,
+        requestChannel: "driver_page",
+      });
+    }
+
     return NextResponse.json({
       ok: true,
       request_id: req?.id,
@@ -128,6 +150,8 @@ export async function POST(request: NextRequest) {
 
   // Pas de chauffeur préféré → annonce classique (rides)
   const CREATOR_ID_CLIENT_WEB = "corail-landing";
+  const pcOpen =
+    price_cents != null && Number.isFinite(Number(price_cents)) ? Math.round(Number(price_cents)) : null;
   const { data: ride, error: rideError } = await supabase
     .from("rides")
     .insert({
@@ -135,11 +159,15 @@ export async function POST(request: NextRequest) {
       pickup_address: pickup_address.trim(),
       dropoff_address: dropoff_address.trim(),
       scheduled_at,
-      price_cents: Math.round(price_cents),
+      price_cents: pcOpen,
       status: "PUBLISHED",
       visibility: "PUBLIC",
       source: "client",
       distance_km: distance_km != null ? Number(distance_km) : null,
+      indicative_low_cents:
+        indicative_low_cents != null ? Math.round(indicative_low_cents) : null,
+      indicative_high_cents:
+        indicative_high_cents != null ? Math.round(indicative_high_cents) : null,
       notes: notes?.trim() || null,
       client_name: client_name?.trim() || null,
       client_email: email || null,
@@ -153,9 +181,58 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: rideError.message }, { status: 500 });
   }
 
+  if (email) {
+    await sendBookingRequestReceivedEmail({
+      supabaseUrl,
+      clientEmail: email,
+      clientName: client_name?.trim() || undefined,
+      pickupAddress: pickup_address.trim(),
+      dropoffAddress: dropoff_address.trim(),
+      scheduledAt: scheduled_at,
+      indicativeLowCents: indicative_low_cents ?? null,
+      indicativeHighCents: indicative_high_cents ?? null,
+      requestChannel: "marketplace",
+    });
+  }
+
   return NextResponse.json({
     ok: true,
     ride_id: ride?.id,
     created_at: (ride as { created_at: string })?.created_at,
   });
+}
+
+async function sendBookingRequestReceivedEmail(params: {
+  supabaseUrl: string;
+  clientEmail: string;
+  clientName?: string;
+  pickupAddress: string;
+  dropoffAddress: string;
+  scheduledAt: string;
+  indicativeLowCents?: number | null;
+  indicativeHighCents?: number | null;
+  requestChannel: "marketplace" | "driver_page";
+}) {
+  try {
+    const res = await fetch(`${params.supabaseUrl}/functions/v1/send-booking-request-received-email`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        clientEmail: params.clientEmail,
+        clientName: params.clientName,
+        pickupAddress: params.pickupAddress,
+        dropoffAddress: params.dropoffAddress,
+        scheduledAt: params.scheduledAt,
+        indicativeLowCents: params.indicativeLowCents,
+        indicativeHighCents: params.indicativeHighCents,
+        requestChannel: params.requestChannel,
+      }),
+    });
+    if (!res.ok) {
+      const t = await res.text().catch(() => "");
+      console.warn("[driver-booking-request] send-booking-request-received-email HTTP", res.status, t);
+    }
+  } catch (mailErr) {
+    console.warn("[driver-booking-request] send-booking-request-received-email error:", mailErr);
+  }
 }

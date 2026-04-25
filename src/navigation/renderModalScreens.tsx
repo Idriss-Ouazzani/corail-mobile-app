@@ -662,9 +662,9 @@ export function renderModalScreens(props: ModalScreensProps): React.ReactElement
           setSelectedRide(null);
           endNotificationReturn();
         }}
-        onClaim={async () => {
+        onClaim={async (priceCents?: number) => {
           try {
-            const updatedRide = await handleClaimRide(selectedRide);
+            const updatedRide = await handleClaimRide(selectedRide, priceCents);
             if (updatedRide) {
               setSelectedRide(updatedRide);
               return;
