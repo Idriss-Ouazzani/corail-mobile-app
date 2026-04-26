@@ -24,7 +24,7 @@ interface PushMessage {
   body: string
   data: {
     rideId: string
-    type: 'new_ride' | 'ride_in_group'
+    type: 'new_ride' | 'ride_in_group' | 'client_devis'
   }
   priority: 'high'
   /** Canal Android : doit exister côté app (voir notifications.ts / pushTokens) */
@@ -188,12 +188,36 @@ serve(async (req) => {
       hour: '2-digit',
       minute: '2-digit',
     })
-    const price = ride.price_cents ? `${(ride.price_cents / 100).toFixed(2)}€` : ''
+    const price = ride.price_cents != null && Number(ride.price_cents) > 0
+      ? `${(Number(ride.price_cents) / 100).toFixed(2)}€`
+      : ''
+    const lo = ride.indicative_low_cents != null ? Number(ride.indicative_low_cents) / 100 : null
+    const hi = ride.indicative_high_cents != null ? Number(ride.indicative_high_cents) / 100 : null
+    const rangeHint =
+      lo != null && hi != null && Number.isFinite(lo) && Number.isFinite(hi)
+        ? ` • ~${lo.toFixed(0)}–${hi.toFixed(0)}€`
+        : ''
     const pickupCity = ride.pickup_address.split(',').pop()?.trim() || ride.pickup_address
-    const body = `${pickupCity} → ${scheduledTime}${price ? ' • ' + price : ''}`
+    const isClientDevis =
+      String(ride.source || '') === 'client' && (!ride.price_cents || Number(ride.price_cents) <= 0)
 
-    const pushType: 'ride_in_group' | 'new_ride' = isGroupRide ? 'ride_in_group' : 'new_ride'
-    const pushTitle = isGroupRide ? '👥 Nouvelle course dans votre groupe' : '🚗 Nouvelle course disponible !'
+    let body = `${pickupCity} → ${scheduledTime}`
+    if (isClientDevis) {
+      body += rangeHint || ' • devis à proposer'
+    } else {
+      body += price ? ` • ${price}` : rangeHint
+    }
+
+    const pushType: 'ride_in_group' | 'new_ride' | 'client_devis' = isGroupRide
+      ? 'ride_in_group'
+      : isClientDevis
+        ? 'client_devis'
+        : 'new_ride'
+    const pushTitle = isGroupRide
+      ? '👥 Nouvelle course dans votre groupe'
+      : isClientDevis
+        ? '🪸 Nouvelle demande de devis'
+        : '🚗 Nouvelle course disponible !'
 
     const buildMessages = (tokens: string[]): PushMessage[] =>
       tokens.map((to) => ({

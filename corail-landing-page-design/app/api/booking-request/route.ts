@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { notifyDriversNewPublicRide } from "@/lib/notify-drivers-new-ride";
 
 const CREATOR_ID_CLIENT_WEB = "corail-landing";
 
@@ -142,6 +143,12 @@ async function handleBookingRequest(request: NextRequest) {
       requestChannel: "marketplace",
     });
   }
+
+  void notifyDriversNewPublicRide({
+    supabaseUrl,
+    serviceRoleKey: serviceRoleKey!,
+    rideId: ride.id,
+  });
 
   return NextResponse.json({ ok: true, ride_id: ride.id, created_at: ride.created_at });
 }

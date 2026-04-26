@@ -8,10 +8,10 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Calendar as CalendarIcon, Clock, Euro } from "lucide-react";
+import { Calendar as CalendarIcon, Clock } from "lucide-react";
 import { AddressAutocomplete, type AddressSuggestion } from "@/components/landing/AddressAutocomplete";
 import { calculateDistanceKm } from "@/lib/distance";
-import { computeIndicativeRange, formatEUR, roundToFiftyCents } from "@/lib/pricing";
+import { computeIndicativeRange, formatEUR } from "@/lib/pricing";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -39,8 +39,6 @@ export function ReserverForm({ preferredDriverSlug, driverFirstName }: Props) {
   const [arrivalLabel, setArrivalLabel] = useState("");
   const [date, setDate] = useState<Date | undefined>(undefined);
   const [time, setTime] = useState("");
-  const [budgetChoice, setBudgetChoice] = useState<"median" | "custom" | null>(null);
-  const [budget, setBudget] = useState("");
   const [datePickerOpen, setDatePickerOpen] = useState(false);
   const [clientName, setClientName] = useState("");
   const [clientEmail, setClientEmail] = useState("");
@@ -59,9 +57,6 @@ export function ReserverForm({ preferredDriverSlug, driverFirstName }: Props) {
         )
       : null;
   const indicativeRange = distanceKm != null && distanceKm > 0 ? computeIndicativeRange(distanceKm) : null;
-  const medianEur = indicativeRange ? roundToFiftyCents((indicativeRange.low + indicativeRange.high) / 2) : 0;
-  const effectiveBudget = budgetChoice === "median" && indicativeRange ? String(medianEur) : budget;
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!departureAddress?.label || !arrivalAddress?.label || !date || !time) {
@@ -77,13 +72,7 @@ export function ReserverForm({ preferredDriverSlug, driverFirstName }: Props) {
     const email = clientEmail.trim();
     const phone = clientPhone.trim().replace(/\s/g, "");
     if (!email && !phone) {
-      setSubmitError("Indiquez au moins votre email ou votre téléphone.");
-      setSubmitStatus("error");
-      return;
-    }
-    const budgetNum = parseFloat((effectiveBudget || "0").replace(",", "."));
-    if (!Number.isFinite(budgetNum) || budgetNum <= 0) {
-      setSubmitError("Veuillez indiquer un budget.");
+      setSubmitError("Indiquez au moins un email ou un numéro de téléphone (pour le devis).");
       setSubmitStatus("error");
       return;
     }
@@ -97,8 +86,9 @@ export function ReserverForm({ preferredDriverSlug, driverFirstName }: Props) {
       pickup_address: departureAddress.label,
       dropoff_address: arrivalAddress.label,
       scheduled_at: scheduledAt.toISOString(),
-      price_cents: Math.round(budgetNum * 100),
       distance_km: distanceKm ?? undefined,
+      indicative_low_cents: indicativeRange ? Math.round(indicativeRange.low * 100) : undefined,
+      indicative_high_cents: indicativeRange ? Math.round(indicativeRange.high * 100) : undefined,
       notes: notes.trim() || undefined,
       client_name: clientName.trim() || undefined,
       client_email: email || undefined,
@@ -152,6 +142,7 @@ export function ReserverForm({ preferredDriverSlug, driverFirstName }: Props) {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        {/* Mobile / tablet : champs natifs pour éviter troncature Android et bug sélection iOS */}
         <div className="grid grid-cols-[1fr_1fr] gap-3 md:hidden col-span-2">
           <div className="space-y-2 min-w-0">
             <Label htmlFor="reserver-date-native">Date</Label>
@@ -181,6 +172,7 @@ export function ReserverForm({ preferredDriverSlug, driverFirstName }: Props) {
             </div>
           </div>
         </div>
+        {/* Desktop : Popover date + Select heure */}
         <div className="hidden md:block space-y-2">
           <Label>Date</Label>
           <Popover open={datePickerOpen} onOpenChange={setDatePickerOpen}>
@@ -227,70 +219,37 @@ export function ReserverForm({ preferredDriverSlug, driverFirstName }: Props) {
       </div>
 
       {indicativeRange && (
-        <div className="space-y-3">
-          <Label>Budget (€)</Label>
+        <div className="space-y-2 rounded-xl border border-[var(--border)] bg-[var(--muted)]/20 p-4">
+          <p className="text-sm font-medium text-[var(--foreground)]">Estimation indicative (non contractuelle)</p>
           <p className="text-sm text-[var(--muted-foreground)]">
-            Fourchette habituelle : {formatEUR(indicativeRange.low)} – {formatEUR(indicativeRange.high)}.
+            Fourchette : {formatEUR(indicativeRange.low)} – {formatEUR(indicativeRange.high)}. Le tarif retenu figurera sur le devis du chauffeur.
           </p>
-          <div className="flex gap-3 flex-wrap">
-            <button
-              type="button"
-              onClick={() => setBudgetChoice("median")}
-              className={cn(
-                "px-4 py-2 rounded-xl border text-sm font-medium",
-                budgetChoice === "median"
-                  ? "border-[var(--primary)] bg-[var(--primary)]/10 text-[var(--primary)]"
-                  : "border-[var(--border)] bg-[var(--muted)]/30"
-              )}
-            >
-              Médian {formatEUR(medianEur)}
-            </button>
-            <button
-              type="button"
-              onClick={() => setBudgetChoice("custom")}
-              className={cn(
-                "px-4 py-2 rounded-xl border text-sm font-medium",
-                budgetChoice === "custom"
-                  ? "border-[var(--primary)] bg-[var(--primary)]/10 text-[var(--primary)]"
-                  : "border-[var(--border)] bg-[var(--muted)]/30"
-              )}
-            >
-              Autre montant
-            </button>
-            {budgetChoice === "custom" && (
-              <div className="flex items-center gap-2">
-                <Euro className="w-4 h-4 text-[var(--muted-foreground)]" />
-                <Input
-                  type="number"
-                  placeholder="Ex: 45"
-                  value={budget}
-                  onChange={(e) => setBudget(e.target.value)}
-                  className="w-24 h-10 rounded-xl"
-                />
-                <span className="text-sm text-[var(--muted-foreground)]">€</span>
-              </div>
-            )}
-          </div>
         </div>
       )}
       {!indicativeRange && (
-        <div className="space-y-2">
-          <Label>Budget indicatif (€)</Label>
-          <Input
-            type="number"
-            placeholder="Ex: 45"
-            value={budget}
-            onChange={(e) => setBudget(e.target.value)}
-            className="h-12 rounded-xl"
-          />
-        </div>
+        <p className="text-sm text-[var(--muted-foreground)]">
+          Renseignez les adresses pour afficher une fourchette indicative (distance).
+        </p>
       )}
 
       <div className="space-y-4">
         <Label>Vos coordonnées</Label>
         <Input placeholder="Votre nom (facultatif)" value={clientName} onChange={(e) => setClientName(e.target.value)} className="h-12 rounded-xl" />
-        <Input type="email" placeholder="Email *" value={clientEmail} onChange={(e) => setClientEmail(e.target.value)} className="h-12 rounded-xl" />
-        <Input type="tel" placeholder="Téléphone *" value={clientPhone} onChange={(e) => setClientPhone(e.target.value)} className="h-12 rounded-xl" />
+        <Input
+          type="email"
+          placeholder="Email (recommandé pour le devis)"
+          value={clientEmail}
+          onChange={(e) => setClientEmail(e.target.value)}
+          className="h-12 rounded-xl"
+        />
+        <Input
+          type="tel"
+          placeholder="Téléphone"
+          value={clientPhone}
+          onChange={(e) => setClientPhone(e.target.value)}
+          className="h-12 rounded-xl"
+        />
+        <p className="text-xs text-[var(--muted-foreground)]">Au moins l&apos;email ou le téléphone.</p>
       </div>
 
       <div className="space-y-2">
@@ -318,6 +277,11 @@ export function ReserverForm({ preferredDriverSlug, driverFirstName }: Props) {
         </div>
       )}
 
+      <div className="p-4 rounded-xl bg-[var(--muted)]/20 border border-[var(--border)] space-y-2 text-sm text-[var(--muted-foreground)]">
+        <p>Mode de paiement : à régler directement auprès du chauffeur.</p>
+        <p>Pour toute modification ou annulation, contactez directement votre chauffeur.</p>
+      </div>
+
       <div className="flex items-start gap-3 p-4 rounded-xl bg-[var(--muted)]/30 border border-[var(--border)]">
         <Checkbox id="terms" checked={termsAccepted} onCheckedChange={(c) => setTermsAccepted(c === true)} />
         <Label htmlFor="terms" className="text-sm leading-relaxed cursor-pointer">
@@ -328,10 +292,13 @@ export function ReserverForm({ preferredDriverSlug, driverFirstName }: Props) {
       </div>
 
       {submitStatus === "success" && (
-        <div className="p-4 rounded-xl bg-green-500/10 border border-green-500/30 text-green-700 dark:text-green-400 text-center">
-          {preferredDriverSlug
-            ? "Votre demande a été envoyée au chauffeur. Vous serez recontacté rapidement."
-            : "Votre réservation a bien été envoyée. Les chauffeurs pourront vous répondre."}
+        <div className="p-4 rounded-xl bg-green-500/10 border border-green-500/30 text-green-700 dark:text-green-400 text-center space-y-1">
+          <p className="font-semibold">Devis en cours</p>
+          <p className="text-sm">
+            {preferredDriverSlug
+              ? "Votre demande a été transmise au chauffeur. Vous recevrez un devis par email dès qu’un tarif aura été proposé."
+              : "Votre demande est en ligne. Vous recevrez un devis par email dès qu’un chauffeur aura proposé un tarif."}
+          </p>
         </div>
       )}
       {submitStatus === "error" && submitError && (

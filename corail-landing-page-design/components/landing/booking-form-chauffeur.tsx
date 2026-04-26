@@ -3,14 +3,14 @@
 import { useState } from "react";
 import Link from "next/link";
 import { format } from "date-fns";
-import { CalendarIcon, Clock, Euro, ArrowRight } from "lucide-react";
+import { CalendarIcon, Clock, ArrowRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { AddressAutocomplete, type AddressSuggestion } from "./AddressAutocomplete";
 import { calculateDistanceKm } from "@/lib/distance";
-import { computeIndicativeRange, formatEUR, roundToFiftyCents } from "@/lib/pricing";
+import { computeIndicativeRange, formatEUR } from "@/lib/pricing";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 const TIME_SLOTS = (() => {
@@ -35,8 +35,6 @@ export function BookingFormChauffeur({ driverId, driverDisplayName }: Props) {
   const [arrivalLabel, setArrivalLabel] = useState("");
   const [date, setDate] = useState<Date | undefined>(undefined);
   const [time, setTime] = useState("");
-  const [budgetChoice, setBudgetChoice] = useState<"median" | "custom" | null>(null);
-  const [budget, setBudget] = useState("");
   const [clientName, setClientName] = useState("");
   const [clientEmail, setClientEmail] = useState("");
   const [clientPhone, setClientPhone] = useState("");
@@ -54,9 +52,6 @@ export function BookingFormChauffeur({ driverId, driverDisplayName }: Props) {
         )
       : null;
   const indicativeRange = distanceKm != null && distanceKm > 0 ? computeIndicativeRange(distanceKm) : null;
-  const medianEur = indicativeRange ? roundToFiftyCents((indicativeRange.low + indicativeRange.high) / 2) : 0;
-  const budgetValue = budget !== "" ? parseFloat(budget.replace(",", ".")) : null;
-  const effectiveBudget = budgetChoice === "median" ? String(medianEur) : budget;
   const firstName = driverDisplayName.split(" ")[0] || driverDisplayName;
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -74,13 +69,7 @@ export function BookingFormChauffeur({ driverId, driverDisplayName }: Props) {
     const email = clientEmail.trim();
     const phone = clientPhone.trim().replace(/\s/g, "");
     if (!email && !phone) {
-      setSubmitError("Indiquez au moins votre email ou votre téléphone.");
-      setSubmitStatus("error");
-      return;
-    }
-    const budgetNum = parseFloat((effectiveBudget || "0").replace(",", "."));
-    if (!Number.isFinite(budgetNum) || budgetNum <= 0) {
-      setSubmitError("Veuillez indiquer un budget.");
+      setSubmitError("Indiquez au moins un email ou un téléphone pour le devis.");
       setSubmitStatus("error");
       return;
     }
@@ -98,8 +87,9 @@ export function BookingFormChauffeur({ driverId, driverDisplayName }: Props) {
           pickup_address: departureAddress.label,
           dropoff_address: arrivalAddress.label,
           scheduled_at: scheduledAt.toISOString(),
-          price_cents: Math.round(budgetNum * 100),
           distance_km: distanceKm ?? undefined,
+          indicative_low_cents: indicativeRange ? Math.round(indicativeRange.low * 100) : undefined,
+          indicative_high_cents: indicativeRange ? Math.round(indicativeRange.high * 100) : undefined,
           notes: notes.trim() || undefined,
           client_name: clientName.trim() || undefined,
           client_email: email || undefined,
@@ -124,7 +114,7 @@ export function BookingFormChauffeur({ driverId, driverDisplayName }: Props) {
   return (
     <div className="max-w-2xl mx-auto">
       <p className="text-center text-[var(--muted-foreground)] mb-6">
-        Votre demande sera envoyée à <strong className="text-[var(--foreground)]">{driverDisplayName}</strong>. Il pourra l&apos;accepter ou la refuser.
+        Votre demande est transmise à <strong className="text-[var(--foreground)]">{driverDisplayName}</strong>. Vous recevrez un devis (email) lorsqu’il proposera un tarif. Estimation affichée : indicative, non contractuelle.
       </p>
       <form
         className="rounded-2xl border border-[var(--border)] bg-[var(--card)] p-4 sm:p-6 shadow-lg space-y-6 overflow-hidden min-w-0 max-w-full"
@@ -182,67 +172,23 @@ export function BookingFormChauffeur({ driverId, driverDisplayName }: Props) {
           </div>
         </div>
 
-        <div className="space-y-2">
-          {indicativeRange ? (
-            <>
-              <p className="text-sm text-[var(--muted-foreground)]">
-                Fourchette indicative : {formatEUR(indicativeRange.low)} – {formatEUR(indicativeRange.high)}.
-              </p>
-              <div className="flex flex-wrap gap-2 items-center">
-                <button
-                  type="button"
-                  onClick={() => { setBudgetChoice("median"); setBudget(""); }}
-                  className={`px-4 py-2 rounded-xl text-sm font-medium border ${
-                    budgetChoice === "median" ? "bg-[var(--primary)]/20 border-[var(--primary)]" : "border-[var(--border)]"
-                  }`}
-                >
-                  Prix médian {formatEUR(medianEur)}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setBudgetChoice("custom")}
-                  className={`px-4 py-2 rounded-xl text-sm font-medium border ${
-                    budgetChoice === "custom" ? "bg-[var(--primary)]/20 border-[var(--primary)]" : "border-[var(--border)]"
-                  }`}
-                >
-                  Autre budget
-                </button>
-                {budgetChoice === "custom" && (
-                  <div className="relative w-full min-w-[120px] max-w-[160px]">
-                    <Euro className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[var(--muted-foreground)] pointer-events-none" />
-                    <Input
-                      type="number"
-                      placeholder="45"
-                      value={budget}
-                      onChange={(e) => setBudget(e.target.value)}
-                      className="w-full pl-9 pr-3 h-10 rounded-xl [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                    />
-                  </div>
-                )}
-              </div>
-            </>
-          ) : (
-            <div>
-              <Label className="text-sm text-[var(--muted-foreground)]">Budget indicatif (€)</Label>
-              <div className="flex items-center gap-2 mt-1">
-                <Euro className="w-4 h-4 text-[var(--muted-foreground)]" />
-                <Input
-                  type="number"
-                  placeholder="Ex: 45"
-                  value={budget}
-                  onChange={(e) => setBudget(e.target.value)}
-                  className="h-12 rounded-xl flex-1"
-                />
-              </div>
-            </div>
-          )}
-        </div>
+        {indicativeRange ? (
+          <div className="space-y-2 rounded-xl border border-[var(--border)] bg-[var(--muted)]/20 p-4">
+            <p className="text-sm font-medium">Estimation indicative (non contractuelle)</p>
+            <p className="text-sm text-[var(--muted-foreground)]">
+              {formatEUR(indicativeRange.low)} – {formatEUR(indicativeRange.high)} · le devis fera foi.
+            </p>
+          </div>
+        ) : (
+          <p className="text-sm text-[var(--muted-foreground)]">Indiquez départ et arrivée pour afficher une fourchette.</p>
+        )}
 
         <div className="space-y-4">
           <Label className="text-sm text-[var(--muted-foreground)]">Vos coordonnées</Label>
           <Input placeholder="Nom (facultatif)" value={clientName} onChange={(e) => setClientName(e.target.value)} className="h-12 rounded-xl" />
-          <Input type="email" placeholder="Email *" value={clientEmail} onChange={(e) => setClientEmail(e.target.value)} className="h-12 rounded-xl" />
-          <Input type="tel" placeholder="Téléphone *" value={clientPhone} onChange={(e) => setClientPhone(e.target.value)} className="h-12 rounded-xl" />
+          <Input type="email" placeholder="Email" value={clientEmail} onChange={(e) => setClientEmail(e.target.value)} className="h-12 rounded-xl" />
+          <Input type="tel" placeholder="Téléphone" value={clientPhone} onChange={(e) => setClientPhone(e.target.value)} className="h-12 rounded-xl" />
+          <p className="text-xs text-[var(--muted-foreground)]">Au moins l’email ou le téléphone (pour le devis).</p>
         </div>
 
         <div>
@@ -268,6 +214,11 @@ export function BookingFormChauffeur({ driverId, driverDisplayName }: Props) {
           </Label>
         </div>
 
+        <div className="p-4 rounded-xl bg-[var(--muted)]/20 border border-[var(--border)] space-y-2 text-sm text-[var(--muted-foreground)]">
+          <p>Mode de paiement : à régler directement auprès du chauffeur.</p>
+          <p>Pour toute modification ou annulation, contactez directement votre chauffeur.</p>
+        </div>
+
         <div className="flex items-start gap-3 p-4 rounded-xl bg-[var(--muted)]/30 border border-[var(--border)] min-w-0">
           <Checkbox id="terms" checked={termsAccepted} onCheckedChange={(c) => setTermsAccepted(c === true)} className="mt-0.5 shrink-0 size-5 border-2 border-[var(--primary)]/80 bg-[var(--background)]" />
           <label htmlFor="terms" className="text-sm text-[var(--muted-foreground)] leading-relaxed cursor-pointer min-w-0 flex-1 font-normal block">
@@ -277,8 +228,9 @@ export function BookingFormChauffeur({ driverId, driverDisplayName }: Props) {
         </div>
 
         {submitStatus === "success" && (
-          <div className="p-4 rounded-xl bg-green-500/15 border border-green-500/30 text-green-700 dark:text-green-400 text-center">
-            Votre demande a été envoyée à {driverDisplayName}. Il vous recontactera pour confirmer.
+          <div className="p-4 rounded-xl bg-green-500/15 border border-green-500/30 text-green-700 dark:text-green-400 text-center space-y-1">
+            <p className="font-semibold">Devis en cours</p>
+            <p className="text-sm">Demande envoyée à {driverDisplayName}. Vous recevrez un devis par email dès qu’un tarif sera proposé.</p>
           </div>
         )}
         {submitStatus === "error" && submitError && (

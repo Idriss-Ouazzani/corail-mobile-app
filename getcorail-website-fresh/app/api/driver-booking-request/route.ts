@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseServer } from "@/lib/supabase-server";
 import { sendPushToUser } from "@/lib/notify-user-push";
+import { notifyDriversNewPublicRide } from "@/lib/notify-drivers-new-ride";
 
 /**
  * POST: créer une demande de course adressée à un chauffeur (depuis sa page publique).
@@ -121,8 +122,8 @@ export async function POST(request: NextRequest) {
     // Notifier le chauffeur (push)
     sendPushToUser(
       driverId,
-      "Nouvelle demande de course",
-      "Une nouvelle demande de course vous a été adressée.",
+      "Nouvelle demande (devis)",
+      "Un client a envoyé une demande depuis votre page. Ouvrez Corail pour répondre.",
       { type: "driver_ride_request", request_id: req?.id }
     ).catch((err) => console.warn("[driver-booking-request] Push notification error:", err));
 
@@ -194,6 +195,12 @@ export async function POST(request: NextRequest) {
       requestChannel: "marketplace",
     });
   }
+
+  void notifyDriversNewPublicRide({
+    supabaseUrl,
+    serviceRoleKey: serviceRoleKey!,
+    rideId: (ride as { id: string }).id,
+  });
 
   return NextResponse.json({
     ok: true,

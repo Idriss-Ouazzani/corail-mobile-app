@@ -45,6 +45,8 @@ module.exports = {
       },
       package: 'com.corail.vtcmarketplace',
       versionCode: 8,
+      /** Réduit le chevauchement clavier / champs (ex. devis en détail d’annonce) */
+      softwareKeyboardLayoutMode: 'resize',
       // Empêche une dépendance (ex. Sentry, Play Services) d’ajouter AD_ID au manifeste final.
       permissions: [
         'INTERNET',

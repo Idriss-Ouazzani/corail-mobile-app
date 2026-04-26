@@ -77,8 +77,13 @@ export function useRides(currentUserId: string | null, userCredits: number) {
       console.log('🎯 Prise de course:', rideId);
       await apiClient.claimRide(rideId);
       
-      // Planifier notifications + ajout dans la cloche
       await NotificationService.scheduleRideReminder(
+        ride.id,
+        ride.scheduled_at,
+        ride.pickup_address,
+        ride.dropoff_address
+      );
+      await NotificationService.scheduleRideImminentReminder(
         ride.id,
         ride.scheduled_at,
         ride.pickup_address,

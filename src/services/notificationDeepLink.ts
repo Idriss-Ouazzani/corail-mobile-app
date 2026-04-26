@@ -25,6 +25,7 @@ export type NotificationNavHandlers = {
 
 const NOTIFICATION_NAV_TYPES = new Set([
   'new_ride',
+  'client_devis',
   'ride_in_group',
   'quote_accepted',
   'quote_refused',
@@ -51,6 +52,7 @@ export function routeNotificationTapData(
     nav.prepareForNotificationNavigation?.();
     switch (type) {
       case 'new_ride':
+      case 'client_devis':
       case 'ride_in_group': {
         const raw = data.rideId;
         const rideId =

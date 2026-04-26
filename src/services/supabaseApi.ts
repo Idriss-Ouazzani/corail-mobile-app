@@ -509,7 +509,17 @@ export const claimRide = async (rideId: string) => {
     .select()
     .single();
 
-  if (rideError) throw new Error(rideError.message);
+  if (rideError) {
+    const code = (rideError as { code?: string }).code;
+    const msg = rideError.message || '';
+    if (code === 'PGRST116' || /0 rows|multiple|single row/i.test(msg)) {
+      throw new Error("Cette course n'est plus disponible (déjà prise par un autre chauffeur ou retirée).");
+    }
+    throw new Error(rideError.message);
+  }
+  if (!ride) {
+    throw new Error("Cette course n'est plus disponible (déjà prise par un autre chauffeur ou retirée).");
+  }
 
   if (costsCredit) {
     try {

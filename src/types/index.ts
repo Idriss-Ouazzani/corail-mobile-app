@@ -31,7 +31,8 @@ export interface Ride {
   pickup_address: string
   dropoff_address: string
   scheduled_at: string
-  price_cents: number
+  /** null = demande de devis (site) sans prix client fixe */
+  price_cents: number | null
   status: RideStatus
   created_at: string
   updated_at: string

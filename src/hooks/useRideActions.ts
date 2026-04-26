@@ -260,8 +260,14 @@ export function useRideActions(props: UseRideActionsProps) {
         );
       }
       
-      // 🔔 Planifier notification de rappel 1h avant + ajout dans la cloche
+      // 🔔 Rappels 1 h avant, 1 min avant (démarrage), puis “terminer la course”
       await NotificationService.scheduleRideReminder(
+        ride.id,
+        ride.scheduled_at,
+        ride.pickup_address,
+        ride.dropoff_address
+      );
+      await NotificationService.scheduleRideImminentReminder(
         ride.id,
         ride.scheduled_at,
         ride.pickup_address,
@@ -369,8 +375,13 @@ export function useRideActions(props: UseRideActionsProps) {
           console.warn('⚠️ Analytics error (non-blocking):', analyticsError);
         }
         
-        // 🔔 Planifier notification de rappel 1h avant + ajout dans la cloche
         await NotificationService.scheduleRideReminder(
+          response.id,
+          ride.scheduled_at,
+          ride.pickup_address,
+          ride.dropoff_address
+        );
+        await NotificationService.scheduleRideImminentReminder(
           response.id,
           ride.scheduled_at,
           ride.pickup_address,
@@ -448,8 +459,13 @@ export function useRideActions(props: UseRideActionsProps) {
           await Promise.resolve(onAfterNetworkRideCreated?.());
         } catch (_) {}
         
-        // 🔔 Planifier notification de rappel 1h avant (pour le créateur aussi) + ajout dans la cloche
         await NotificationService.scheduleRideReminder(
+          response.id,
+          ride.scheduled_at,
+          ride.pickup_address,
+          ride.dropoff_address
+        );
+        await NotificationService.scheduleRideImminentReminder(
           response.id,
           ride.scheduled_at,
           ride.pickup_address,

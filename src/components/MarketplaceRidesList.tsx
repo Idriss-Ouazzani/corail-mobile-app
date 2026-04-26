@@ -19,7 +19,7 @@ export interface MarketplaceListRide {
   pickup_address?: string;
   dropoff_address?: string;
   scheduled_at?: string;
-  price_cents?: number;
+  price_cents?: number | null;
   vehicle_type?: string;
   distance_km?: number;
   duration_minutes?: number;

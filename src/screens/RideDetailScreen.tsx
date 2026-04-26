@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -11,6 +11,7 @@ import {
   ActivityIndicator,
   Platform,
   TextInput,
+  KeyboardAvoidingView,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import type { Ride, RideSource } from '../types';
@@ -124,6 +125,7 @@ export const RideDetailScreen: React.FC<RideDetailScreenProps> = ({
   const needsClientQuotePrice =
     isClientDemand && String(ride.status).toUpperCase() === 'PUBLISHED' && !isMyRide && ((ride.price_cents ?? 0) <= 0);
   const [clientQuotePriceInput, setClientQuotePriceInput] = useState('');
+  const quotePriceScrollRef = useRef<ScrollView>(null);
   const parsedClientQuoteEur = parseFloat(clientQuotePriceInput.replace(',', '.').trim());
   const isQuoteAboveIndicative =
     needsClientQuotePrice &&
@@ -312,7 +314,7 @@ export const RideDetailScreen: React.FC<RideDetailScreenProps> = ({
     }
   };
   
-  const formatPrice = (cents: number) => `${((cents ?? 0) / 100).toFixed(2)}€`;
+  const formatPrice = (cents: number | null | undefined) => `${((cents ?? 0) / 100).toFixed(2)}€`;
 
   const getSourceLabel = (s?: RideSource) => ({ chauffeur: 'Chauffeur', hotel: 'Hôtel', client: 'Client' }[s || 'chauffeur']);
   const getSourceIcon = (s?: RideSource) => ({ chauffeur: 'car-sport-outline', hotel: 'business-outline', client: 'person-outline' }[s || 'chauffeur']);
@@ -403,7 +405,19 @@ export const RideDetailScreen: React.FC<RideDetailScreenProps> = ({
         </TouchableOpacity>
       )}
 
-      <ScrollView style={styles.content} contentContainerStyle={styles.contentContainer} showsVerticalScrollIndicator={false}>
+      <KeyboardAvoidingView
+        style={styles.keyboardAvoider}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 2 : 0}
+      >
+      <ScrollView
+        ref={quotePriceScrollRef}
+        style={styles.content}
+        contentContainerStyle={styles.contentContainer}
+        showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
+        keyboardDismissMode="interactive"
+      >
         {/* Horaire + Détails trajet (en haut pour demande client) + Prix ou Demande client */}
         <View style={styles.topSection}>
           {/* Horaire avec countdown */}
@@ -474,15 +488,63 @@ export const RideDetailScreen: React.FC<RideDetailScreenProps> = ({
                   <Text style={styles.clientDemandFourchetteLabel}>Fourchette indicative</Text>
                   <Text style={styles.indicativeCompactValue}>{indicativeRange}</Text>
                 </View>
-              ) : (
+              ) : !needsClientQuotePrice || hasSentQuote ? (
                 <Text style={styles.clientDemandHint}>Aucune fourchette disponible sur cette course.</Text>
-              )}
+              ) : null}
 
-              <Text style={styles.clientDemandHint}>
-                {hasSentQuote
-                  ? 'Le client a recu votre devis par email.'
-                  : 'Le tarif final sera envoye au client via un devis.'}
-              </Text>
+              {needsClientQuotePrice && !hasSentQuote ? (
+                <View style={styles.clientQuoteDevisBlock}>
+                  <View style={styles.clientQuoteDevisHeader}>
+                    <Ionicons name="pricetag" size={20} color="#fbbf24" />
+                    <View style={styles.clientQuoteDevisTitleCol}>
+                      <Text style={styles.clientQuoteDevisTitle}>Votre montant de devis</Text>
+                      <View style={styles.clientQuoteObligatoirePill}>
+                        <Text style={styles.clientQuoteObligatoireText}>
+                          {'Obligatoire pour prendre l\u2019annonce'}
+                        </Text>
+                      </View>
+                    </View>
+                  </View>
+                  <Text style={styles.clientQuoteDevisSub}>
+                    Proposez un prix TTC. Le client recevra un e-mail pour accepter ou refuser.
+                  </Text>
+                  <View style={styles.clientQuoteInputRow}>
+                    <TextInput
+                      style={styles.clientQuoteInputMain}
+                      value={clientQuotePriceInput}
+                      onChangeText={setClientQuotePriceInput}
+                      keyboardType="decimal-pad"
+                      placeholder="0,00"
+                      placeholderTextColor="#64748b"
+                      returnKeyType="done"
+                      onFocus={() => {
+                        setTimeout(
+                          () => quotePriceScrollRef.current?.scrollTo({ y: 0, animated: true }),
+                          50
+                        );
+                      }}
+                    />
+                    <View style={styles.clientQuoteEurBox}>
+                      <Text style={styles.clientQuoteEurText}>€</Text>
+                    </View>
+                  </View>
+                  {isQuoteAboveIndicative ? (
+                    <View style={styles.clientQuoteWarningRow}>
+                      <Ionicons name="alert-circle" size={16} color="#fbbf24" />
+                      <Text style={styles.quotePriceWarning}>
+                        Au-dessus de la fourchette ({highEur.toFixed(0)} € max affiché). Vous pouvez quand
+                        même envoyer.
+                      </Text>
+                    </View>
+                  ) : null}
+                </View>
+              ) : null}
+
+              {hasSentQuote ? (
+                <Text style={styles.clientDemandHint}>Le client a recu votre devis par email.</Text>
+              ) : needsClientQuotePrice ? null : (
+                <Text style={styles.clientDemandHint}>Le tarif final sera envoye au client via un devis.</Text>
+              )}
             </View>
           )}
           {/* Montant */}
@@ -491,9 +553,9 @@ export const RideDetailScreen: React.FC<RideDetailScreenProps> = ({
               <View style={styles.priceTopLeft}>
                 <Text style={styles.priceTopLabel}>Montant</Text>
                 <Text style={styles.priceTopValue}>{formatPrice(ride.price_cents)}</Text>
-                {ride.distance_km != null && ride.distance_km > 0 && (
+                {ride.distance_km != null && ride.distance_km > 0 && (ride.price_cents ?? 0) > 0 && (
                   <Text style={styles.pricePerKm}>
-                    {((ride.price_cents / 100) / ride.distance_km).toFixed(2)} €/km
+                    {(((ride.price_cents ?? 0) / 100) / ride.distance_km).toFixed(2)} €/km
                   </Text>
                 )}
               </View>
@@ -1035,27 +1097,19 @@ export const RideDetailScreen: React.FC<RideDetailScreenProps> = ({
         )}
 
         {/* Prendre cette course — crédit affiché uniquement sur l'action (discret) */}
-      {!isMyRide && ride.status === 'PUBLISHED' && onClaim && (
+        {!isMyRide && ride.status === 'PUBLISHED' && onClaim && (
         <View style={styles.actionContainer}>
-          {needsClientQuotePrice && (
-            <View style={styles.quotePriceWrap}>
-              <Text style={styles.quotePriceLabel}>Votre montant devis (EUR)</Text>
-              <TextInput
-                style={styles.quotePriceInput}
-                value={clientQuotePriceInput}
-                onChangeText={setClientQuotePriceInput}
-                keyboardType="decimal-pad"
-                placeholder="ex. 45,00"
-                placeholderTextColor="#94a3b8"
-              />
-              {isQuoteAboveIndicative ? (
-                <Text style={styles.quotePriceWarning}>
-                  Au-dessus de la fourchette indicative ({highEur.toFixed(0)} EUR). Vous pouvez quand meme envoyer.
+          {needsClientQuotePrice ? (
+            <View style={styles.claimDevisRecap}>
+              {Number.isFinite(parsedClientQuoteEur) && parsedClientQuoteEur >= 1 ? (
+                <Text style={styles.claimDevisRecapText}>
+                  Devis saisi : <Text style={styles.claimDevisRecapAmount}>{parsedClientQuoteEur.toFixed(2)} €</Text>
                 </Text>
-              ) : null}
-              <Text style={styles.quotePriceHint}>Le client recevra un email avec lien accepter/refuser.</Text>
+              ) : (
+                <Text style={styles.claimDevisRecapWarning}>Saisissez un montant dans le cadre en haut.</Text>
+              )}
             </View>
-          )}
+          ) : null}
           <TouchableOpacity
             style={styles.actionButton}
             onPress={() => {
@@ -1132,6 +1186,7 @@ export const RideDetailScreen: React.FC<RideDetailScreenProps> = ({
       {/* Bottom spacing */}
       <View style={{ height: 40 }} />
     </ScrollView>
+      </KeyboardAvoidingView>
 
     <LegalInfoModal
       visible={showLegalModal}
@@ -1456,6 +1511,119 @@ const styles = StyleSheet.create({
     color: '#f59e0b',
     marginTop: 10,
     fontStyle: 'italic',
+  },
+  clientQuoteDevisBlock: {
+    marginTop: 10,
+    marginBottom: 4,
+    backgroundColor: 'rgba(2, 6, 23, 0.7)',
+    borderRadius: 14,
+    padding: 14,
+    borderWidth: 2,
+    borderColor: 'rgba(251, 191, 36, 0.55)',
+    shadowColor: '#fbbf24',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.15,
+    shadowRadius: 8,
+  },
+  clientQuoteDevisHeader: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 10,
+    marginBottom: 8,
+  },
+  clientQuoteDevisTitleCol: {
+    flex: 1,
+  },
+  clientQuoteDevisTitle: {
+    fontSize: 18,
+    fontWeight: '800',
+    color: '#f8fafc',
+    letterSpacing: 0.2,
+  },
+  clientQuoteObligatoirePill: {
+    alignSelf: 'flex-start',
+    marginTop: 6,
+    backgroundColor: 'rgba(251, 191, 36, 0.2)',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 8,
+  },
+  clientQuoteObligatoireText: {
+    fontSize: 11,
+    fontWeight: '800',
+    color: '#fbbf24',
+  },
+  clientQuoteDevisSub: {
+    fontSize: 12,
+    color: '#94a3b8',
+    lineHeight: 17,
+    marginBottom: 12,
+  },
+  clientQuoteInputRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderRadius: 12,
+    borderWidth: 2,
+    borderColor: 'rgba(14, 165, 233, 0.55)',
+    backgroundColor: 'rgba(15, 23, 42, 0.95)',
+    overflow: 'hidden',
+  },
+  clientQuoteInputMain: {
+    flex: 1,
+    minHeight: 58,
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+    fontSize: 28,
+    fontWeight: '800',
+    color: '#f8fafc',
+  },
+  clientQuoteEurBox: {
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    backgroundColor: 'rgba(14, 165, 233, 0.15)',
+    borderLeftWidth: 1,
+    borderLeftColor: 'rgba(14, 165, 233, 0.35)',
+    justifyContent: 'center',
+    minHeight: 58,
+  },
+  clientQuoteEurText: {
+    fontSize: 24,
+    fontWeight: '800',
+    color: '#0ea5e9',
+  },
+  clientQuoteWarningRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 8,
+    marginTop: 10,
+  },
+  keyboardAvoider: {
+    flex: 1,
+  },
+  claimDevisRecap: {
+    marginBottom: 10,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    backgroundColor: 'rgba(15, 23, 42, 0.55)',
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: 'rgba(71, 85, 105, 0.5)',
+  },
+  claimDevisRecapText: {
+    fontSize: 14,
+    color: '#94a3b8',
+    textAlign: 'center',
+  },
+  claimDevisRecapAmount: {
+    color: '#10b981',
+    fontWeight: '800',
+    fontSize: 16,
+  },
+  claimDevisRecapWarning: {
+    fontSize: 13,
+    color: '#fbbf24',
+    fontWeight: '600',
+    textAlign: 'center',
   },
   indicativeBarWrap: {
     marginTop: 4,
@@ -2136,41 +2304,11 @@ const styles = StyleSheet.create({
     marginTop: 20,
     marginBottom: 16,
   },
-  quotePriceWrap: {
-    marginBottom: 12,
-    backgroundColor: 'rgba(15, 23, 42, 0.45)',
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: 'rgba(14, 165, 233, 0.25)',
-    padding: 12,
-  },
-  quotePriceLabel: {
-    color: '#e2e8f0',
-    fontSize: 13,
-    fontWeight: '600',
-    marginBottom: 8,
-  },
-  quotePriceInput: {
-    borderWidth: 1,
-    borderColor: 'rgba(148,163,184,0.35)',
-    borderRadius: 10,
-    backgroundColor: 'rgba(2,6,23,0.45)',
-    color: '#fff',
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    fontSize: 18,
-    fontWeight: '700',
-  },
-  quotePriceHint: {
-    marginTop: 8,
-    color: '#94a3b8',
-    fontSize: 12,
-  },
   quotePriceWarning: {
-    marginTop: 8,
     color: '#fbbf24',
     fontSize: 12,
     fontWeight: '600',
+    flex: 1,
   },
   creditsCostBanner: {
     backgroundColor: '#1e293b',

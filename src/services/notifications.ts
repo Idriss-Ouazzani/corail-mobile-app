@@ -349,7 +349,7 @@ export async function notifyLowCredits(credits: number): Promise<void> {
  */
 export async function notifyPendingQuoteResponses(count: number): Promise<void> {
   const prefs = await getNotificationPreferences();
-  if (!prefs.enabled || count <= 0) return;
+  if (!prefs.enabled || !prefs.rideReminders || count <= 0) return;
 
   try {
     await Notifications.scheduleNotificationAsync({

@@ -23,7 +23,7 @@ interface Ride {
   pickup_address?: string;
   dropoff_address?: string;
   scheduled_at?: string;
-  price_cents?: number;
+  price_cents?: number | null;
   distance_km?: number;
   duration_minutes?: number;
   [key: string]: any;
