@@ -44,18 +44,11 @@ function fmtDateTime(scheduledAt: string) {
   }
 }
 
-function formatRange(low?: number | null, high?: number | null) {
-  if (low == null || high == null) return "Établie sur la base de votre itinéraire";
-  return `${Math.round(low / 100)} € – ${Math.round(high / 100)} € (indicatif)`;
-}
-
 function buildHtml(p: BookingRequestReceivedParams) {
   const { date, time } = fmtDateTime(p.scheduledAt);
-  const range = formatRange(p.indicativeLowCents, p.indicativeHighCents);
   const greeting = p.clientName?.trim()
     ? `Bonjour ${escHtml(p.clientName.trim())},`
     : "Bonjour,";
-  const whenLine = time ? `${date} — ${time}` : date;
   const channelBlock =
     p.requestChannel === "driver_page"
       ? {
@@ -66,6 +59,14 @@ function buildHtml(p: BookingRequestReceivedParams) {
           kicker: "Votre parcours est en recherche de partenaire",
           text: "Votre demande est proposée à notre réseau de chauffeurs sélectionnés. Le premier devis reçu, rédigé sur mesure, vous sera adressé par e-mail dès sa validation.",
         };
+
+  const timeSecondLine = time
+    ? '<p style="margin:8px 0 0; font-family:-apple-system, BlinkMacSystemFont, &quot;Segoe UI&quot;, Roboto, Helvetica, Arial, sans-serif; font-size:14px; color:#44403c; letter-spacing:0.12em;">' +
+      "Heure retenue : " +
+      '<span style="font-family:Georgia, &quot;Times New Roman&quot;, serif; font-size:16px; letter-spacing:0.04em; color:#0c0a09;">' +
+      escHtml(time) +
+      "</span></p>"
+    : "";
 
   return `<!DOCTYPE html>
 <html lang="fr">
@@ -105,52 +106,54 @@ function buildHtml(p: BookingRequestReceivedParams) {
           <tr>
             <td style="padding:0 40px 32px; font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; font-size:15px; line-height:1.65; color:#44403c;">
               <p style="margin:0 0 20px;">${greeting}</p>
-              <p style="margin:0 0 20px;">Nous avons le plaisir de confirmer la <strong style="color:#1c1917; font-weight:600;">saisie de votre course</strong>. Cette étude fait désormais partie de nos dossiers prioritaires : un devis, rédigé pour vous, vous parviendra prochainement.</p>
-              <p style="margin:0;">C’est le premier pas d’un service pensé pour l’exigence — ponctualité, discrétion, confort.</p>
+              <p style="margin:0 0 20px;">Nous avons le plaisir de confirmer l’<strong style="color:#1c1917; font-weight:600;">enregistrement de votre demande</strong>. Votre dossier est pris en charge : une proposition chiffrée, établie pour vous, vous parviendra dans les plus brefs délais.</p>
+              <p style="margin:0;">Chaque course porte l’exigence Corail — ponctualité, intimité du voyage, sérénité d’esprit.</p>
             </td>
           </tr>
           <tr>
             <td style="padding:0 40px 12px;">
-              <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="border:1px solid #e7e5e4; background-color:#fafaf9;">
+              <p style="margin:0 0 18px; text-align:center; font-family:Georgia, 'Times New Roman', serif; font-size:11px; letter-spacing:0.3em; text-transform:uppercase; color:#78716c;">Votre itinéraire</p>
+              <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="background-color:#f7f4ef; border:1px solid #e5dfd6;">
                 <tr>
-                  <td style="padding:24px 24px 8px;">
-                    <p style="margin:0; font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; font-size:10px; letter-spacing:0.18em; text-transform:uppercase; color:#a8a29e;">Départ</p>
-                    <p style="margin:8px 0 0; font-family:Georgia, 'Times New Roman', serif; font-size:17px; line-height:1.45; color:#0c0a09;">${escHtml(
-                      p.pickupAddress
-                    )}</p>
-                  </td>
-                </tr>
-                <tr>
-                  <td style="height:1px; background-color:#e7e5e4; line-height:0; font-size:0; padding:0 24px;">&nbsp;</td>
-                </tr>
-                <tr>
-                  <td style="padding:20px 24px 8px;">
-                    <p style="margin:0; font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; font-size:10px; letter-spacing:0.18em; text-transform:uppercase; color:#a8a29e;">Arrivée</p>
-                    <p style="margin:8px 0 0; font-family:Georgia, 'Times New Roman', serif; font-size:17px; line-height:1.45; color:#0c0a09;">${escHtml(
-                      p.dropoffAddress
-                    )}</p>
-                  </td>
-                </tr>
-                <tr>
-                  <td style="height:1px; background-color:#e7e5e4; line-height:0; font-size:0; padding:0 24px;">&nbsp;</td>
-                </tr>
-                <tr>
-                  <td style="padding:20px 24px 8px;">
-                    <p style="margin:0; font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; font-size:10px; letter-spacing:0.18em; text-transform:uppercase; color:#a8a29e;">Date &amp; heure</p>
-                    <p style="margin:8px 0 0; font-family:Georgia, 'Times New Roman', serif; font-size:17px; line-height:1.45; color:#0c0a09;">${escHtml(
-                      whenLine
-                    )}</p>
-                  </td>
-                </tr>
-                <tr>
-                  <td style="height:1px; background-color:#e7e5e4; line-height:0; font-size:0; padding:0 24px;">&nbsp;</td>
-                </tr>
-                <tr>
-                  <td style="padding:20px 24px 24px;">
-                    <p style="margin:0; font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; font-size:10px; letter-spacing:0.18em; text-transform:uppercase; color:#a8a29e;">Indication tarifaire</p>
-                    <p style="margin:8px 0 0; font-family:Georgia, 'Times New Roman', serif; font-size:17px; line-height:1.45; color:#0c0a09;">${escHtml(
-                      range
-                    )}</p>
+                  <td style="width:16px; background:linear-gradient(180deg, #1c1917, #2d2824); line-height:0; font-size:0;">&nbsp;</td>
+                  <td style="padding:0; vertical-align:top;">
+                    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0">
+                      <tr>
+                        <td style="padding:28px 28px 0;">
+                          <p style="margin:0; font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; font-size:9px; letter-spacing:0.22em; text-transform:uppercase; color:#7c6a5a;">Point de retrait</p>
+                          <p style="margin:10px 0 0; font-family:Georgia, 'Times New Roman', serif; font-size:19px; font-weight:400; line-height:1.45; color:#0c0a09; letter-spacing:-0.01em;">${escHtml(
+                            p.pickupAddress
+                          )}</p>
+                        </td>
+                      </tr>
+                      <tr>
+                        <td style="text-align:center; padding:6px 28px 0;">
+                          <p style="margin:0; font-size:20px; line-height:1; color:#a89078; font-family:Georgia, serif; font-style:italic;">↓</p>
+                        </td>
+                      </tr>
+                      <tr>
+                        <td style="padding:8px 28px 0;">
+                          <p style="margin:0; font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; font-size:9px; letter-spacing:0.22em; text-transform:uppercase; color:#7c6a5a;">Destination</p>
+                          <p style="margin:10px 0 0; font-family:Georgia, 'Times New Roman', serif; font-size:19px; font-weight:400; line-height:1.45; color:#0c0a09; letter-spacing:-0.01em;">${escHtml(
+                            p.dropoffAddress
+                          )}</p>
+                        </td>
+                      </tr>
+                      <tr>
+                        <td style="padding:28px 28px 0;">
+                          <p style="margin:0; height:1px; background-color:#d9d0c3; line-height:0; font-size:0;">&nbsp;</p>
+                        </td>
+                      </tr>
+                      <tr>
+                        <td style="padding:20px 28px 32px;">
+                          <p style="margin:0; font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; font-size:9px; letter-spacing:0.22em; text-transform:uppercase; color:#7c6a5a;">Horaire souhaité</p>
+                          <p style="margin:10px 0 0; font-family:Georgia, 'Times New Roman', serif; font-size:20px; font-weight:400; line-height:1.35; color:#0c0a09; letter-spacing:-0.01em;">${escHtml(
+                            date
+                          )}</p>
+                          ${timeSecondLine}
+                        </td>
+                      </tr>
+                    </table>
                   </td>
                 </tr>
               </table>
@@ -170,7 +173,7 @@ function buildHtml(p: BookingRequestReceivedParams) {
           </tr>
           <tr>
             <td style="padding:28px 40px 40px; font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; font-size:14px; line-height:1.65; color:#57534e;">
-              <p style="margin:0 0 12px;">Vous serez notifié dès l’arrivée du devis. Un <strong style="color:#1c1917; font-weight:600;">lien sécurisé</strong> vous permettra d’y répondre en toute sérénité, sans quitter votre messagerie.</p>
+              <p style="margin:0 0 12px;">Dès l’arrivée du devis, vous en serez averti. Un <strong style="color:#1c1917; font-weight:600;">lien sécurisé</strong> vous permettra d’y donner suite en toute sérénité.</p>
               <p style="margin:0; font-size:13px; color:#a8a29e;">Pour toute question immédiate, reprenez contact avec l’adresse d’où provient ce message.</p>
             </td>
           </tr>
