@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { notifyDriversNewPublicRide } from "@/lib/notify-drivers-new-ride";
+import { sendBookingRequestReceivedEmail } from "@/lib/send-booking-request-received";
 
 const CREATOR_ID_CLIENT_WEB = "corail-landing";
 
@@ -132,7 +133,7 @@ async function handleBookingRequest(request: NextRequest) {
   }
 
   if (email) {
-    await sendBookingRequestReceivedEmail({
+    await sendBookingRequestReceivedEmail("[booking-request]", {
       supabaseUrl,
       serviceRoleKey: serviceRoleKey!,
       clientEmail: email,
@@ -153,44 +154,4 @@ async function handleBookingRequest(request: NextRequest) {
   });
 
   return NextResponse.json({ ok: true, ride_id: ride.id, created_at: ride.created_at });
-}
-
-async function sendBookingRequestReceivedEmail(params: {
-  supabaseUrl: string;
-  serviceRoleKey: string;
-  clientEmail: string;
-  clientName?: string;
-  pickupAddress: string;
-  dropoffAddress: string;
-  scheduledAt: string;
-  indicativeLowCents?: number | null;
-  indicativeHighCents?: number | null;
-  requestChannel: "marketplace" | "driver_page";
-}) {
-  try {
-    const res = await fetch(`${params.supabaseUrl}/functions/v1/send-booking-request-received-email`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${params.serviceRoleKey}`,
-        apikey: params.serviceRoleKey,
-      },
-      body: JSON.stringify({
-        clientEmail: params.clientEmail,
-        clientName: params.clientName,
-        pickupAddress: params.pickupAddress,
-        dropoffAddress: params.dropoffAddress,
-        scheduledAt: params.scheduledAt,
-        indicativeLowCents: params.indicativeLowCents,
-        indicativeHighCents: params.indicativeHighCents,
-        requestChannel: params.requestChannel,
-      }),
-    });
-    if (!res.ok) {
-      const t = await res.text().catch(() => "");
-      console.warn("[booking-request] send-booking-request-received-email HTTP", res.status, t);
-    }
-  } catch (mailErr) {
-    console.warn("[booking-request] send-booking-request-received-email error:", mailErr);
-  }
 }
