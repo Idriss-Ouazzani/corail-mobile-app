@@ -57,15 +57,13 @@ function buildHtml(p: BookingRequestReceivedParams) {
         }
       : {
           kicker: "Votre parcours est en recherche de partenaire",
-          text: "Votre demande est proposée à notre réseau de chauffeurs sélectionnés. Le premier devis reçu, rédigé sur mesure, vous sera adressé par e-mail dès sa validation.",
+          text: "Votre demande est proposée à notre réseau de chauffeurs sélectionnés. L’un d’eux vous adressera un devis sous peu.",
         };
 
   const timeSecondLine = time
-    ? '<p style="margin:8px 0 0; font-family:-apple-system, BlinkMacSystemFont, &quot;Segoe UI&quot;, Roboto, Helvetica, Arial, sans-serif; font-size:14px; color:#44403c; letter-spacing:0.12em;">' +
-      "Heure retenue : " +
-      '<span style="font-family:Georgia, &quot;Times New Roman&quot;, serif; font-size:16px; letter-spacing:0.04em; color:#0c0a09;">' +
+    ? '<p style="margin:8px 0 0; font-family:Georgia, &quot;Times New Roman&quot;, serif; font-size:18px; font-weight:400; letter-spacing:0.04em; color:#0c0a09;">' +
       escHtml(time) +
-      "</span></p>"
+      "</p>"
     : "";
 
   return `<!DOCTYPE html>
