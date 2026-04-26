@@ -134,6 +134,7 @@ async function handleBookingRequest(request: NextRequest) {
   if (email) {
     await sendBookingRequestReceivedEmail({
       supabaseUrl,
+      serviceRoleKey: serviceRoleKey!,
       clientEmail: email,
       clientName: client_name?.trim() || undefined,
       pickupAddress: pickup_address.trim(),
@@ -156,6 +157,7 @@ async function handleBookingRequest(request: NextRequest) {
 
 async function sendBookingRequestReceivedEmail(params: {
   supabaseUrl: string;
+  serviceRoleKey: string;
   clientEmail: string;
   clientName?: string;
   pickupAddress: string;
@@ -168,7 +170,11 @@ async function sendBookingRequestReceivedEmail(params: {
   try {
     const res = await fetch(`${params.supabaseUrl}/functions/v1/send-booking-request-received-email`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${params.serviceRoleKey}`,
+        apikey: params.serviceRoleKey,
+      },
       body: JSON.stringify({
         clientEmail: params.clientEmail,
         clientName: params.clientName,
