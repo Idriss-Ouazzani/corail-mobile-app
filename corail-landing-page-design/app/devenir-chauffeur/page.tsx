@@ -17,10 +17,19 @@ import {
   Sparkles,
   ArrowRight,
   ChevronDown,
+  Apple,
 } from "lucide-react";
 
 const CORAIL_IOS_APP_STORE_URL =
   "https://apps.apple.com/fr/app/corail/id6759494730";
+
+/** Badge marketing Apple (FR) — guidelines App Store */
+const APP_STORE_BADGE_FR_SRC =
+  "https://tools.applemediaservices.com/api/badges/download-on-the-app-store/black/fr-fr?size=250x83";
+
+/** Badge marketing Google Play (FR) — affiché en attente, grisé */
+const GOOGLE_PLAY_BADGE_FR_SRC =
+  "https://play.google.com/intl/fr_fr/badges/static/images/badges/fr_badge_web_generic.png";
 
 const iosQrCodeSrc = `https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${encodeURIComponent(
   CORAIL_IOS_APP_STORE_URL
@@ -29,19 +38,44 @@ const iosQrCodeSrc = `https://api.qrserver.com/v1/create-qr-code/?size=180x180&d
 function ChauffeurAppDownloads({ className }: { className?: string }) {
   return (
     <div
-      className={`grid grid-cols-1 sm:grid-cols-2 gap-6 sm:gap-8 max-w-xl ${className ?? ""}`}
+      className={`grid grid-cols-1 sm:grid-cols-2 gap-6 sm:gap-10 max-w-2xl ${className ?? ""}`}
     >
-      <div className="rounded-2xl border border-border/70 bg-card/90 p-6 text-center shadow-sm">
-        <p className="text-[10px] font-medium uppercase tracking-[0.22em] text-muted-foreground mb-4">
-          iPhone &amp; iPad
-        </p>
+      <div className="relative overflow-hidden rounded-2xl border border-stone-200/90 bg-gradient-to-b from-stone-50/95 to-card p-7 shadow-[0_1px_0_rgba(255,255,255,0.8)_inset,0_12px_40px_-12px_rgba(28,25,23,0.12)]">
+        <div className="pointer-events-none absolute -right-8 -top-8 h-32 w-32 rounded-full bg-primary/[0.06]" aria-hidden />
+        <div className="relative flex items-center justify-center gap-2.5 mb-5">
+          <span className="flex h-9 w-9 items-center justify-center rounded-full border border-stone-200/80 bg-white shadow-sm">
+            <Apple className="h-5 w-5 text-stone-900" strokeWidth={1.25} aria-hidden />
+          </span>
+          <div className="text-left">
+            <p className="text-[10px] font-semibold uppercase tracking-[0.28em] text-stone-500">
+              iPhone &amp; iPad
+            </p>
+            <p className="font-serif text-lg text-stone-900 tracking-tight">App Store</p>
+          </div>
+        </div>
         <a
           href={CORAIL_IOS_APP_STORE_URL}
           target="_blank"
           rel="noopener noreferrer"
-          className="inline-block rounded-xl border border-border/80 bg-white p-2 shadow-sm transition-opacity hover:opacity-95"
+          className="relative mx-auto mb-6 block w-full max-w-[220px] transition-transform duration-300 hover:scale-[1.02] active:scale-[0.99]"
         >
-          {/* eslint-disable-next-line @next/next/no-img-element -- QR dynamique tiers, pas d’asset statique */}
+          {/* eslint-disable-next-line @next/next/no-img-element -- asset Apple tiers */}
+          <img
+            src={APP_STORE_BADGE_FR_SRC}
+            width={250}
+            height={83}
+            alt="Télécharger dans l’App Store"
+            className="h-[52px] w-auto mx-auto drop-shadow-sm"
+          />
+        </a>
+        <div className="mx-auto mb-5 h-px max-w-[200px] bg-gradient-to-r from-transparent via-stone-300 to-transparent" />
+        <a
+          href={CORAIL_IOS_APP_STORE_URL}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="inline-block rounded-xl border border-stone-200/90 bg-white p-2.5 shadow-md ring-1 ring-black/[0.03] transition-shadow hover:shadow-lg"
+        >
+          {/* eslint-disable-next-line @next/next/no-img-element -- QR dynamique tiers */}
           <img
             src={iosQrCodeSrc}
             width={180}
@@ -50,26 +84,48 @@ function ChauffeurAppDownloads({ className }: { className?: string }) {
             className="rounded-lg"
           />
         </a>
-        <p className="mt-4 text-sm text-foreground/65 leading-relaxed">
-          Scannez le code ou{" "}
-          <a
-            href={CORAIL_IOS_APP_STORE_URL}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-primary font-medium underline underline-offset-2 hover:no-underline"
-          >
-            ouvrez l’App Store
-          </a>
-          .
+        <p className="mt-5 text-center text-sm leading-relaxed text-stone-600">
+          Scannez le code ou utilisez le badge ci-dessus pour ouvrir{" "}
+          <span className="font-medium text-stone-800">l’App Store</span>.
         </p>
       </div>
-      <div className="rounded-2xl border border-dashed border-border/50 bg-muted/25 p-6 text-center text-muted-foreground opacity-[0.72] grayscale">
-        <p className="text-[10px] font-medium uppercase tracking-[0.22em] mb-4">Google Play</p>
-        <div className="mx-auto flex h-[180px] max-w-[200px] flex-col items-center justify-center gap-3 rounded-xl border border-border/40 bg-background/50">
-          <Smartphone className="h-10 w-10 text-muted-foreground/80" aria-hidden />
-          <span className="text-sm font-semibold tracking-tight text-muted-foreground">
+
+      <div className="relative overflow-hidden rounded-2xl border border-dashed border-stone-300/80 bg-gradient-to-b from-stone-100/40 to-muted/30 p-7 text-center">
+        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_50%_0%,rgba(120,113,108,0.08),transparent_55%)]" aria-hidden />
+        <div className="relative flex items-center justify-center gap-2.5 mb-5 opacity-80 grayscale">
+          <span className="flex h-9 w-9 items-center justify-center rounded-full border border-stone-300/70 bg-white/80">
+            <svg viewBox="0 0 24 24" className="h-5 w-5" aria-hidden>
+              <title>Google Play</title>
+              <path
+                fill="#5f6368"
+                d="M3 3.805v16.39a.97.97 0 001.47.82l9.2-5.24v-.01L3 3.805zm13.18 6.71l-3.15-1.8L3 21.995l13.18-11.48zM14.54 8.3L21 4.61V19.39l-6.46-3.69-3.3 1.88 9.2 5.24A.97.97 0 0023 20.195V3.805a.97.97 0 00-1.26-.93l-9.2 5.24 3 1.22zm-4.84-.5L3 2.005v.01l8.3 4.79-1.6.92z"
+              />
+            </svg>
+          </span>
+          <div className="text-left">
+            <p className="text-[10px] font-semibold uppercase tracking-[0.28em] text-stone-500">
+              Android
+            </p>
+            <p className="font-serif text-lg text-stone-700 tracking-tight">Google Play</p>
+          </div>
+        </div>
+        <div className="relative mx-auto mb-5 flex max-w-[220px] justify-center opacity-55 grayscale contrast-125">
+          {/* eslint-disable-next-line @next/next/no-img-element -- asset Google tiers */}
+          <img
+            src={GOOGLE_PLAY_BADGE_FR_SRC}
+            width={564}
+            height={168}
+            alt="Google Play — bientôt disponible"
+            className="h-[52px] w-auto"
+          />
+        </div>
+        <div className="relative mx-auto flex min-h-[156px] max-w-[200px] flex-col items-center justify-center gap-2 rounded-xl border border-stone-300/50 bg-white/40 px-4 py-6 backdrop-blur-[2px]">
+          <span className="rounded-full border border-stone-400/40 bg-stone-800/90 px-4 py-1.5 text-[11px] font-semibold uppercase tracking-[0.18em] text-stone-100 shadow-sm">
             Bientôt disponible
           </span>
+          <p className="text-xs leading-relaxed text-stone-500">
+            La version Android suivra sous peu.
+          </p>
         </div>
       </div>
     </div>
