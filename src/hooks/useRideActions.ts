@@ -12,6 +12,7 @@ import { logger } from '../services/logger';
 import analytics from '../services/analytics';
 import { isSameCorailUser } from '../utils/isSameCorailUser';
 import { getQuoteUrl } from '../constants/urls';
+import { formatScheduledInstantFromDb } from '../lib/scheduledAtParis';
 
 interface UseRideActionsProps {
   currentUserId: string;
@@ -221,9 +222,9 @@ export function useRideActions(props: UseRideActionsProps) {
 
         await apiClient.updateRidePriceAfterClaim(ride.id, finalPrice);
 
-        const sched = new Date(ride.scheduled_at);
-        const scheduledDate = sched.toISOString().split('T')[0];
-        const scheduledTime = `${String(sched.getHours()).padStart(2, '0')}:${String(sched.getMinutes()).padStart(2, '0')}:00`;
+        const paris = formatScheduledInstantFromDb(ride.scheduled_at);
+        if (!paris) throw new Error('Date de course invalide');
+        const { dateYmd: scheduledDate, timeHms: scheduledTime } = paris;
 
         const quote = await apiClient.createQuote({
           client_name: ride.client_name?.trim?.() || 'Client',
@@ -244,8 +245,8 @@ export function useRideActions(props: UseRideActionsProps) {
             clientName: ride.client_name?.trim?.() || 'Client',
             quoteUrl: getQuoteUrl(quote.token),
             price: (finalPrice / 100).toFixed(2),
-            date: sched.toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' }),
-            time: sched.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }),
+            date: paris.dateFrLong,
+            time: paris.timeFrShort,
             pickupAddress: ride.pickup_address,
             dropoffAddress: ride.dropoff_address,
             driverName: userName || undefined,

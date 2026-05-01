@@ -3118,12 +3118,11 @@ export const submitDriverRequestQuote = async (requestId: string, priceCents: nu
   if ((request as { status?: string }).status !== 'PENDING') {
     throw new Error('Cette demande ne peut plus recevoir de devis.');
   }
-  const sched = new Date((request as { scheduled_at: string }).scheduled_at);
-  if (Number.isNaN(sched.getTime())) throw new Error('Date invalide sur la demande');
-  const scheduled_date = sched.toISOString().split('T')[0];
-  const scheduled_time = `${String(sched.getHours()).padStart(2, '0')}:${String(
-    sched.getMinutes()
-  ).padStart(2, '0')}:00`;
+  const { formatScheduledInstantFromDb } = await import('../lib/scheduledAtParis');
+  const paris = formatScheduledInstantFromDb((request as { scheduled_at: string }).scheduled_at);
+  if (!paris) throw new Error('Date invalide sur la demande');
+  const scheduled_date = paris.dateYmd;
+  const scheduled_time = paris.timeHms;
 
   const { data: driver } = await supabase
     .from('users')
@@ -3150,7 +3149,6 @@ export const submitDriverRequestQuote = async (requestId: string, priceCents: nu
   const clientEmail = (request as { client_email?: string | null }).client_email?.trim();
   const token = (quote as { token?: string })?.token;
   if (clientEmail && token) {
-    const d = new Date(`${scheduled_date}T${scheduled_time}`);
     const priceEur = (Math.round(priceCents) / 100).toFixed(2);
     try {
       await sendQuoteEmail({
@@ -3158,8 +3156,8 @@ export const submitDriverRequestQuote = async (requestId: string, priceCents: nu
         clientName: (request as { client_name?: string | null }).client_name?.trim() || 'Client',
         quoteUrl: getQuoteUrl(token),
         price: priceEur,
-        date: d.toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' }),
-        time: d.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }),
+        date: paris.dateFrLong,
+        time: paris.timeFrShort,
         pickupAddress: (request as { pickup_address: string }).pickup_address,
         dropoffAddress: (request as { dropoff_address: string }).dropoff_address,
         driverName: driverName || undefined,

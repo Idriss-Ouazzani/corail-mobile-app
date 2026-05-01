@@ -19,17 +19,25 @@ function esc(s: string) {
     .replace(/"/g, "&quot;");
 }
 
+const DISPLAY_TZ = "Europe/Paris";
+
 function fmtDateTime(scheduledAt: string) {
   try {
     const d = new Date(scheduledAt);
+    if (Number.isNaN(d.getTime())) throw new Error("invalid");
     return {
       date: d.toLocaleDateString("fr-FR", {
+        timeZone: DISPLAY_TZ,
         weekday: "long",
         day: "numeric",
         month: "long",
         year: "numeric",
       }),
-      time: d.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" }),
+      time: d.toLocaleTimeString("fr-FR", {
+        timeZone: DISPLAY_TZ,
+        hour: "2-digit",
+        minute: "2-digit",
+      }),
     };
   } catch {
     return { date: esc(scheduledAt), time: "" };

@@ -27,17 +27,26 @@ function escHtml(s: string) {
   return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 }
 
+/** Fuseau affichage courses (aligné site / app France). */
+const DISPLAY_TZ = "Europe/Paris";
+
 function fmtDateTime(scheduledAt: string) {
   try {
     const d = new Date(scheduledAt);
+    if (Number.isNaN(d.getTime())) throw new Error("invalid date");
     return {
       date: d.toLocaleDateString("fr-FR", {
+        timeZone: DISPLAY_TZ,
         weekday: "long",
         day: "numeric",
         month: "long",
         year: "numeric",
       }),
-      time: d.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" }),
+      time: d.toLocaleTimeString("fr-FR", {
+        timeZone: DISPLAY_TZ,
+        hour: "2-digit",
+        minute: "2-digit",
+      }),
     };
   } catch {
     return { date: escHtml(scheduledAt), time: "" };

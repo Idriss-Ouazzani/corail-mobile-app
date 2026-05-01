@@ -16,9 +16,65 @@ import {
   Users,
   Sparkles,
   ArrowRight,
-  Download,
   ChevronDown,
 } from "lucide-react";
+
+const CORAIL_IOS_APP_STORE_URL =
+  "https://apps.apple.com/fr/app/corail/id6759494730";
+
+const iosQrCodeSrc = `https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${encodeURIComponent(
+  CORAIL_IOS_APP_STORE_URL
+)}`;
+
+function ChauffeurAppDownloads({ className }: { className?: string }) {
+  return (
+    <div
+      className={`grid grid-cols-1 sm:grid-cols-2 gap-6 sm:gap-8 max-w-xl ${className ?? ""}`}
+    >
+      <div className="rounded-2xl border border-border/70 bg-card/90 p-6 text-center shadow-sm">
+        <p className="text-[10px] font-medium uppercase tracking-[0.22em] text-muted-foreground mb-4">
+          iPhone &amp; iPad
+        </p>
+        <a
+          href={CORAIL_IOS_APP_STORE_URL}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="inline-block rounded-xl border border-border/80 bg-white p-2 shadow-sm transition-opacity hover:opacity-95"
+        >
+          {/* eslint-disable-next-line @next/next/no-img-element -- QR dynamique tiers, pas d’asset statique */}
+          <img
+            src={iosQrCodeSrc}
+            width={180}
+            height={180}
+            alt="QR code — Corail sur l’App Store"
+            className="rounded-lg"
+          />
+        </a>
+        <p className="mt-4 text-sm text-foreground/65 leading-relaxed">
+          Scannez le code ou{" "}
+          <a
+            href={CORAIL_IOS_APP_STORE_URL}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-primary font-medium underline underline-offset-2 hover:no-underline"
+          >
+            ouvrez l’App Store
+          </a>
+          .
+        </p>
+      </div>
+      <div className="rounded-2xl border border-dashed border-border/50 bg-muted/25 p-6 text-center text-muted-foreground opacity-[0.72] grayscale">
+        <p className="text-[10px] font-medium uppercase tracking-[0.22em] mb-4">Google Play</p>
+        <div className="mx-auto flex h-[180px] max-w-[200px] flex-col items-center justify-center gap-3 rounded-xl border border-border/40 bg-background/50">
+          <Smartphone className="h-10 w-10 text-muted-foreground/80" aria-hidden />
+          <span className="text-sm font-semibold tracking-tight text-muted-foreground">
+            Bientôt disponible
+          </span>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 const flowSteps = [
   {
@@ -122,21 +178,17 @@ export default function DevenirChauffeurPage() {
               De la réception de la demande à la facture, en passant par le devis et le planning : 
               un seul outil pour maximiser vos gains et travailler sereinement.
             </p>
-            <div className="flex flex-col sm:flex-row gap-4">
-              <Link
-                href="#"
-                className="inline-flex items-center justify-center gap-3 px-8 py-4 bg-primary text-primary-foreground font-medium rounded-full hover:bg-primary/90 transition-all shadow-2xl shadow-primary/25"
-              >
-                Télécharger l&apos;app chauffeur
-                <ArrowRight className="w-5 h-5" />
-              </Link>
-              <Link
-                href="#parcours"
-                className="inline-flex items-center justify-center gap-3 px-8 py-4 border border-foreground/25 text-foreground font-medium rounded-full hover:bg-foreground/5 transition-all"
-              >
-                Voir le parcours
-                <ChevronDown className="w-5 h-5" />
-              </Link>
+            <div className="space-y-8">
+              <ChauffeurAppDownloads />
+              <div className="flex justify-start sm:justify-start">
+                <Link
+                  href="#parcours"
+                  className="inline-flex items-center justify-center gap-3 px-8 py-4 border border-foreground/25 text-foreground font-medium rounded-full hover:bg-foreground/5 transition-all"
+                >
+                  Voir le parcours
+                  <ChevronDown className="w-5 h-5" />
+                </Link>
+              </div>
             </div>
           </div>
         </section>
@@ -280,17 +332,11 @@ export default function DevenirChauffeurPage() {
                 Prêt à rejoindre le{" "}
                 <span className="text-primary">réseau</span> ?
               </h2>
-              <p className="text-foreground/60 text-lg lg:text-xl mb-12 max-w-xl mx-auto leading-relaxed">
-                Téléchargez l&apos;application Corail pour chauffeurs. Inscription gratuite, sans engagement.
+              <p className="text-foreground/60 text-lg lg:text-xl mb-10 max-w-xl mx-auto leading-relaxed">
+                Téléchargez l&apos;application Corail pour chauffeurs (iOS). Inscription gratuite, sans engagement.
               </p>
+              <ChauffeurAppDownloads className="mx-auto mb-10" />
               <div className="flex flex-col sm:flex-row justify-center gap-4">
-                <Link
-                  href="#"
-                  className="inline-flex items-center justify-center gap-3 px-8 py-4 bg-primary text-primary-foreground font-medium rounded-full hover:bg-primary/90 transition-all shadow-2xl shadow-primary/25"
-                >
-                  <Download className="w-5 h-5" />
-                  Télécharger l&apos;app
-                </Link>
                 <Link
                   href="/"
                   className="inline-flex items-center justify-center gap-3 px-8 py-4 border border-foreground/25 text-foreground font-medium rounded-full hover:bg-foreground/5 transition-all"
